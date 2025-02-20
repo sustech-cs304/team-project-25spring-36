@@ -9,6 +9,7 @@ team-project-25spring-36/
 │   ├── router/
 │   │   ├── user.py
 │   │   ├── entry.py
+│   │   ├── share.py
 │   ├── util/
 │   │   ├── auth.py
 │   │   ├── response.py
@@ -16,6 +17,7 @@ team-project-25spring-36/
 ├── deployment/
 │   ├── start.bat
 │   ├── docker-compose.yaml
+│   ├── requirements.txt
 │   ├── README.md
 ```
 
