@@ -1,11 +1,18 @@
 from sqlalchemy import Column, BigInteger, String, DateTime, Enum, Boolean
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.ext.declarative import as_declarative
+from sqlalchemy.orm import class_mapper
 from datetime import datetime
 from enum import Enum as EnumClass
 
 from backend.db.engine import engine
 
-Base = declarative_base()
+
+@as_declarative()
+class Base:
+
+    def to_dict(self):
+        """将 SQLAlchemy 模型对象转换为字典"""
+        return {column.key: str(getattr(self, column.key)) for column in class_mapper(self.__class__).columns}
 
 
 class UserRole(EnumClass):
