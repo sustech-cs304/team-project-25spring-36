@@ -32,6 +32,7 @@ team-project-25spring-36/
 [下载并安装 Docker](https://www.docker.com/) 以运行必要的依赖服务。
 
 #### 安装 Python 依赖
+
 进入 `deployment` 目录并安装所需的 Python 包：
 
 ```sh
@@ -50,7 +51,7 @@ docker-compose up -d
 
 ### 3. 启动后端服务器
 
-#### 使用 `start.bat` 启动
+在 `deployment` 目录下运行start.bat以启动后端服务：
 
 ```sh
 cd deployment
@@ -64,10 +65,10 @@ start.bat
 
 后端启动后，可以通过以下方式查看 API 文档：
 
-- **Swagger UI**（推荐）：  
+- **Swagger UI** 文档：  
   打开浏览器，访问 [http://localhost:8080/docs](http://localhost:8080/docs)
   
-- **ReDoc**（备用文档）：  
-  访问 [http://localhost:8080/redoc](http://localhost:8080/redoc)
+- **ReDoc** 文档：  
+  打开浏览器，访问 [http://localhost:8080/redoc](http://localhost:8080/redoc)
 
 FastAPI 采用 OpenAPI 规范自动生成 API 文档，无需额外配置。
