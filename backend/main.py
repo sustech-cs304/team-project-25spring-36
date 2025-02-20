@@ -3,9 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.router.user import router as user
 from backend.router.entry import router as entry
 
-app = FastAPI(
-    root_path="/api",
-)
+app = FastAPI()
 
 # 添加跨域中间件
 app.add_middleware(
