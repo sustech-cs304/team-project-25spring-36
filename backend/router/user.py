@@ -29,7 +29,7 @@ class UserUpdate(BaseModel):
 
 
 @router.post("/register")
-def user_register(user_register: UserRegister, db: Session = Depends(database)):
+async def user_register(user_register: UserRegister, db: Session = Depends(database)):
     """
     创建新用户
 
@@ -45,14 +45,14 @@ def user_register(user_register: UserRegister, db: Session = Depends(database)):
         db.add(user)
         db.commit()
         db.refresh(user)
-        return ok(data=jwt_encode(data={"user_id": user.id, "user_role": user.role}))
+        return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}))
     except:
         db.rollback()
         return internal_error()
 
 
 @router.post("/login")
-def user_login(user_login: UserLogin, db: Session = Depends(database)):
+async def user_login(user_login: UserLogin, db: Session = Depends(database)):
     """
     用户登录
 
@@ -68,13 +68,13 @@ def user_login(user_login: UserLogin, db: Session = Depends(database)):
         user = db.query(User).filter(User.username == user_login.username).first()
         if not user or user.password != user_login.password:
             return bad_request(messsage="Invalid username or password")
-        return ok(data=jwt_encode(data={"user_id": user.id, "user_role": user.role}))
+        return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}))
     except:
         return internal_error()
 
 
 @router.post("/update")
-def user_update(user_update: UserUpdate, access_info: str = Depends(jwt_verify), db: Session = Depends(database)):
+async def user_update(user_update: UserUpdate, access_info: str = Depends(jwt_verify), db: Session = Depends(database)):
     """
     更新用户信息
 
