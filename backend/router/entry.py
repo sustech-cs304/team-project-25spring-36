@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from backend.util.auth import jwt_verify
 from backend.util.response import ok, bad_request, not_implement, internal_error
 from backend.db.engine import database
-from backend.db.model import Entry, EntryType, EntrySharePermission
+from backend.db.model import Entry, EntryType
 
 STORAGE_PATH = os.path.join(".", "storage")
 

@@ -29,7 +29,7 @@ class UserUpdate(BaseModel):
 
 
 @router.post("/register")
-def create_user(user_register: UserRegister, db: Session = Depends(database)):
+def user_register(user_register: UserRegister, db: Session = Depends(database)):
     """
     创建新用户
 
@@ -52,7 +52,7 @@ def create_user(user_register: UserRegister, db: Session = Depends(database)):
 
 
 @router.post("/login")
-def login_user(user_login: UserLogin, db: Session = Depends(database)):
+def user_login(user_login: UserLogin, db: Session = Depends(database)):
     """
     用户登录
 
@@ -74,7 +74,7 @@ def login_user(user_login: UserLogin, db: Session = Depends(database)):
 
 
 @router.post("/update")
-def update_user(user_update: UserUpdate, access_info: str = Depends(jwt_verify), db: Session = Depends(database)):
+def user_update(user_update: UserUpdate, access_info: str = Depends(jwt_verify), db: Session = Depends(database)):
     """
     更新用户信息
 
