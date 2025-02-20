@@ -19,7 +19,7 @@ class User(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     username = Column(String, nullable=False)
     password = Column(String, nullable=False)
-    role = Column(Enum(UserRole), nullable=False, default=UserRole.STUDENT)
+    role = Column(Enum(UserRole), nullable=False, default=UserRole.STUDENT, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
@@ -33,19 +33,19 @@ class EntryType(EnumClass):
 class Entry(Base):
     __tablename__ = "entries"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    owner_id = Column(BigInteger, nullable=False)
+    owner_id = Column(BigInteger, nullable=False, index=True)
     entry_type = Column(Enum(EntryType), nullable=False)
-    entry_path = Column(String, nullable=False)
+    entry_path = Column(String, nullable=False, index=True)
     alias = Column(String)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
 
 class EntrySharePermission(Base):
-    __tablename__ = "entry_permissions"
+    __tablename__ = "entry_share_permissions"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    entry_id = Column(BigInteger, nullable=False)
-    user_id = Column(BigInteger, nullable=False)
+    entry_id = Column(BigInteger, nullable=False, index=True)
+    user_id = Column(BigInteger, nullable=False, index=True)
     entry_permission_read = Column(Boolean, nullable=False)
     entry_permission_write = Column(Boolean, nullable=False)
     entry_permission_execute = Column(Boolean, nullable=False)
