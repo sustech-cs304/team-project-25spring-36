@@ -6,7 +6,6 @@ import os
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status
 from sqlalchemy.orm import Session
 from pathvalidate import is_valid_filepath
-from pydantic import BaseModel
 
 from backend.util.auth import jwt_verify
 from backend.util.response import ok, bad_request, not_implement, internal_error
