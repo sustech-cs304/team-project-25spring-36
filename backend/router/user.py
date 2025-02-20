@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from backend.db.engine import database
 from backend.db.model import UserRole, User
 from backend.util.auth import jwt_encode, jwt_verify
-from backend.util.response import ok, bad_request
+from backend.util.response import ok, bad_request, internal_error
 
 router = APIRouter(prefix="/user")
 
@@ -40,11 +40,15 @@ def create_user(user_register: UserRegister, db: Session = Depends(database)):
     返回:
     - 成功时返回包含用户 ID 和角色的 JWT
     """
-    user = User(username=user_register.username, password=user_register.password, role=user_register.role)
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return ok(data=jwt_encode(data={"user_id": user.id, "user_role": user.role}))
+    try:
+        user = User(username=user_register.username, password=user_register.password, role=user_register.role)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return ok(data=jwt_encode(data={"user_id": user.id, "user_role": user.role}))
+    except:
+        db.rollback()
+        return internal_error()
 
 
 @router.post("/login")
@@ -60,10 +64,13 @@ def login_user(user_login: UserLogin, db: Session = Depends(database)):
     - 成功时返回包含用户 ID 和角色的 JWT
     - 失败时返回错误信息
     """
-    user = db.query(User).filter(User.username == user_login.username).first()
-    if not user or user.password != user_login.password:
-        return bad_request(messsage="Invalid username or password")
-    return ok(data=jwt_encode(data={"user_id": user.id, "user_role": user.role}))
+    try:
+        user = db.query(User).filter(User.username == user_login.username).first()
+        if not user or user.password != user_login.password:
+            return bad_request(messsage="Invalid username or password")
+        return ok(data=jwt_encode(data={"user_id": user.id, "user_role": user.role}))
+    except:
+        return internal_error()
 
 
 @router.post("/update")
@@ -79,11 +86,15 @@ def update_user(user_update: UserUpdate, access_info: str = Depends(jwt_verify),
     返回:
     - 成功时返回操作成功的信息
     """
-    user_id = access_info.get("user_id")
-    user = db.query(User).filter(User.id == user_id).first()
-    for key, val in vars(user_update).items():
-        if val:
-            setattr(user, key, val)
-    db.commit()
-    db.refresh(user)
-    return ok()
+    try:
+        user_id = access_info.get("user_id")
+        user = db.query(User).filter(User.id == user_id).first()
+        for key, val in vars(user_update).items():
+            if val:
+                setattr(user, key, val)
+        db.commit()
+        db.refresh(user)
+        return ok()
+    except:
+        db.rollback()
+        return internal_error()
