@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from pathvalidate import is_valid_filepath
 
 from backend.util.auth import jwt_verify
-from backend.util.response import ok, bad_request, not_implement, internal_error
+from backend.util.response import ok, bad_request, not_implement, internal_server_error
 from backend.db.engine import database
 from backend.db.model import Entry, EntryType
 
@@ -68,6 +68,7 @@ async def entry_post(
                     owner_id=owner_id,
                     entry_type=entry_type,
                     entry_path=entry_path,
+                    entry_depth=entry_path.count("/"),
                     alias=alias,
                 )
             )
@@ -78,6 +79,7 @@ async def entry_post(
                     owner_id=owner_id,
                     entry_type=entry_type,
                     entry_path=entry_path,
+                    entry_depth=entry_path.count("/"),
                     alias=None,
                 )
             )
@@ -88,7 +90,7 @@ async def entry_post(
         return ok()
     except:
         db.rollback()
-        return internal_error()
+        return internal_server_error()
 
 
 @router.delete("")
@@ -143,7 +145,7 @@ async def entry_delete(
         return ok()
     except:
         db.rollback()
-        return internal_error()
+        return internal_server_error()
 
 
 @router.put("")
@@ -189,15 +191,17 @@ async def entry_put(
         create_parent_directories(db, new_entry_path, owner_id)
         # 移动文件或目录
         entry.entry_path = new_entry_path
+        entry.entry_depth = entry.entry_path.count("/")
         if entry.entry_type == EntryType.DIRECTORY:
             for sub_entry in db.query(Entry).filter(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id).all():
                 sub_entry.entry_path = new_entry_path + sub_entry.entry_path[len(entry_path) :]
+                sub_entry.entry_depth = sub_entry.entry_path.count("/")
         # 提交数据库事务
         db.commit()
         return ok()
     except:
         db.rollback()
-        return internal_error()
+        return internal_server_error()
 
 
 @router.get("")
@@ -235,10 +239,10 @@ async def entry_get(
             data=[entry.to_dict() for entry in db.query(Entry).filter(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id).all()]
         )
     except:
-        return internal_error()
+        return internal_server_error()
 
 
-@router.get("/file")
+@router.get("/download")
 async def entry_get_file(
     entry_path: str,
     db: Session = Depends(database),
@@ -275,7 +279,7 @@ async def entry_get_file(
         async with aiofiles.open(os.path.join(STORAGE_PATH, entry.alias), "rb") as buf:
             return await buf.read()
     except:
-        return internal_error()
+        return internal_server_error()
 
 
 def create_parent_directories(db: Session, entry_path: str, owner_id: int):
@@ -288,14 +292,17 @@ def create_parent_directories(db: Session, entry_path: str, owner_id: int):
     - owner_id: 用户 ID
     """
     path = ""
+    depth = 0
     for seg in entry_path.strip("/").split("/")[:-1]:
         path += "/" + seg
+        depth += 1
         if db.query(Entry).filter(Entry.entry_path == path, Entry.owner_id == owner_id).first() is None:
             db.add(
                 Entry(
                     owner_id=owner_id,
                     entry_type=EntryType.DIRECTORY,
                     entry_path=path,
+                    entry_depth=depth,
                     alias=None,
                 )
             )

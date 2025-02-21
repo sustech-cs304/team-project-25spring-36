@@ -62,12 +62,12 @@ def not_implement(message: str = "N/A", **kwargs) -> JSONResponse:
     )
 
 
-def internal_error(message: str = "N/A", **kwargs) -> JSONResponse:
+def internal_server_error(message: str = "N/A", **kwargs) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
             "status": "error",
-            "description": "Internal Error",
+            "description": "Internal Server Error",
             "message": message,
             **kwargs,
         },

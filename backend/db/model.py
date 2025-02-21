@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, DateTime, Enum, Boolean
+from sqlalchemy import Column, BigInteger, String, DateTime, Enum, Boolean, Index
 from sqlalchemy.ext.declarative import as_declarative
 from sqlalchemy.orm import class_mapper
 from datetime import datetime
@@ -43,20 +43,28 @@ class Entry(Base):
     owner_id = Column(BigInteger, nullable=False, index=True)
     entry_type = Column(Enum(EntryType), nullable=False)
     entry_path = Column(String, nullable=False, index=True)
-    alias = Column(String)
+    entry_depth = Column(BigInteger, nullable=False)
+    alias = Column(String, unique=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+    __table_args__ = (Index("idx_entry_path_gin", entry_path, postgresql_using="gin"),)
+
+
+class SharedEntry(Base):
+    __tablename__ = "shared_entries"
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    entry_id = Column(BigInteger, nullable=False, index=True)
+    share_with = Column(BigInteger, nullable=False, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
 
-class EntrySharePermission(Base):
-    __tablename__ = "entry_share_permissions"
+class SharedEntryPermission(Base):
+    __tablename__ = "shared_entry_permissions"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    entry_id = Column(BigInteger, nullable=False, index=True)
-    user_id = Column(BigInteger, nullable=False, index=True)
-    entry_permission_read = Column(Boolean, nullable=False)
-    entry_permission_write = Column(Boolean, nullable=False)
-    entry_permission_execute = Column(Boolean, nullable=False)
-    entry_permission_stick = Column(Boolean, nullable=False)
+    shared_entry_id = Column(BigInteger, nullable=False, index=True)
+    shared_entry_sub_path = Column(String, nullable=False, index=True)
+    permission = Column(String, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 

@@ -2,14 +2,18 @@ import jwt
 
 from datetime import datetime, timedelta
 from fastapi import Header, HTTPException, status
+from typing import Optional
 
 
 JWT_KEY = "aowidhv9291o4hliawd"
 JWT_ALGO = "HS256"
 
 
-def jwt_encode(data: dict) -> str:
-    return jwt.encode({**data, "exp": datetime.now() + timedelta(hours=24)}, JWT_KEY, JWT_ALGO)
+def jwt_encode(data: dict, exp_hours: Optional[int]) -> str:
+    data = data.copy()
+    if exp_hours:
+        data["exp"] = datetime.now() + timedelta(hours=exp_hours)
+    return jwt.encode(data, JWT_KEY, JWT_ALGO)
 
 
 def jwt_verify(token: str = Header(None, alias="Access-Token")) -> dict:

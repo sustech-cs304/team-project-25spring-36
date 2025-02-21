@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from backend.db.engine import database
 from backend.db.model import UserRole, User
 from backend.util.auth import jwt_encode, jwt_verify
-from backend.util.response import ok, bad_request, internal_error
+from backend.util.response import ok, bad_request, internal_server_error
 
 router = APIRouter(prefix="/user")
 
@@ -29,7 +29,10 @@ class UserUpdate(BaseModel):
 
 
 @router.post("/register")
-async def user_register(user_register: UserRegister, db: Session = Depends(database)):
+async def user_register(
+    user_register: UserRegister,
+    db: Session = Depends(database),
+):
     """
     创建新用户
 
@@ -45,14 +48,17 @@ async def user_register(user_register: UserRegister, db: Session = Depends(datab
         db.add(user)
         db.commit()
         db.refresh(user)
-        return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}))
+        return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
     except:
         db.rollback()
-        return internal_error()
+        return internal_server_error()
 
 
 @router.post("/login")
-async def user_login(user_login: UserLogin, db: Session = Depends(database)):
+async def user_login(
+    user_login: UserLogin,
+    db: Session = Depends(database),
+):
     """
     用户登录
 
@@ -68,13 +74,17 @@ async def user_login(user_login: UserLogin, db: Session = Depends(database)):
         user = db.query(User).filter(User.username == user_login.username).first()
         if not user or user.password != user_login.password:
             return bad_request(messsage="Invalid username or password")
-        return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}))
+        return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
     except:
-        return internal_error()
+        return internal_server_error()
 
 
 @router.post("/update")
-async def user_update(user_update: UserUpdate, access_info: str = Depends(jwt_verify), db: Session = Depends(database)):
+async def user_update(
+    user_update: UserUpdate,
+    access_info: str = Depends(jwt_verify),
+    db: Session = Depends(database),
+):
     """
     更新用户信息
 
@@ -97,4 +107,4 @@ async def user_update(user_update: UserUpdate, access_info: str = Depends(jwt_ve
         return ok()
     except:
         db.rollback()
-        return internal_error()
+        return internal_server_error()
