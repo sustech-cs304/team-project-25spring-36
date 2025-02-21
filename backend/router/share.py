@@ -66,7 +66,10 @@ async def entry_share_code_parse(
     """
     try:
         # 解析共享链接的 JWT
-        share_info = jwt_verify(token=share_code)
+        try:
+            share_info = jwt_verify(token=share_code)
+        except:
+            return bad_request(message="Invalid share code")
         if "entry_path" not in share_info or "permissions" not in share_info or "owner_id" not in share_info:
             return bad_request(message="Invalid share code")
         # 添加共享记录
