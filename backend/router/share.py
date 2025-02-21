@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Body
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from backend.util.encrypt import jwt_encode, jwt_verify
 from backend.util.response import ok, bad_request, internal_server_error
-from backend.util.path import path_normalize, path_prefix
+from backend.util.path import path_normalize
 from backend.database.engine import database
 from backend.database.model import SharedEntry, Entry, User, SharedEntryExtraPermissionType, SharedEntryExtraPermission, SharedEntryUser
 
@@ -18,8 +18,8 @@ class SharedEntryPermissionCreate(BaseModel):
     inherited: bool = False
 
 
-@router.post("/code/create")
-async def entry_share_code_create(
+@router.post("/token/create")
+async def create_share_token(
     entry_path: str,
     permissions: Optional[List[SharedEntryPermissionCreate]] = None,
     exp_hours: Optional[int] = None,
@@ -27,7 +27,7 @@ async def entry_share_code_create(
     db: Session = Depends(database),
 ):
     """
-    生成共享代码
+    生成共享令牌
 
     参数:
     - entry_path: 文件或目录路径
@@ -36,7 +36,7 @@ async def entry_share_code_create(
     - access_info: 通过 JWT 验证后的用户信息
 
     返回:
-    - 成功时返回共享代码
+    - 成功时返回共享令牌
     """
     try:
         # 验证文件路径
@@ -65,7 +65,7 @@ async def entry_share_code_create(
                     )
                 )
         db.commit()
-        # 生成共享代码
+        # 生成共享令牌
         return ok(
             jwt_encode(
                 data={
@@ -79,17 +79,17 @@ async def entry_share_code_create(
         return internal_server_error()
 
 
-@router.get("/code/parse")
-async def entry_share_code_parse(
-    share_code: str,
+@router.post("/token/parse")
+async def parse_share_token(
+    share_token: str = Body(...),
     access_info: dict = Depends(jwt_verify),
     db: Session = Depends(database),
 ):
     """
-    解析共享代码
+    解析共享令牌
 
     参数:
-    - share_code: 共享代码
+    - share_token: 共享令牌
     - access_info: 通过 JWT 验证后的用户信息
     - db: 数据库会话
 
@@ -97,13 +97,13 @@ async def entry_share_code_parse(
     - 成功时返回空数据
     """
     try:
-        # 解析共享链接的 JWT
+        # 解析共享令牌的 JWT
         try:
-            share_info = jwt_verify(token=share_code)
+            share_info = jwt_verify(token=share_token)
         except:
-            return bad_request(message="Invalid share code")
+            return bad_request(message="Invalid share token")
         if "share_entry_id" not in share_info:
-            return bad_request(message="Invalid share code")
+            return bad_request(message="Invalid share token")
         # 添加共享记录
         db.add(
             SharedEntryUser(

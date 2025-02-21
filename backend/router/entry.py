@@ -1,20 +1,17 @@
-import posixpath
 import uuid
 import aiofiles
 import os
 
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status
+from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
-from pathvalidate import is_valid_filepath
 
 from backend.util.encrypt import jwt_verify
 from backend.util.response import ok, bad_request, internal_server_error
 from backend.util.path import path_normalize
 from backend.database.engine import database
 from backend.database.model import Entry, EntryType
+from backend.config import ENTRY_STORAGE_PATH
 
-
-STORAGE_PATH = os.path.join(".", "storage")
 
 router = APIRouter(prefix="/entry")
 
@@ -60,7 +57,7 @@ async def entry_post(
             # 生成文件别名
             alias = uuid.uuid4().hex
             # 异步保存文件到指定目录
-            async with aiofiles.open(os.path.join(STORAGE_PATH, alias), "wb") as buf:
+            async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, alias), "wb") as buf:
                 while chunk := await file.read(1024 * 1024):  # 逐块读取 1MB
                     await buf.write(chunk)
             # 创建新的 Entry 记录
@@ -125,13 +122,13 @@ async def entry_delete(
             return bad_request(message="Entry not found")
         if entry.entry_type == EntryType.FILE:
             # 删除文件
-            await aiofiles.os.remove(os.path.join(STORAGE_PATH, entry.alias))
+            await aiofiles.os.remove(os.path.join(ENTRY_STORAGE_PATH, entry.alias))
             db.delete(entry)
         elif entry.entry_type == EntryType.DIRECTORY:
             # 删除目录及其子项
             for sub_entry in db.query(Entry).filter(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id).all():
                 if sub_entry.entry_type == EntryType.FILE:
-                    await aiofiles.os.remove(os.path.join(STORAGE_PATH, sub_entry.alias))
+                    await aiofiles.os.remove(os.path.join(ENTRY_STORAGE_PATH, sub_entry.alias))
                 elif sub_entry.entry_type == EntryType.DIRECTORY:
                     pass
                 else:
@@ -272,7 +269,7 @@ async def entry_get_file(
         if entry.entry_type != EntryType.FILE:
             return bad_request(message="Entry is not a file")
         # 返回文件内容
-        async with aiofiles.open(os.path.join(STORAGE_PATH, entry.alias), "rb") as buf:
+        async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, entry.alias), "rb") as buf:
             return await buf.read()
     except:
         return internal_server_error()
