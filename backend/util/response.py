@@ -3,6 +3,16 @@ from fastapi.responses import JSONResponse
 
 
 def ok(data: dict = None, **kwargs) -> JSONResponse:
+    """
+    返回成功响应
+
+    参数:
+    - data: 返回的数据字典（可选）
+    - kwargs: 其他附加内容（可选）
+
+    返回:
+    - JSONResponse: 包含状态为 "ok" 的响应
+    """
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
@@ -15,6 +25,16 @@ def ok(data: dict = None, **kwargs) -> JSONResponse:
 
 
 def bad_request(message: str = "N/A", **kwargs) -> JSONResponse:
+    """
+    返回错误请求响应
+
+    参数:
+    - message: 错误信息（可选）
+    - kwargs: 其他附加内容（可选）
+
+    返回:
+    - JSONResponse: 包含状态为 "error" 和描述为 "Bad Request" 的响应
+    """
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
@@ -27,6 +47,16 @@ def bad_request(message: str = "N/A", **kwargs) -> JSONResponse:
 
 
 def forbidden(message: str = "N/A", **kwargs) -> JSONResponse:
+    """
+    返回禁止访问响应
+
+    参数:
+    - message: 错误信息（可选）
+    - kwargs: 其他附加内容（可选）
+
+    返回:
+    - JSONResponse: 包含状态为 "error" 和描述为 "Forbidden" 的响应
+    """
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
@@ -39,6 +69,16 @@ def forbidden(message: str = "N/A", **kwargs) -> JSONResponse:
 
 
 def internal_server_error(message: str = "N/A", **kwargs) -> JSONResponse:
+    """
+    返回服务器内部错误响应
+
+    参数:
+    - message: 错误信息（可选）
+    - kwargs: 其他附加内容（可选）
+
+    返回:
+    - JSONResponse: 包含状态为 "error" 和描述为 "Internal Server Error" 的响应
+    """
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
@@ -50,24 +90,22 @@ def internal_server_error(message: str = "N/A", **kwargs) -> JSONResponse:
     )
 
 
-def not_implement(message: str = "N/A", **kwargs) -> JSONResponse:
+def not_implemented(message: str = "N/A", **kwargs) -> JSONResponse:
+    """
+    返回未实现功能响应
+
+    参数:
+    - message: 错误信息（可选）
+    - kwargs: 其他附加内容（可选）
+
+    返回:
+    - JSONResponse: 包含状态为 "error" 和描述为 "Not Implemented" 的响应
+    """
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
             "status": "error",
-            "description": "Not Implement",
-            "message": message,
-            **kwargs,
-        },
-    )
-
-
-def internal_server_error(message: str = "N/A", **kwargs) -> JSONResponse:
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content={
-            "status": "error",
-            "description": "Internal Server Error",
+            "description": "Not Implemented",
             "message": message,
             **kwargs,
         },

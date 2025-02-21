@@ -9,6 +9,9 @@ from backend.database.engine import engine
 
 @as_declarative()
 class Base:
+    """
+    基础模型类，包含通用方法
+    """
 
     def to_dict(self):
         """将 SQLAlchemy 模型对象转换为字典"""
@@ -16,12 +19,20 @@ class Base:
 
 
 class UserRole(EnumClass):
+    """
+    用户角色枚举类
+    """
+
     STUDENT = "student"
     TEACHER = "teacher"
     ADMIN = "admin"
 
 
 class User(Base):
+    """
+    用户模型类
+    """
+
     __tablename__ = "users"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     username = Column(String, nullable=False)
@@ -32,11 +43,19 @@ class User(Base):
 
 
 class EntryType(EnumClass):
+    """
+    文件条目类型枚举类
+    """
+
     FILE = "file"
     DIRECTORY = "directory"
 
 
 class Entry(Base):
+    """
+    文件条目模型类
+    """
+
     __tablename__ = "entries"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     owner_id = Column(BigInteger, nullable=False, index=True)
@@ -53,6 +72,10 @@ class Entry(Base):
 
 
 class SharedEntry(Base):
+    """
+    共享条目模型类
+    """
+
     __tablename__ = "shared_entries"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     entry_id = Column(BigInteger, nullable=False, index=True)
@@ -61,6 +84,10 @@ class SharedEntry(Base):
 
 
 class SharedEntryExtraPermissionType(EnumClass):
+    """
+    共享条目额外权限类型枚举类
+    """
+
     READ = "read"
     READ_WRITE = "read_write"
     READ_WRITE_DELETE = "read_write_delete"
@@ -68,6 +95,10 @@ class SharedEntryExtraPermissionType(EnumClass):
 
 
 class SharedEntryExtraPermission(Base):
+    """
+    共享条目额外权限模型类
+    """
+
     __tablename__ = "shared_entry_extra_permissions"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     shared_entry_id = Column(BigInteger, nullable=False, index=True)  # 关联 shared_entries
@@ -79,6 +110,10 @@ class SharedEntryExtraPermission(Base):
 
 
 class SharedEntryUser(Base):
+    """
+    共享条目用户模型类
+    """
+
     __tablename__ = "shared_entry_users"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     shared_entry_id = Column(BigInteger, nullable=False, index=True)  # 关联共享条目
@@ -87,4 +122,5 @@ class SharedEntryUser(Base):
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
 
+# 创建所有表
 Base.metadata.create_all(engine)
