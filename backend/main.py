@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.router.user import router as user
 from backend.router.entry import router as entry
+from backend.router.share import router as share
 
 app = FastAPI()
 
@@ -17,3 +18,5 @@ app.add_middleware(
 # 添加路由
 app.include_router(user)
 app.include_router(entry)
+app.include_router(share)
+
