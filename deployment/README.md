@@ -3,7 +3,7 @@
 ```
 team-project-25spring-36/
 ├── backend/
-│   ├── db/
+│   ├── database/
 │   │   ├── engine.py
 │   │   ├── model.py
 │   ├── router/
@@ -11,7 +11,7 @@ team-project-25spring-36/
 │   │   ├── entry.py
 │   │   ├── share.py
 │   ├── util/
-│   │   ├── auth.py
+│   │   ├── lang.py
 │   │   ├── response.py
 │   │   ├── encrypt.py
 │   │   ├── path.py
