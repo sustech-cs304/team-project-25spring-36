@@ -16,6 +16,8 @@ team-project-25spring-36/
 │   │   ├── encrypt.py
 │   │   ├── path.py
 │   ├── main.py
+│   ├── config.py
+│   ├── __init__.py
 ├── deployment/
 │   ├── backend.bat
 │   ├── backend.sh
