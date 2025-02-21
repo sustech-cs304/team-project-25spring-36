@@ -3,10 +3,11 @@ from pydantic import BaseModel
 from typing import Optional
 from fastapi import APIRouter, Depends
 
-from backend.db.engine import database
-from backend.db.model import UserRole, User
-from backend.util.auth import jwt_encode, jwt_verify
+from backend.database.engine import database
+from backend.database.model import UserRole, User
+from backend.util.encrypt import jwt_encode, jwt_verify
 from backend.util.response import ok, bad_request, internal_server_error
+from backend.util.lang import update_attrs
 
 router = APIRouter(prefix="/user")
 
@@ -99,9 +100,7 @@ async def user_update(
     try:
         user_id = access_info.get("user_id")
         user = db.query(User).filter(User.id == user_id).first()
-        for key, val in vars(user_update).items():
-            if val:
-                setattr(user, key, val)
+        update_attrs(user_update, user)
         db.commit()
         db.refresh(user)
         return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))

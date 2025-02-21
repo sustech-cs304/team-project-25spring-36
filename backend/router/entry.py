@@ -7,10 +7,12 @@ from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, status
 from sqlalchemy.orm import Session
 from pathvalidate import is_valid_filepath
 
-from backend.util.auth import jwt_verify
-from backend.util.response import ok, bad_request, not_implement, internal_server_error
-from backend.db.engine import database
-from backend.db.model import Entry, EntryType
+from backend.util.encrypt import jwt_verify
+from backend.util.response import ok, bad_request, internal_server_error
+from backend.util.path import path_normalize
+from backend.database.engine import database
+from backend.database.model import Entry, EntryType
+
 
 STORAGE_PATH = os.path.join(".", "storage")
 
@@ -40,10 +42,9 @@ async def entry_post(
     """
     try:
         # 验证文件路径
-        if not is_valid_filepath(entry_path, platform="linux"):
+        entry_path = path_normalize(entry_path)
+        if not entry_path:
             return bad_request(message="Invalid entry path")
-        # 规范化文件路径
-        entry_path = posixpath.normpath(entry_path)
         # 获取用户 ID
         owner_id = access_info["user_id"]
         # 验证文件是否已存在
@@ -84,7 +85,7 @@ async def entry_post(
                 )
             )
         else:
-            return not_implement(message="Invalid entry type")
+            return internal_server_error()
         # 提交数据库事务
         db.commit()
         return ok()
@@ -111,11 +112,10 @@ async def entry_delete(
     - 成功时返回空响应
     """
     try:
-        # 验证文件路径
-        if not is_valid_filepath(entry_path, platform="linux"):
-            return bad_request(message="Invalid entry path")
         # 规范化文件路径
-        entry_path = posixpath.normpath(entry_path)
+        entry_path = path_normalize(entry_path)
+        if not entry_path:
+            return bad_request(message="Invalid entry path")
         # 获取用户 ID
         owner_id = access_info["user_id"]
         # 查询 Entry 记录
@@ -135,11 +135,11 @@ async def entry_delete(
                 elif sub_entry.entry_type == EntryType.DIRECTORY:
                     pass
                 else:
-                    return not_implement()
+                    return internal_server_error()
                 db.delete(sub_entry)
             db.delete(entry)
         else:
-            return not_implement(message="Invalid entry type")
+            return internal_server_error()
         # 提交数据库事务
         db.commit()
         return ok()
@@ -168,12 +168,10 @@ async def entry_put(
     - 成功时返回空响应
     """
     try:
-        # 验证文件路径
-        if not is_valid_filepath(entry_path, platform="linux") or not is_valid_filepath(new_entry_path, platform="linux"):
-            return bad_request(message="Invalid entry path")
         # 规范化文件路径
-        entry_path = posixpath.normpath(entry_path)
-        new_entry_path = posixpath.normpath(new_entry_path)
+        entry_path, new_entry_path = path_normalize(entry_path), path_normalize(new_entry_path)
+        if not entry_path or not new_entry_path:
+            return bad_request(message="Invalid entry path")
         # 验证文件路径是否相同
         if entry_path == new_entry_path:
             return bad_request(message="Entry path unchanged")
@@ -222,11 +220,10 @@ async def entry_get(
     - 成功时返回文件或目录信息
     """
     try:
-        # 验证文件路径
-        if not is_valid_filepath(entry_path, platform="linux"):
-            return bad_request(message="Invalid entry path")
         # 规范化文件路径
-        entry_path = posixpath.normpath(entry_path)
+        entry_path = path_normalize(entry_path)
+        if not entry_path:
+            return bad_request(message="Invalid entry path")
         # 获取用户 ID
         owner_id = access_info["user_id"]
         # 查询 Entry 记录
@@ -260,11 +257,10 @@ async def entry_get_file(
     - 成功时返回文件内容
     """
     try:
-        # 验证文件路径
-        if not is_valid_filepath(entry_path, platform="linux"):
-            return bad_request(message="Invalid entry path")
         # 规范化文件路径
-        entry_path = posixpath.normpath(entry_path)
+        entry_path = path_normalize(entry_path)
+        if not entry_path:
+            return bad_request(message="Invalid entry path")
         # 获取用户 ID
         owner_id = access_info["user_id"]
         # 查询 Entry 记录
