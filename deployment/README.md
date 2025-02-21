@@ -17,7 +17,8 @@ team-project-25spring-36/
 │   │   ├── path.py
 │   ├── main.py
 ├── deployment/
-│   ├── start.bat
+│   ├── backend.bat
+│   ├── backend.sh
 │   ├── docker-compose.yaml
 │   ├── requirements.txt
 │   ├── README.md
@@ -28,7 +29,7 @@ team-project-25spring-36/
 ### 1. 安装依赖
 
 #### 在本机安装 Python
-[下载并安装 Python](https://www.python.org/downloads/)（推荐 3.8 及以上版本）。
+[下载并安装 Python](https://www.python.org/downloads/)（推荐 3.11 及以上版本）。
 
 #### 在本机安装 Docker
 [下载并安装 Docker](https://www.docker.com/) 以运行必要的依赖服务。
@@ -53,15 +54,23 @@ docker-compose up -d
 
 ### 3. 启动后端服务器
 
-在 `deployment` 目录下运行start.bat以启动后端服务：
+在 `deployment` 目录下运行以下命令以启动后端服务：
+
+#### Windows 平台
 
 ```sh
 cd deployment
-start.bat
+backend.bat
+```
+
+#### Linux/Mac 平台
+
+```sh
+cd deployment
+sh backend.sh
 ```
 
 该脚本将启动 FastAPI 服务器。
-
 
 ## 查看后端相关接口
 
