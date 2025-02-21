@@ -36,7 +36,7 @@ async def entry_post(
     - access_info: 访问信息(通过 JWT 验证后的用户信息)
 
     返回:
-    - 成功时返回文件或目录信息
+    - 成功时返回空响应
     """
     try:
         # 验证文件路径
@@ -108,7 +108,7 @@ async def entry_delete(
     - access_info: 访问信息（通过 JWT 验证后的用户信息）
 
     返回:
-    - 成功时返回操作成功的信息
+    - 成功时返回空响应
     """
     try:
         # 验证文件路径
@@ -165,7 +165,7 @@ async def entry_put(
     - access_info: 访问信息（通过 JWT 验证后的用户信息）
 
     返回:
-    - 成功时返回操作成功的信息
+    - 成功时返回空响应
     """
     try:
         # 验证文件路径

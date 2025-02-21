@@ -41,7 +41,7 @@ async def user_register(
     - db: 数据库会话
 
     返回:
-    - 成功时返回包含用户 ID 和角色的 JWT
+    - 成功时返回包含用户的JWT
     """
     try:
         user = User(username=user_register.username, password=user_register.password, role=user_register.role)
@@ -67,7 +67,7 @@ async def user_login(
     - db: 数据库会话
 
     返回:
-    - 成功时返回包含用户 ID 和角色的 JWT
+    - 成功时返回包含用户的JWT
     - 失败时返回错误信息
     """
     try:
@@ -94,7 +94,7 @@ async def user_update(
     - db: 数据库会话
 
     返回:
-    - 成功时返回操作成功的信息
+    - 成功时返回包含用户的JWT
     """
     try:
         user_id = access_info.get("user_id")
@@ -104,7 +104,7 @@ async def user_update(
                 setattr(user, key, val)
         db.commit()
         db.refresh(user)
-        return ok()
+        return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
     except:
         db.rollback()
         return internal_server_error()

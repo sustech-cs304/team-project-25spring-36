@@ -33,7 +33,7 @@ async def entry_share_code_create(
     - access_info: 通过 JWT 验证后的用户信息
 
     返回:
-    - 成功时返回包含共享代码的响应
+    - 成功时返回共享代码
     """
     # 生成共享链接的 JWT
     share_jwt = jwt_encode(
@@ -62,7 +62,7 @@ async def entry_share_code_parse(
     - db: 数据库会话
 
     返回:
-    - 成功时返回空响应
+    - 成功时返回空数据
     """
     try:
         # 解析共享链接的 JWT
