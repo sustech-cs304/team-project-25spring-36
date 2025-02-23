@@ -35,7 +35,7 @@ class User(Base):
 
     __tablename__ = "users"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    username = Column(String, nullable=False)
+    username = Column(String, nullable=False, unique=True, index=True)
     password = Column(String, nullable=False)
     role = Column(Enum(UserRole), nullable=False, default=UserRole.STUDENT, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
