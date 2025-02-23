@@ -1,4 +1,3 @@
-import psycopg2
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from backend.config import DATABASE_ADMIN_URL, DATABASE_URL, DATABASE_NAME
@@ -7,7 +6,7 @@ from backend.config import DATABASE_ADMIN_URL, DATABASE_URL, DATABASE_NAME
 try:
     with create_engine(DATABASE_ADMIN_URL, isolation_level="AUTOCOMMIT").connect() as conn:
         conn.execute(text(f"CREATE DATABASE {DATABASE_NAME}"))
-except psycopg2.errors.DuplicateDatabase:
+except:
     # 如果数据库已存在，则忽略错误
     pass
 
