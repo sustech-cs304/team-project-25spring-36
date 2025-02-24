@@ -1,6 +1,7 @@
 from sqlalchemy import Column, BigInteger, String, DateTime, Enum, Boolean, Index
 from sqlalchemy.ext.declarative import as_declarative
 from sqlalchemy.orm import class_mapper
+from sqlalchemy.event import listen
 from datetime import datetime
 from enum import Enum as EnumClass
 
@@ -69,6 +70,16 @@ class Entry(Base):
         Index("idx_entry_path", entry_path),  # B-TREE 主索引
         Index("idx_entry_path_prefix", entry_path, postgresql_using="gin", postgresql_ops={"entry_path": "gin_trgm_ops"}),  # 适用于 LIKE 查询
     )
+
+    @staticmethod
+    def event_entry_depth(mapper, connection, target: "Entry"):
+        """在插入或更新时计算 entry_depth"""
+        target.entry_depth = target.entry_path.count("/")
+
+
+# 监听 Entry 类的插入和更新事件
+listen(Entry, "before_insert", Entry.event_entry_depth)
+listen(Entry, "before_update", Entry.event_entry_depth)
 
 
 class SharedEntry(Base):
