@@ -134,7 +134,6 @@ async def entry_delete(
                 else:
                     return internal_server_error()
                 db.delete(sub_entry)
-            db.delete(entry)
         else:
             return internal_server_error()
         # 提交数据库事务
@@ -185,8 +184,6 @@ async def entry_put(
         # 验证及自动创建父目录
         create_parent_directories(db, new_entry_path, owner_id)
         # 移动文件或目录
-        entry.entry_path = new_entry_path
-        entry.entry_depth = entry.entry_path.count("/")
         if entry.entry_type == EntryType.DIRECTORY:
             for sub_entry in db.query(Entry).filter(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id).all():
                 sub_entry.entry_path = new_entry_path + sub_entry.entry_path[len(entry_path) :]

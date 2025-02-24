@@ -15,7 +15,7 @@ from backend.database.model import (
     SharedEntryExtraPermission,
     SharedEntryUser,
     SharedEntryCollaborative,
-    EntryType
+    EntryType,
 )
 
 router = APIRouter(prefix="/share")
@@ -61,6 +61,7 @@ async def create_share_token(
             entry_id=entry.id,
         )
         db.add(shared_entry)
+        db.commit()
         db.refresh(shared_entry)
         # 添加共享权限
         if permissions:
@@ -84,6 +85,9 @@ async def create_share_token(
             )
         )
     except:
+        import traceback
+
+        traceback.print_exc()
         db.rollback()
         return internal_server_error()
 
@@ -151,10 +155,14 @@ async def list_shared_entries(
             shared_entry_info = {
                 "owner_id": entry.owner_id,
                 "owner_name": db.query(User).filter(User.id == entry.owner_id).first().username,
-                "entries": [e.to_dict() for e in [entry, *db.query(Entry).filter(Entry.entry_path.like(f"{entry.entry_path}%")).all()]],
+                "entries": [e.to_dict() for e in db.query(Entry).filter(Entry.entry_path.like(f"{entry.entry_path}%")).all()],
                 "permissions": [
                     p.to_dict()
                     for p in db.query(SharedEntryExtraPermission).filter(SharedEntryExtraPermission.shared_entry_id == shared_entry.id).all()
+                ],
+                "collaboratives": [
+                    c.to_dict()
+                    for c in db.query(SharedEntryCollaborative).filter(SharedEntryCollaborative.shared_entry_id == shared_entry.id).all()
                 ],
             }
             shared_entries.append(shared_entry_info)
@@ -203,17 +211,32 @@ async def create_collaborative(
         if entry.owner_id != access_info["user_id"]:
             return forbidden(message="Permission denied")
         # 查询目标文件
-        collborative_entry = db.query(Entry).filter(
-            Entry.owner_id == entry.owner_id,
-            Entry.entry_path == entry.entry_path + shared_entry_sub_path,
-        ).first()
+        collborative_entry = (
+            db.query(Entry)
+            .filter(
+                Entry.owner_id == entry.owner_id,
+                Entry.entry_path == entry.entry_path + shared_entry_sub_path,
+            )
+            .first()
+        )
         # 验证目标文件
         if collborative_entry is None:
             return bad_request(message="Collaborative entry not found")
         if collborative_entry.entry_type != EntryType.FILE:
             return bad_request(message="Collaborative entry must be a file")
+        # 验证共享条目协作是否已存在
+        if (
+            db.query(SharedEntryCollaborative)
+            .filter(
+                SharedEntryCollaborative.shared_entry_id == shared_entry.id,
+                SharedEntryCollaborative.shared_entry_sub_path == shared_entry_sub_path,
+            )
+            .first()
+            is not None
+        ):
+            return bad_request(message="Collaborative entry already exists")
         # 添加共享条目协作
-        db.add(SharedEntryCollaborative(shared_entry_id=shared_entry.id, shared_entry_sub_path = shared_entry_sub_path))
+        db.add(SharedEntryCollaborative(shared_entry_id=shared_entry.id, shared_entry_sub_path=shared_entry_sub_path))
         db.commit()
         return ok()
     except:
