@@ -12,6 +12,15 @@ except:
 
 # 连接目标数据库
 engine = create_engine(DATABASE_URL, echo=True)
+
+# 创建 pg_trgm 扩展
+try:
+    with engine.connect() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+        conn.commit()
+except:
+    pass
+# 创建数据库会话生成器
 session = sessionmaker(bind=engine)
 
 

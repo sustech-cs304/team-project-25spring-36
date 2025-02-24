@@ -67,7 +67,7 @@ class Entry(Base):
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
     __table_args__ = (
         Index("idx_entry_path", entry_path),  # B-TREE 主索引
-        Index("idx_entry_path_prefix", entry_path, postgresql_using="gin"),  # 适用于 LIKE 查询
+        Index("idx_entry_path_prefix", entry_path, postgresql_using="gin", postgresql_ops={"entry_path": "gin_trgm_ops"}),  # 适用于 LIKE 查询
     )
 
 
@@ -105,6 +105,19 @@ class SharedEntryExtraPermission(Base):
     shared_entry_sub_path = Column(String, nullable=False, index=True)  # 子文件或子目录
     permission = Column(Enum(SharedEntryExtraPermissionType), nullable=False)  # 统一存储文件和目录权限
     inherited = Column(Boolean, nullable=False, default=False)  # 是否继承（仅目录有效）
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+
+
+class SharedEntryCollaborative(Base):
+    """
+    共享条目协作模型类
+    """
+
+    __tablename__ = "shared_entry_collaboratives"
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    shared_entry_id = Column(BigInteger, nullable=False, index=True)  # 关联共享条目
+    shared_entry_sub_path = Column(String, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
