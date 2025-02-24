@@ -23,7 +23,8 @@ from backend.database.model import (
 )
 from backend.config import ENTRY_STORAGE_PATH
 
-router = APIRouter(prefix="/share")
+api = APIRouter(prefix="/share")
+ws = APIRouter(prefix="/share")
 
 
 class SharedEntryPermissionCreate(BaseModel):
@@ -32,7 +33,7 @@ class SharedEntryPermissionCreate(BaseModel):
     inherited: bool = False
 
 
-@router.post("/token/create")
+@api.post("/token/create")
 async def create_share_token(
     entry_path: str,
     permissions: Optional[List[SharedEntryPermissionCreate]] = None,
@@ -98,7 +99,7 @@ async def create_share_token(
         return internal_server_error()
 
 
-@router.post("/token/parse")
+@api.post("/token/parse")
 async def parse_share_token(
     share_token: str = Body(...),
     access_info: dict = Depends(jwt_verify),
@@ -137,7 +138,7 @@ async def parse_share_token(
         return internal_server_error()
 
 
-@router.get("/list")
+@api.get("/list")
 async def list_shared_entries(
     db: AsyncSession = Depends(database),
     access_info: dict = Depends(jwt_verify),
@@ -188,7 +189,7 @@ class SharedEntryCollaborativeCreate(BaseModel):
     shared_entry_sub_path: str
 
 
-@router.post("/collaborative/create")
+@api.post("/collaborative/create")
 async def shared_entry_collaborative_create(
     shared_entry_collaborative_create: SharedEntryCollaborativeCreate,
     access_info: dict = Depends(jwt_verify),
@@ -291,7 +292,7 @@ class CollaborativeWebSocketManager:
 collaborative_websocket_manager = CollaborativeWebSocketManager()
 
 
-@router.websocket("/collaborative/subscribe/{shared_entry_collaborative_id}")
+@ws.websocket("/collaborative/subscribe/{shared_entry_collaborative_id}")
 async def shared_entry_collaborative_subscribe(
     websocket: WebSocket,
     shared_entry_collaborative_id: int,

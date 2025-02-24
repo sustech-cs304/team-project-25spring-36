@@ -14,10 +14,10 @@ from backend.database.engine import database
 from backend.database.model import Entry, EntryType
 from backend.config import ENTRY_STORAGE_PATH
 
-router = APIRouter(prefix="/entry")
+api = APIRouter(prefix="/entry")
 
 
-@router.post("")
+@api.post("")
 async def entry_post(
     entry_type: EntryType,
     entry_path: str,
@@ -92,7 +92,7 @@ async def entry_post(
         return internal_server_error()
 
 
-@router.delete("")
+@api.delete("")
 async def entry_delete(
     entry_path: str,
     db: AsyncSession = Depends(database),
@@ -144,7 +144,7 @@ async def entry_delete(
         return internal_server_error()
 
 
-@router.put("")
+@api.put("")
 async def entry_put(
     entry_path: str,
     new_entry_path: str,
@@ -201,7 +201,7 @@ async def entry_put(
         return internal_server_error()
 
 
-@router.get("")
+@api.get("")
 async def entry_get(
     entry_path: str,
     entry_depth: int = None,
@@ -246,7 +246,7 @@ async def entry_get(
         return internal_server_error()
 
 
-@router.get("/download")
+@api.get("/download")
 async def entry_get_file(
     entry_path: str,
     db: AsyncSession = Depends(database),

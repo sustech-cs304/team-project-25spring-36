@@ -10,7 +10,7 @@ from backend.database.model import UserRole, User
 from backend.util.encrypt import jwt_encode, jwt_verify
 from backend.util.response import ok, bad_request, internal_server_error
 
-router = APIRouter(prefix="/user")
+api = APIRouter(prefix="/user")
 
 
 class UserRegister(BaseModel):
@@ -30,7 +30,7 @@ class UserUpdate(BaseModel):
     role: Optional[UserRole] = None
 
 
-@router.post("/register")
+@api.post("/register")
 async def user_register(
     user_register: UserRegister,
     db: AsyncSession = Depends(database),
@@ -59,7 +59,7 @@ async def user_register(
         return internal_server_error()
 
 
-@router.post("/login")
+@api.post("/login")
 async def user_login(
     user_login: UserLogin,
     db: AsyncSession = Depends(database),
@@ -85,7 +85,7 @@ async def user_login(
         return internal_server_error()
 
 
-@router.post("/update")
+@api.post("/update")
 async def user_update(
     user_update: UserUpdate,
     access_info: dict = Depends(jwt_verify),
