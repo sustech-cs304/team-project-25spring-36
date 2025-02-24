@@ -1,5 +1,6 @@
 import uuid
 import aiofiles
+import aiofiles.os
 import os
 
 from fastapi import APIRouter, Depends, File, UploadFile

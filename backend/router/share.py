@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, Body
+import aiofiles
+import os
+
+from fastapi import APIRouter, Depends, Body, WebSocket, WebSocketDisconnect
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -17,6 +20,7 @@ from backend.database.model import (
     SharedEntryCollaborative,
     EntryType,
 )
+from backend.config import ENTRY_STORAGE_PATH
 
 router = APIRouter(prefix="/share")
 
@@ -161,8 +165,7 @@ async def list_shared_entries(
                     for p in db.query(SharedEntryExtraPermission).filter(SharedEntryExtraPermission.shared_entry_id == shared_entry.id).all()
                 ],
                 "collaboratives": [
-                    c.to_dict()
-                    for c in db.query(SharedEntryCollaborative).filter(SharedEntryCollaborative.shared_entry_id == shared_entry.id).all()
+                    c.to_dict() for c in db.query(SharedEntryCollaborative).filter(SharedEntryCollaborative.shared_entry_id == shared_entry.id).all()
                 ],
             }
             shared_entries.append(shared_entry_info)
@@ -177,7 +180,7 @@ class SharedEntryCollaborativeCreate(BaseModel):
 
 
 @router.post("/collaborative/create")
-async def create_collaborative(
+async def shared_entry_collaborative_create(
     shared_entry_collaborative_create: SharedEntryCollaborativeCreate,
     access_info: dict = Depends(jwt_verify),
     db: Session = Depends(database),
@@ -242,3 +245,92 @@ async def create_collaborative(
     except:
         db.rollback()
         return internal_server_error()
+
+
+class CollaborativeWebSocketManager:
+    def __init__(self):
+        self.conns: dict[int, set[WebSocket]] = {}
+
+    async def connect(
+        self,
+        shared_entry_collaborative_id: int,
+        websocket: WebSocket,
+    ):
+        await websocket.accept()
+        if shared_entry_collaborative_id not in self.conns:
+            self.conns[shared_entry_collaborative_id] = set()
+        self.conns[shared_entry_collaborative_id].add(websocket)
+
+    def disconnect(
+        self,
+        shared_entry_collaborative_id: int,
+        websocket: WebSocket,
+    ):
+        self.conns[shared_entry_collaborative_id].remove(websocket)
+        if not self.conns[shared_entry_collaborative_id]:
+            del self.conns[shared_entry_collaborative_id]
+
+    async def boardcast(
+        self,
+        shared_entry_collaborative_id: int,
+        text: str,
+    ):
+        if shared_entry_collaborative_id in self.conns:
+            for conn in self.conns[shared_entry_collaborative_id]:
+                await conn.send_text(text)
+
+
+collaborative_websocket_manager = CollaborativeWebSocketManager()
+
+
+@router.websocket("/collaborative/subscribe/{shared_entry_collaborative_id}")
+async def shared_entry_collaborative_subscribe(
+    websocket: WebSocket,
+    shared_entry_collaborative_id: int,
+    db=Depends(database),
+):
+    # 校验
+    shared_entry_collaborative: SharedEntryCollaborative = (
+        db.query(SharedEntryCollaborative).filter(SharedEntryCollaborative.id == shared_entry_collaborative_id).first()
+    )
+    if shared_entry_collaborative is None:
+        await websocket.close(code=1008)
+        return
+    shared_entry: SharedEntry = db.query(SharedEntry).filter(SharedEntry.id == shared_entry_collaborative.shared_entry_id).first()
+    if shared_entry is None:
+        await websocket.close(code=1008)
+        return
+    # 权限解析
+    # 跳过
+    # 查询文件
+    root_entry: Entry = db.query(Entry).filter(Entry.id == shared_entry.entry_id).first()
+    if root_entry is None:
+        await websocket.close(code=1008)
+        return
+    target_entry: Entry = (
+        db.query(Entry)
+        .filter(Entry.entry_path == root_entry.entry_path + shared_entry_collaborative.shared_entry_sub_path, Entry.owner_id == root_entry.owner_id)
+        .first()
+    )
+    if target_entry is None:
+        await websocket.close(code=1008)
+        return
+    target_path = os.path.join(ENTRY_STORAGE_PATH, target_entry.alias)
+    # 连接 WebSocket
+    await collaborative_websocket_manager.connect(
+        websocket,
+        shared_entry_collaborative_id,
+    )
+    # 接收消息
+    try:
+        # 发送文件
+        with aiofiles.open(target_path, "rb") as fp:
+            await websocket.send(await fp.read())
+        while True:
+            data = await websocket.receive_text()
+            # OT or CRDT
+    except:
+        collaborative_websocket_manager.disconnect(
+            websocket,
+            shared_entry_collaborative_id,
+        )
