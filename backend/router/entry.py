@@ -241,7 +241,7 @@ async def entry_get(
         result = await db.execute(query)
         entries: list[Entry] = result.all()
         # 返回文件或目录信息
-        return ok(data=[entry.to_dict() for entry in entries])
+        return ok(data=[entry.dict() for entry in entries])
     except:
         return internal_server_error()
 

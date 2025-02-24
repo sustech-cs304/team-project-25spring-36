@@ -14,7 +14,7 @@ class Base:
     基础模型类，包含通用方法
     """
 
-    def to_dict(self):
+    def dict(self):
         """将 SQLAlchemy 模型对象转换为字典"""
         return {column.key: str(getattr(self, column.key)) for column in class_mapper(self.__class__).columns}
 

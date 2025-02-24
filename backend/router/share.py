@@ -173,9 +173,9 @@ async def list_shared_entries(
             shared_entry_info = {
                 "owner_id": root_entry.owner_id,
                 "owner_name": owner.username,
-                "entries": [e.to_dict() for e in entries],
-                "permissions": [p.to_dict() for p in permissions],
-                "collaboratives": [c.to_dict() for c in collaboratives],
+                "entries": [e.dict() for e in entries],
+                "permissions": [p.dict() for p in permissions],
+                "collaboratives": [c.dict() for c in collaboratives],
             }
             shared_entries.append(shared_entry_info)
         return ok(data=shared_entries)
