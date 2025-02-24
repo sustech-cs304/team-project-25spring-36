@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 from typing import Optional
 from fastapi import APIRouter, Depends
@@ -50,6 +51,9 @@ async def user_register(
         db.commit()
         db.refresh(user)
         return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
+    except IntegrityError:
+        db.rollback()
+        return bad_request("Username already exists")
     except:
         db.rollback()
         return internal_server_error()
@@ -104,6 +108,9 @@ async def user_update(
         db.commit()
         db.refresh(user)
         return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
+    except IntegrityError:
+        db.rollback()
+        return bad_request("Username already exists")
     except:
         db.rollback()
         return internal_server_error()
