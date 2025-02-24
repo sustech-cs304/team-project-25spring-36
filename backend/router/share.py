@@ -4,10 +4,19 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from backend.util.encrypt import jwt_encode, jwt_verify
-from backend.util.response import ok, bad_request, internal_server_error
+from backend.util.response import ok, bad_request, internal_server_error, forbidden
 from backend.util.path import path_normalize
 from backend.database.engine import database
-from backend.database.model import SharedEntry, Entry, User, SharedEntryExtraPermissionType, SharedEntryExtraPermission, SharedEntryUser
+from backend.database.model import (
+    SharedEntry,
+    Entry,
+    User,
+    SharedEntryExtraPermissionType,
+    SharedEntryExtraPermission,
+    SharedEntryUser,
+    SharedEntryCollaborative,
+    EntryType
+)
 
 router = APIRouter(prefix="/share")
 
@@ -151,4 +160,62 @@ async def list_shared_entries(
             shared_entries.append(shared_entry_info)
         return ok(data=shared_entries)
     except:
+        return internal_server_error()
+
+
+class SharedEntryCollaborativeCreate(BaseModel):
+    shared_entry_id: int
+    shared_entry_sub_path: str
+
+
+@router.post("/collaborative/create")
+async def create_collaborative(
+    shared_entry_collaborative_create: SharedEntryCollaborativeCreate,
+    access_info: dict = Depends(jwt_verify),
+    db: Session = Depends(database),
+):
+    """
+    创建共享条目协作
+
+    参数:
+    - shared_entry_id: 共享条目 ID
+    - shared_entry_sub_path: 共享条目子路径
+    - access_info: 通过 JWT 验证后的用户信息
+    - db: 数据库会话
+
+    返回:
+    - 成功时返回空数据
+    """
+    try:
+        # 验证共享条目子路径
+        shared_entry_sub_path = path_normalize(shared_entry_collaborative_create.shared_entry_sub_path)
+        if not shared_entry_sub_path:
+            return bad_request(message="Invalid shared entry sub path")
+        # 查询共享记录
+        shared_entry = db.query(SharedEntry).filter(SharedEntry.id == shared_entry_collaborative_create.shared_entry_id).first()
+        if shared_entry is None:
+            return bad_request(message="Shared entry not found")
+        # 查询文件
+        entry = db.query(Entry).filter(Entry.id == shared_entry.entry_id).first()
+        if entry is None:
+            return bad_request(message="Entry not found")
+        # 验证权限
+        if entry.owner_id != access_info["user_id"]:
+            return forbidden(message="Permission denied")
+        # 查询目标文件
+        collborative_entry = db.query(Entry).filter(
+            Entry.owner_id == entry.owner_id,
+            Entry.entry_path == entry.entry_path + shared_entry_sub_path,
+        ).first()
+        # 验证目标文件
+        if collborative_entry is None:
+            return bad_request(message="Collaborative entry not found")
+        if collborative_entry.entry_type != EntryType.FILE:
+            return bad_request(message="Collaborative entry must be a file")
+        # 添加共享条目协作
+        db.add(SharedEntryCollaborative(shared_entry_id=shared_entry.id, shared_entry_sub_path = shared_entry_sub_path))
+        db.commit()
+        return ok()
+    except:
+        db.rollback()
         return internal_server_error()
