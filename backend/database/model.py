@@ -18,6 +18,12 @@ class Base:
         """将 SQLAlchemy 模型对象转换为字典"""
         return {column.key: str(getattr(self, column.key)) for column in class_mapper(self.__class__).columns}
 
+    def update(self, target):
+        """根据目标对象更新自身属性"""
+        for key, val in vars(target).items():
+            if key and val and hasattr(self, key):
+                setattr(self, key, val)
+
 
 class UserRole(EnumClass):
     """

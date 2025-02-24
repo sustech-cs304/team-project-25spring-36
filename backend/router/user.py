@@ -1,4 +1,5 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 from typing import Optional
@@ -8,7 +9,6 @@ from backend.database.engine import database
 from backend.database.model import UserRole, User
 from backend.util.encrypt import jwt_encode, jwt_verify
 from backend.util.response import ok, bad_request, internal_server_error
-from backend.util.lang import update_attrs
 
 router = APIRouter(prefix="/user")
 
@@ -33,7 +33,7 @@ class UserUpdate(BaseModel):
 @router.post("/register")
 async def user_register(
     user_register: UserRegister,
-    db: Session = Depends(database),
+    db: AsyncSession = Depends(database),
 ):
     """
     创建新用户
@@ -48,21 +48,21 @@ async def user_register(
     try:
         user = User(username=user_register.username, password=user_register.password, role=user_register.role)
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
         return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
     except IntegrityError:
-        db.rollback()
+        await db.rollback()
         return bad_request("Username already exists")
     except:
-        db.rollback()
+        await db.rollback()
         return internal_server_error()
 
 
 @router.post("/login")
 async def user_login(
     user_login: UserLogin,
-    db: Session = Depends(database),
+    db: AsyncSession = Depends(database),
 ):
     """
     用户登录
@@ -76,9 +76,10 @@ async def user_login(
     - 失败时返回错误信息
     """
     try:
-        user = db.query(User).filter(User.username == user_login.username).first()
+        result = await db.execute(select(User).where(User.username == user_login.username))
+        user: User = result.first()
         if not user or user.password != user_login.password:
-            return bad_request(messsage="Invalid username or password")
+            return bad_request(message="Invalid username or password")
         return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
     except:
         return internal_server_error()
@@ -87,8 +88,8 @@ async def user_login(
 @router.post("/update")
 async def user_update(
     user_update: UserUpdate,
-    access_info: str = Depends(jwt_verify),
-    db: Session = Depends(database),
+    access_info: dict = Depends(jwt_verify),
+    db: AsyncSession = Depends(database),
 ):
     """
     更新用户信息
@@ -102,15 +103,17 @@ async def user_update(
     - 成功时返回包含用户的JWT
     """
     try:
-        user_id = access_info.get("user_id")
-        user = db.query(User).filter(User.id == user_id).first()
-        update_attrs(user_update, user)
-        db.commit()
-        db.refresh(user)
+        result = await db.execute(select(User).where(User.id == access_info["user_id"]))
+        user: User = result.first()
+        if not user:
+            return bad_request(message="User not found")
+        user.update(user_update)
+        await db.commit()
+        await db.refresh(user)
         return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
     except IntegrityError:
-        db.rollback()
+        await db.rollback()
         return bad_request("Username already exists")
     except:
-        db.rollback()
+        await db.rollback()
         return internal_server_error()

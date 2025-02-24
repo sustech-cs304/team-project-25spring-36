@@ -3,7 +3,8 @@ import os
 
 from fastapi import APIRouter, Depends, Body, WebSocket, WebSocketDisconnect
 from typing import Optional, List
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from pydantic import BaseModel
 
 from backend.util.encrypt import jwt_encode, jwt_verify
@@ -37,7 +38,7 @@ async def create_share_token(
     permissions: Optional[List[SharedEntryPermissionCreate]] = None,
     exp_hours: Optional[int] = None,
     access_info: dict = Depends(jwt_verify),
-    db: Session = Depends(database),
+    db: AsyncSession = Depends(database),
 ):
     """
     生成共享令牌
@@ -57,16 +58,17 @@ async def create_share_token(
         if not entry_path:
             return bad_request(message="Invalid entry path")
         # 查询文件
-        entry = db.query(Entry).filter(Entry.entry_path == entry_path, Entry.owner_id == access_info["user_id"]).first()
-        if entry is None:
+        result = await db.execute(select(Entry).where(Entry.entry_path == entry_path, Entry.owner_id == access_info["user_id"]))
+        root_entry: Entry = result.first()
+        if root_entry is None:
             return bad_request(message="Entry not found")
         # 添加共享记录
         shared_entry = SharedEntry(
-            entry_id=entry.id,
+            entry_id=root_entry.id,
         )
         db.add(shared_entry)
-        db.commit()
-        db.refresh(shared_entry)
+        await db.commit()
+        await db.refresh(shared_entry)
         # 添加共享权限
         if permissions:
             for permission in [SharedEntryPermissionCreate.model_validate(p) for p in permissions]:
@@ -78,7 +80,7 @@ async def create_share_token(
                         inherited=permission.inherited,
                     )
                 )
-        db.commit()
+        await db.commit()
         # 生成共享令牌
         return ok(
             jwt_encode(
@@ -92,7 +94,7 @@ async def create_share_token(
         import traceback
 
         traceback.print_exc()
-        db.rollback()
+        await db.rollback()
         return internal_server_error()
 
 
@@ -100,7 +102,7 @@ async def create_share_token(
 async def parse_share_token(
     share_token: str = Body(...),
     access_info: dict = Depends(jwt_verify),
-    db: Session = Depends(database),
+    db: AsyncSession = Depends(database),
 ):
     """
     解析共享令牌
@@ -128,16 +130,16 @@ async def parse_share_token(
                 user_id=access_info["user_id"],
             )
         )
-        db.commit()
+        await db.commit()
         return ok()
     except:
-        db.rollback()
+        await db.rollback()
         return internal_server_error()
 
 
 @router.get("/list")
 async def list_shared_entries(
-    db: Session = Depends(database),
+    db: AsyncSession = Depends(database),
     access_info: dict = Depends(jwt_verify),
 ):
     """
@@ -153,20 +155,27 @@ async def list_shared_entries(
     try:
         shared_entries = []
         # 查询共享记录
-        for shared_entry_user in db.query(SharedEntryUser).filter(SharedEntryUser.user_id == access_info["user_id"]).all():
-            shared_entry: SharedEntry = db.query(SharedEntry).filter(SharedEntry.id == shared_entry_user.shared_entry_id).first()
-            entry: Entry = db.query(Entry).filter(Entry.id == shared_entry.entry_id).first()
+        result = await db.execute(select(SharedEntryUser).where(SharedEntryUser.user_id == access_info["user_id"]))
+        shared_entry_users: list[SharedEntryUser] = result.all()
+        for shared_entry_user in shared_entry_users:
+            result = await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_user.shared_entry_id))
+            shared_entry: SharedEntry = result.first()
+            result = await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))
+            root_entry: Entry = result.first()
+            result = await db.execute(select(User).where(User.id == root_entry.owner_id))
+            owner: User = result.first()
+            result = await db.execute(select(Entry).where(Entry.entry_path.like(f"{root_entry.entry_path}%")))
+            entries: list[Entry] = result.all()
+            result = await db.execute(select(SharedEntryExtraPermission).where(SharedEntryExtraPermission.shared_entry_id == shared_entry.id))
+            permissions: list[SharedEntryExtraPermission] = result.all()
+            result = await db.execute(select(SharedEntryCollaborative).where(SharedEntryCollaborative.shared_entry_id == shared_entry.id))
+            collaboratives: list[SharedEntryCollaborative] = result.all()
             shared_entry_info = {
-                "owner_id": entry.owner_id,
-                "owner_name": db.query(User).filter(User.id == entry.owner_id).first().username,
-                "entries": [e.to_dict() for e in db.query(Entry).filter(Entry.entry_path.like(f"{entry.entry_path}%")).all()],
-                "permissions": [
-                    p.to_dict()
-                    for p in db.query(SharedEntryExtraPermission).filter(SharedEntryExtraPermission.shared_entry_id == shared_entry.id).all()
-                ],
-                "collaboratives": [
-                    c.to_dict() for c in db.query(SharedEntryCollaborative).filter(SharedEntryCollaborative.shared_entry_id == shared_entry.id).all()
-                ],
+                "owner_id": root_entry.owner_id,
+                "owner_name": owner.username,
+                "entries": [e.to_dict() for e in entries],
+                "permissions": [p.to_dict() for p in permissions],
+                "collaboratives": [c.to_dict() for c in collaboratives],
             }
             shared_entries.append(shared_entry_info)
         return ok(data=shared_entries)
@@ -183,7 +192,7 @@ class SharedEntryCollaborativeCreate(BaseModel):
 async def shared_entry_collaborative_create(
     shared_entry_collaborative_create: SharedEntryCollaborativeCreate,
     access_info: dict = Depends(jwt_verify),
-    db: Session = Depends(database),
+    db: AsyncSession = Depends(database),
 ):
     """
     创建共享条目协作
@@ -203,47 +212,46 @@ async def shared_entry_collaborative_create(
         if not shared_entry_sub_path:
             return bad_request(message="Invalid shared entry sub path")
         # 查询共享记录
-        shared_entry = db.query(SharedEntry).filter(SharedEntry.id == shared_entry_collaborative_create.shared_entry_id).first()
+        result = await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_collaborative_create.shared_entry_id))
+        shared_entry: SharedEntry = result.first()
         if shared_entry is None:
             return bad_request(message="Shared entry not found")
         # 查询文件
-        entry = db.query(Entry).filter(Entry.id == shared_entry.entry_id).first()
-        if entry is None:
+        result = await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))
+        root_entry: Entry = result.first()
+        if root_entry is None:
             return bad_request(message="Entry not found")
         # 验证权限
-        if entry.owner_id != access_info["user_id"]:
+        if root_entry.owner_id != access_info["user_id"]:
             return forbidden(message="Permission denied")
         # 查询目标文件
-        collborative_entry = (
-            db.query(Entry)
-            .filter(
-                Entry.owner_id == entry.owner_id,
-                Entry.entry_path == entry.entry_path + shared_entry_sub_path,
+        result = await db.execute(
+            select(Entry).where(
+                Entry.owner_id == root_entry.owner_id,
+                Entry.entry_path == root_entry.entry_path + shared_entry_sub_path,
             )
-            .first()
         )
+        source_entry: Entry = result.first()
         # 验证目标文件
-        if collborative_entry is None:
-            return bad_request(message="Collaborative entry not found")
-        if collborative_entry.entry_type != EntryType.FILE:
-            return bad_request(message="Collaborative entry must be a file")
+        if source_entry is None:
+            return bad_request(message="Source collaborative entry not found")
+        if source_entry.entry_type != EntryType.FILE:
+            return bad_request(message="Source collaborative entry must be a file")
         # 验证共享条目协作是否已存在
-        if (
-            db.query(SharedEntryCollaborative)
-            .filter(
+        result = await db.execute(
+            select(SharedEntryCollaborative).where(
                 SharedEntryCollaborative.shared_entry_id == shared_entry.id,
                 SharedEntryCollaborative.shared_entry_sub_path == shared_entry_sub_path,
             )
-            .first()
-            is not None
-        ):
+        )
+        if result.first() is not None:
             return bad_request(message="Collaborative entry already exists")
         # 添加共享条目协作
         db.add(SharedEntryCollaborative(shared_entry_id=shared_entry.id, shared_entry_sub_path=shared_entry_sub_path))
-        db.commit()
+        await db.commit()
         return ok()
     except:
-        db.rollback()
+        await db.rollback()
         return internal_server_error()
 
 
@@ -287,50 +295,53 @@ collaborative_websocket_manager = CollaborativeWebSocketManager()
 async def shared_entry_collaborative_subscribe(
     websocket: WebSocket,
     shared_entry_collaborative_id: int,
-    db=Depends(database),
+    db: AsyncSession = Depends(database),
 ):
     # 校验
-    shared_entry_collaborative: SharedEntryCollaborative = (
-        db.query(SharedEntryCollaborative).filter(SharedEntryCollaborative.id == shared_entry_collaborative_id).first()
-    )
+    result = await db.execute(select(SharedEntryCollaborative).where(SharedEntryCollaborative.id == shared_entry_collaborative_id))
+    shared_entry_collaborative: SharedEntryCollaborative = result.first()
     if shared_entry_collaborative is None:
         await websocket.close(code=1008)
         return
-    shared_entry: SharedEntry = db.query(SharedEntry).filter(SharedEntry.id == shared_entry_collaborative.shared_entry_id).first()
+    result = await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_collaborative.shared_entry_id))
+    shared_entry: SharedEntry = result.first()
     if shared_entry is None:
         await websocket.close(code=1008)
         return
     # 权限解析
     # 跳过
     # 查询文件
-    root_entry: Entry = db.query(Entry).filter(Entry.id == shared_entry.entry_id).first()
+    result = await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))
+    root_entry: Entry = result.first()
     if root_entry is None:
         await websocket.close(code=1008)
         return
-    target_entry: Entry = (
-        db.query(Entry)
-        .filter(Entry.entry_path == root_entry.entry_path + shared_entry_collaborative.shared_entry_sub_path, Entry.owner_id == root_entry.owner_id)
-        .first()
+    result = await db.execute(
+        select(Entry).where(
+            Entry.entry_path == root_entry.entry_path + shared_entry_collaborative.shared_entry_sub_path,
+            Entry.owner_id == root_entry.owner_id,
+        )
     )
-    if target_entry is None:
+    source_entry: Entry = result.first()
+    if source_entry is None:
         await websocket.close(code=1008)
         return
-    target_path = os.path.join(ENTRY_STORAGE_PATH, target_entry.alias)
+    source_path = os.path.join(ENTRY_STORAGE_PATH, source_entry.alias)
     # 连接 WebSocket
     await collaborative_websocket_manager.connect(
-        websocket,
         shared_entry_collaborative_id,
+        websocket,
     )
     # 接收消息
     try:
         # 发送文件
-        with aiofiles.open(target_path, "rb") as fp:
-            await websocket.send(await fp.read())
+        async with aiofiles.open(source_path, "rb") as fp:
+            await websocket.send_bytes(await fp.read())
         while True:
             data = await websocket.receive_text()
             # OT or CRDT
     except:
         collaborative_websocket_manager.disconnect(
-            websocket,
             shared_entry_collaborative_id,
+            websocket,
         )
