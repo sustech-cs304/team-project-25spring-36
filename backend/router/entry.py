@@ -67,7 +67,6 @@ async def entry_post(
                     owner_id=owner_id,
                     entry_type=entry_type,
                     entry_path=entry_path,
-                    entry_depth=entry_path.count("/"),
                     alias=alias,
                 )
             )
@@ -78,7 +77,6 @@ async def entry_post(
                     owner_id=owner_id,
                     entry_type=entry_type,
                     entry_path=entry_path,
-                    entry_depth=entry_path.count("/"),
                     alias=None,
                 )
             )
@@ -188,7 +186,6 @@ async def entry_put(
         if entry.entry_type == EntryType.DIRECTORY:
             for sub_entry in db.query(Entry).filter(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id).all():
                 sub_entry.entry_path = new_entry_path + sub_entry.entry_path[len(entry_path) :]
-                sub_entry.entry_depth = sub_entry.entry_path.count("/")
         # 提交数据库事务
         db.commit()
         return ok()
@@ -200,6 +197,7 @@ async def entry_put(
 @router.get("")
 async def entry_get(
     entry_path: str,
+    entry_depth: int = None,
     db: Session = Depends(database),
     access_info: dict = Depends(jwt_verify),
 ):
@@ -208,6 +206,7 @@ async def entry_get(
 
     参数:
     - entry_path: 文件或目录路径
+    - entry_depth: 文件深度（可选）
     - db: 数据库会话
     - access_info: 访问信息（通过 JWT 验证后的用户信息）
 
@@ -226,10 +225,13 @@ async def entry_get(
         # 验证文件是否存在
         if entry is None:
             return bad_request(message="Entry not found")
+        # 查询 Entry 记录列表
+        query = db.query(Entry).filter(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id)
+        # 验证文件深度
+        if entry_depth:
+            query.filter(Entry.entry_depth <= entry_depth)
         # 返回文件或目录信息
-        return ok(
-            data=[entry.to_dict() for entry in db.query(Entry).filter(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id).all()]
-        )
+        return ok(data=[entry.to_dict() for entry in query.all()])
     except:
         return internal_server_error()
 
@@ -283,17 +285,14 @@ def create_parent_directories(db: Session, entry_path: str, owner_id: int):
     - owner_id: 用户 ID
     """
     path = ""
-    depth = 0
     for seg in entry_path.strip("/").split("/")[:-1]:
         path += "/" + seg
-        depth += 1
         if db.query(Entry).filter(Entry.entry_path == path, Entry.owner_id == owner_id).first() is None:
             db.add(
                 Entry(
                     owner_id=owner_id,
                     entry_type=EntryType.DIRECTORY,
                     entry_path=path,
-                    entry_depth=depth,
                     alias=None,
                 )
             )
