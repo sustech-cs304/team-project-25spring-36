@@ -1,11 +1,11 @@
+import asyncio
+
 from sqlalchemy import Column, BigInteger, String, DateTime, Enum, Boolean, Index
 from sqlalchemy.ext.declarative import as_declarative
 from sqlalchemy.orm import class_mapper
 from sqlalchemy.event import listen
 from datetime import datetime
 from enum import Enum as EnumClass
-
-from backend.database.engine import engine
 
 
 @as_declarative()
@@ -150,7 +150,3 @@ class SharedEntryUser(Base):
     user_id = Column(BigInteger, nullable=False, index=True)  # 关联用户
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
-
-
-# 创建所有表
-Base.metadata.create_all(engine)

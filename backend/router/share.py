@@ -12,14 +12,14 @@ from backend.util.response import ok, bad_request, internal_server_error, forbid
 from backend.util.path import path_normalize
 from backend.database.engine import database
 from backend.database.model import (
-    SharedEntry,
-    Entry,
     User,
+    EntryType,
+    Entry,
+    SharedEntry,
     SharedEntryExtraPermissionType,
     SharedEntryExtraPermission,
     SharedEntryUser,
     SharedEntryCollaborative,
-    EntryType,
 )
 from backend.config import ENTRY_STORAGE_PATH
 
@@ -60,7 +60,7 @@ async def create_share_token(
             return bad_request(message="Invalid entry path")
         # 查询文件
         result = await db.execute(select(Entry).where(Entry.entry_path == entry_path, Entry.owner_id == access_info["user_id"]))
-        root_entry: Entry = result.first()
+        root_entry: Entry = result.scalar()
         if root_entry is None:
             return bad_request(message="Entry not found")
         # 添加共享记录
@@ -157,20 +157,20 @@ async def list_shared_entries(
         shared_entries = []
         # 查询共享记录
         result = await db.execute(select(SharedEntryUser).where(SharedEntryUser.user_id == access_info["user_id"]))
-        shared_entry_users: list[SharedEntryUser] = result.all()
+        shared_entry_users: list[SharedEntryUser] = result.scalars().all()
         for shared_entry_user in shared_entry_users:
             result = await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_user.shared_entry_id))
-            shared_entry: SharedEntry = result.first()
+            shared_entry: SharedEntry = result.scalar()
             result = await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))
-            root_entry: Entry = result.first()
+            root_entry: Entry = result.scalar()
             result = await db.execute(select(User).where(User.id == root_entry.owner_id))
-            owner: User = result.first()
+            owner: User = result.scalar()
             result = await db.execute(select(Entry).where(Entry.entry_path.like(f"{root_entry.entry_path}%")))
-            entries: list[Entry] = result.all()
+            entries: list[Entry] = result.scalars().all()
             result = await db.execute(select(SharedEntryExtraPermission).where(SharedEntryExtraPermission.shared_entry_id == shared_entry.id))
-            permissions: list[SharedEntryExtraPermission] = result.all()
+            permissions: list[SharedEntryExtraPermission] = result.scalars().all()
             result = await db.execute(select(SharedEntryCollaborative).where(SharedEntryCollaborative.shared_entry_id == shared_entry.id))
-            collaboratives: list[SharedEntryCollaborative] = result.all()
+            collaboratives: list[SharedEntryCollaborative] = result.scalars().all()
             shared_entry_info = {
                 "owner_id": root_entry.owner_id,
                 "owner_name": owner.username,
@@ -214,12 +214,12 @@ async def shared_entry_collaborative_create(
             return bad_request(message="Invalid shared entry sub path")
         # 查询共享记录
         result = await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_collaborative_create.shared_entry_id))
-        shared_entry: SharedEntry = result.first()
+        shared_entry: SharedEntry = result.scalar()
         if shared_entry is None:
             return bad_request(message="Shared entry not found")
         # 查询文件
         result = await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))
-        root_entry: Entry = result.first()
+        root_entry: Entry = result.scalar()
         if root_entry is None:
             return bad_request(message="Entry not found")
         # 验证权限
@@ -232,7 +232,7 @@ async def shared_entry_collaborative_create(
                 Entry.entry_path == root_entry.entry_path + shared_entry_sub_path,
             )
         )
-        source_entry: Entry = result.first()
+        source_entry: Entry = result.scalar()
         # 验证目标文件
         if source_entry is None:
             return bad_request(message="Source collaborative entry not found")
@@ -245,7 +245,7 @@ async def shared_entry_collaborative_create(
                 SharedEntryCollaborative.shared_entry_sub_path == shared_entry_sub_path,
             )
         )
-        if result.first() is not None:
+        if result.scalar() is not None:
             return bad_request(message="Collaborative entry already exists")
         # 添加共享条目协作
         db.add(SharedEntryCollaborative(shared_entry_id=shared_entry.id, shared_entry_sub_path=shared_entry_sub_path))
@@ -300,12 +300,12 @@ async def shared_entry_collaborative_subscribe(
 ):
     # 校验
     result = await db.execute(select(SharedEntryCollaborative).where(SharedEntryCollaborative.id == shared_entry_collaborative_id))
-    shared_entry_collaborative: SharedEntryCollaborative = result.first()
+    shared_entry_collaborative: SharedEntryCollaborative = result.scalar()
     if shared_entry_collaborative is None:
         await websocket.close(code=1008)
         return
     result = await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_collaborative.shared_entry_id))
-    shared_entry: SharedEntry = result.first()
+    shared_entry: SharedEntry = result.scalar()
     if shared_entry is None:
         await websocket.close(code=1008)
         return
@@ -313,7 +313,7 @@ async def shared_entry_collaborative_subscribe(
     # 跳过
     # 查询文件
     result = await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))
-    root_entry: Entry = result.first()
+    root_entry: Entry = result.scalar()
     if root_entry is None:
         await websocket.close(code=1008)
         return
@@ -323,7 +323,7 @@ async def shared_entry_collaborative_subscribe(
             Entry.owner_id == root_entry.owner_id,
         )
     )
-    source_entry: Entry = result.first()
+    source_entry: Entry = result.scalar()
     if source_entry is None:
         await websocket.close(code=1008)
         return

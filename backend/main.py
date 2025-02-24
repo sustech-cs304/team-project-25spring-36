@@ -4,7 +4,21 @@ from backend.router.user import api as api_user
 from backend.router.entry import api as api_entry
 from backend.router.share import api as api_share, ws as ws_share
 
-app = FastAPI()
+# 创建http路由
+api = APIRouter(prefix="/api")
+# 创建websocket路由
+ws = APIRouter(prefix="/ws")
+
+# 添加http路由
+api.include_router(api_user)
+api.include_router(api_entry)
+api.include_router(api_share)
+
+# 添加websocket路由
+ws.include_router(ws_share)
+
+# 服务端主程序
+app = FastAPI(debug=True)
 
 # 添加跨域中间件
 app.add_middleware(
@@ -15,15 +29,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-api = APIRouter(prefix="/api")
-ws = APIRouter(prefix="/ws")
-
 # 添加路由
-api.include_router(api_user)
-api.include_router(api_entry)
-api.include_router(api_share)
-
-ws.include_router(ws_share)
-
 app.include_router(api)
 app.include_router(ws)

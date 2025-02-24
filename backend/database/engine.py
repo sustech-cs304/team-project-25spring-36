@@ -3,27 +3,15 @@ import asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, create_async_engine
 from sqlalchemy.orm import sessionmaker
+
 from backend.config import DATABASE_ADMIN_URL, DATABASE_URL, DATABASE_NAME
+from backend.database.model import Base
 
+# 连接目标数据库
+engine = create_async_engine(DATABASE_URL, echo=True, future=True)
 
-async def create_pg_database(engine: AsyncEngine, database_name: str):
-    try:
-        async with engine.connect() as conn:
-            # 创建数据库
-            await conn.execute(text(f"CREATE DATABASE {database_name}"))
-            await conn.commit()
-    except:
-        pass
-
-
-async def create_pg_extensions(engine: AsyncEngine, extensions: list[str]):
-    try:
-        async with engine.connect() as conn:
-            for extension in extensions:
-                await conn.execute(text(f"CREATE EXTENSION IF NOT EXISTS {extension}"))
-            await conn.commit()
-    except:
-        pass
+# 创建数据库会话生成器
+session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def database():
@@ -33,26 +21,76 @@ async def database():
     返回:
     - 数据库会话对象
     """
-    async with session() as session:
-        yield session
+    async with session() as db:
+        yield db
 
 
-# 连接目标数据库
-engine = create_async_engine(DATABASE_URL, echo=True, future=True)
+async def create_pg_database(engine: AsyncEngine, database_name: str):
+    """
+    创建 PostgreSQL 数据库
 
-# 创建数据库会话生成器
-session = sessionmaker(engine, class_=AsyncSession)
+    参数:
+    - engine: AsyncEngine 对象
+    - database_name: 要创建的数据库名称
+    """
+    try:
+        async with engine.connect() as conn:
+            # 设置隔离级别为 AUTOCOMMIT
+            conn = await conn.execution_options(isolation_level="AUTOCOMMIT")
+            # 创建数据库
+            await conn.execute(text(f"CREATE DATABASE {database_name}"))
+    except:
+        pass
+
+
+async def create_pg_extensions(engine: AsyncEngine, extensions: list[str]):
+    """
+    创建 PostgreSQL 数据库扩展
+
+    参数:
+    - engine: AsyncEngine 对象
+    - extensions: 要创建的扩展列表
+    """
+    try:
+        async with engine.connect() as conn:
+            # 创建数据库扩展
+            for extension in extensions:
+                await conn.execute(text(f"CREATE EXTENSION IF NOT EXISTS {extension}"))
+            await conn.commit()
+    except:
+        pass
+
+
+async def create_pg_tables(engine: AsyncEngine):
+    """
+    创建 PostgreSQL 数据库表格
+
+    参数:
+    - engine: AsyncEngine 对象
+    """
+    async with engine.connect() as conn:
+        # 创建所有表格
+        await conn.run_sync(Base.metadata.create_all)
+        await conn.commit()
+
 
 # 初始化数据库
-asyncio.run(
-    create_pg_database(
+async def startup():
+    """
+    初始化数据库，包括创建数据库、扩展和表格
+    """
+    await create_pg_database(
         engine=create_async_engine(DATABASE_ADMIN_URL, future=True),
         database_name=DATABASE_NAME,
     )
-)
-asyncio.run(
-    create_pg_extensions(
+    await create_pg_extensions(
         engine=engine,
         extensions=["pg_trgm"],
     )
-)
+    await create_pg_tables(
+        engine=engine,
+    )
+
+
+# 启动数据库初始化任务
+asyncio.create_task(startup())

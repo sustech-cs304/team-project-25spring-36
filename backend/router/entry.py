@@ -129,7 +129,7 @@ async def entry_delete(
         elif entry.entry_type == EntryType.DIRECTORY:
             # 删除目录及其子项
             result = await db.execute(select(Entry).where(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id))
-            sub_entries = result.all()
+            sub_entries = result.scalars().all()
             for sub_entry in sub_entries:
                 if sub_entry.entry_type == EntryType.FILE:
                     await aiofiles.os.remove(os.path.join(ENTRY_STORAGE_PATH, sub_entry.alias))
@@ -189,7 +189,7 @@ async def entry_put(
         # 移动文件或目录
         if entry.entry_type == EntryType.DIRECTORY:
             result = await db.execute(select(Entry).where(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id))
-            sub_entries: list[Entry] = result.all()
+            sub_entries: list[Entry] = result.scalars().all()
             for sub_entry in sub_entries:
                 sub_entry.entry_path = new_entry_path + sub_entry.entry_path[len(entry_path) :]
         entry.entry_path = new_entry_path
@@ -227,19 +227,13 @@ async def entry_get(
             return bad_request(message="Invalid entry path")
         # 获取用户 ID
         owner_id = access_info["user_id"]
-        # 查询 Entry 记录
-        result = await db.execute(select(Entry).where(Entry.entry_path == entry_path, Entry.owner_id == owner_id))
-        entry: Entry = result.first()
-        # 验证文件是否存在
-        if entry is None:
-            return bad_request(message="Entry not found")
         # 查询 Entry 记录列表
         query = select(Entry).where(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id)
         # 验证文件深度
         if entry_depth:
             query = query.where(Entry.entry_depth <= entry_depth)
         result = await db.execute(query)
-        entries: list[Entry] = result.all()
+        entries: list[Entry] = result.scalars().all()
         # 返回文件或目录信息
         return ok(data=[entry.dict() for entry in entries])
     except:

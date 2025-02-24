@@ -77,7 +77,7 @@ async def user_login(
     """
     try:
         result = await db.execute(select(User).where(User.username == user_login.username))
-        user: User = result.first()
+        user: User = result.scalar()
         if not user or user.password != user_login.password:
             return bad_request(message="Invalid username or password")
         return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
