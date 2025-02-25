@@ -13,26 +13,15 @@ from backend.util.response import ok, bad_request, internal_server_error
 api = APIRouter(prefix="/user")
 
 
-class UserRegister(BaseModel):
+class UserRegisterRequest(BaseModel):
     username: str
     password: str
     role: UserRole
 
 
-class UserLogin(BaseModel):
-    username: str
-    password: str
-
-
-class UserUpdate(BaseModel):
-    username: Optional[str] = None
-    password: Optional[str] = None
-    role: Optional[UserRole] = None
-
-
 @api.post("/register")
 async def user_register(
-    user_register: UserRegister,
+    request: UserRegisterRequest,
     db: AsyncSession = Depends(database),
 ):
     """
@@ -46,7 +35,7 @@ async def user_register(
     - 成功时返回包含用户的JWT
     """
     try:
-        user = User(username=user_register.username, password=user_register.password, role=user_register.role)
+        user = User(username=request.username, password=request.password, role=request.role)
         db.add(user)
         await db.commit()
         await db.refresh(user)
@@ -59,9 +48,14 @@ async def user_register(
         return internal_server_error()
 
 
+class UserLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 @api.post("/login")
 async def user_login(
-    user_login: UserLogin,
+    request: UserLoginRequest,
     db: AsyncSession = Depends(database),
 ):
     """
@@ -76,18 +70,24 @@ async def user_login(
     - 失败时返回错误信息
     """
     try:
-        result = await db.execute(select(User).where(User.username == user_login.username))
+        result = await db.execute(select(User).where(User.username == request.username))
         user: User = result.scalar()
-        if not user or user.password != user_login.password:
+        if not user or user.password != request.password:
             return bad_request(message="Invalid username or password")
         return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
     except:
         return internal_server_error()
 
 
-@api.post("/update")
+class UserUpdateRequest(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[UserRole] = None
+
+
+@api.put("")
 async def user_update(
-    user_update: UserUpdate,
+    request: UserUpdateRequest,
     access_info: dict = Depends(jwt_verify),
     db: AsyncSession = Depends(database),
 ):
@@ -107,7 +107,7 @@ async def user_update(
         user: User = result.first()
         if not user:
             return bad_request(message="User not found")
-        user.update(user_update)
+        user.update(request)
         await db.commit()
         await db.refresh(user)
         return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))

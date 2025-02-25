@@ -1,6 +1,5 @@
-import asyncio
-
-from sqlalchemy import Column, BigInteger, String, DateTime, Enum, Boolean, Index
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import as_declarative
 from sqlalchemy.orm import class_mapper
 from sqlalchemy.event import listen
@@ -65,11 +64,12 @@ class Entry(Base):
 
     __tablename__ = "entries"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    owner_id = Column(BigInteger, nullable=False, index=True)
+    owner_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
     entry_type = Column(Enum(EntryType), nullable=False)
     entry_path = Column(String, nullable=False, index=True)
-    entry_depth = Column(BigInteger, nullable=False)
-    alias = Column(String, unique=True)
+    entry_depth = Column(Integer, nullable=False)
+    storage_name = Column(String, unique=True)
+    is_collaborative = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
     __table_args__ = (
@@ -95,46 +95,8 @@ class SharedEntry(Base):
 
     __tablename__ = "shared_entries"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    entry_id = Column(BigInteger, nullable=False, index=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
-
-
-class SharedEntryExtraPermissionType(EnumClass):
-    """
-    共享条目额外权限类型枚举类
-    """
-
-    READ = "read"
-    READ_WRITE = "read_write"
-    READ_WRITE_DELETE = "read_write_delete"
-    READ_WRITE_DELETE_STICKY = "read_write_delete_sticky"  # 仅目录有效
-
-
-class SharedEntryExtraPermission(Base):
-    """
-    共享条目额外权限模型类
-    """
-
-    __tablename__ = "shared_entry_extra_permissions"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    shared_entry_id = Column(BigInteger, nullable=False, index=True)  # 关联 shared_entries
-    shared_entry_sub_path = Column(String, nullable=False, index=True)  # 子文件或子目录
-    permission = Column(Enum(SharedEntryExtraPermissionType), nullable=False)  # 统一存储文件和目录权限
-    inherited = Column(Boolean, nullable=False, default=False)  # 是否继承（仅目录有效）
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
-
-
-class SharedEntryCollaborative(Base):
-    """
-    共享条目协作模型类
-    """
-
-    __tablename__ = "shared_entry_collaboratives"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    shared_entry_id = Column(BigInteger, nullable=False, index=True)  # 关联共享条目
-    shared_entry_sub_path = Column(String, nullable=False)
+    entry_id = Column(BigInteger, ForeignKey("entries.id"), nullable=False, index=True)
+    permissions = Column(JSONB)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
@@ -146,7 +108,7 @@ class SharedEntryUser(Base):
 
     __tablename__ = "shared_entry_users"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    shared_entry_id = Column(BigInteger, nullable=False, index=True)  # 关联共享条目
-    user_id = Column(BigInteger, nullable=False, index=True)  # 关联用户
+    shared_entry_id = Column(BigInteger, ForeignKey("shared_entries.id"), nullable=False, index=True)  # 关联共享条目
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)  # 关联用户
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)

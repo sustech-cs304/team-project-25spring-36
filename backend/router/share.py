@@ -6,6 +6,7 @@ from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from pydantic import BaseModel
+from enum import Enum as EnumClass
 
 from backend.util.encrypt import jwt_encode, jwt_verify
 from backend.util.response import ok, bad_request, internal_server_error, forbidden
@@ -16,10 +17,7 @@ from backend.database.model import (
     EntryType,
     Entry,
     SharedEntry,
-    SharedEntryExtraPermissionType,
-    SharedEntryExtraPermission,
     SharedEntryUser,
-    SharedEntryCollaborative,
 )
 from backend.config import ENTRY_STORAGE_PATH
 
@@ -27,16 +25,31 @@ api = APIRouter(prefix="/share")
 ws = APIRouter(prefix="/share")
 
 
-class SharedEntryPermissionCreate(BaseModel):
-    shared_entry_sub_path: str
-    permission: SharedEntryExtraPermissionType
+class SharedEntryPermissionType(EnumClass):
+    """
+    共享条目额外权限类型枚举类
+    """
+
+    READ = "read"
+    READ_WRITE = "read_write"
+    READ_WRITE_DELETE = "read_write_delete"
+    READ_WRITE_DELETE_STICKY = "read_write_delete_sticky"  # 仅目录有效
+
+
+class SharedEntryPermission(BaseModel):
+    entry_sub_path: str
+    permission: SharedEntryPermissionType
     inherited: bool = False
+
+
+class ShareTokenCreateRequest(BaseModel):
+    entry_path: str
+    permissions: Optional[List[SharedEntryPermission]] = None
 
 
 @api.post("/token/create")
 async def create_share_token(
-    entry_path: str,
-    permissions: Optional[List[SharedEntryPermissionCreate]] = None,
+    request: ShareTokenCreateRequest,
     exp_hours: Optional[int] = None,
     access_info: dict = Depends(jwt_verify),
     db: AsyncSession = Depends(database),
@@ -55,53 +68,43 @@ async def create_share_token(
     """
     try:
         # 验证文件路径
-        entry_path = path_normalize(entry_path)
-        if not entry_path:
+        request.entry_path = path_normalize(request.entry_path)
+        if not request.entry_path:
             return bad_request(message="Invalid entry path")
         # 查询文件
-        result = await db.execute(select(Entry).where(Entry.entry_path == entry_path, Entry.owner_id == access_info["user_id"]))
+        result = await db.execute(select(Entry).where(Entry.entry_path == request.entry_path, Entry.owner_id == access_info["user_id"]))
         root_entry: Entry = result.scalar()
         if root_entry is None:
             return bad_request(message="Entry not found")
+
+        # TODO: 验证权限合法性
+
         # 添加共享记录
-        shared_entry = SharedEntry(
-            entry_id=root_entry.id,
-        )
+        shared_entry = SharedEntry(entry_id=root_entry.id, permission=[p.model_dump() for p in request.permissions])
         db.add(shared_entry)
         await db.commit()
         await db.refresh(shared_entry)
-        # 添加共享权限
-        if permissions:
-            for permission in [SharedEntryPermissionCreate.model_validate(p) for p in permissions]:
-                db.add(
-                    SharedEntryExtraPermission(
-                        shared_entry_id=shared_entry.id,
-                        shared_entry_sub_path=permission.shared_entry_sub_path,
-                        permission=permission.permission,
-                        inherited=permission.inherited,
-                    )
-                )
-        await db.commit()
         # 生成共享令牌
         return ok(
             jwt_encode(
                 data={
-                    "share_entry_id": shared_entry.id,
+                    "shared_entry_id": shared_entry.id,
                 },
                 exp_hours=exp_hours,
             )
         )
     except:
-        import traceback
-
-        traceback.print_exc()
         await db.rollback()
         return internal_server_error()
 
 
+class ShareTokenParseRequest(BaseModel):
+    token: str
+
+
 @api.post("/token/parse")
-async def parse_share_token(
-    share_token: str = Body(...),
+async def share_token_parse(
+    request: ShareTokenParseRequest,
     access_info: dict = Depends(jwt_verify),
     db: AsyncSession = Depends(database),
 ):
@@ -119,15 +122,15 @@ async def parse_share_token(
     try:
         # 解析共享令牌的 JWT
         try:
-            share_info = jwt_verify(token=share_token)
+            share_info = jwt_verify(token=request.token)
         except:
             return bad_request(message="Invalid share token")
-        if "share_entry_id" not in share_info:
+        if "shared_entry_id" not in share_info:
             return bad_request(message="Invalid share token")
         # 添加共享记录
         db.add(
             SharedEntryUser(
-                shared_entry_id=share_info["share_entry_id"],
+                shared_entry_id=share_info["shared_entry_id"],
                 user_id=access_info["user_id"],
             )
         )
@@ -167,92 +170,15 @@ async def list_shared_entries(
             owner: User = result.scalar()
             result = await db.execute(select(Entry).where(Entry.entry_path.like(f"{root_entry.entry_path}%")))
             entries: list[Entry] = result.scalars().all()
-            result = await db.execute(select(SharedEntryExtraPermission).where(SharedEntryExtraPermission.shared_entry_id == shared_entry.id))
-            permissions: list[SharedEntryExtraPermission] = result.scalars().all()
-            result = await db.execute(select(SharedEntryCollaborative).where(SharedEntryCollaborative.shared_entry_id == shared_entry.id))
-            collaboratives: list[SharedEntryCollaborative] = result.scalars().all()
             shared_entry_info = {
                 "owner_id": root_entry.owner_id,
                 "owner_name": owner.username,
                 "entries": [e.dict() for e in entries],
-                "permissions": [p.dict() for p in permissions],
-                "collaboratives": [c.dict() for c in collaboratives],
+                "permissions": shared_entry.permissions,
             }
             shared_entries.append(shared_entry_info)
         return ok(data=shared_entries)
     except:
-        return internal_server_error()
-
-
-class SharedEntryCollaborativeCreate(BaseModel):
-    shared_entry_id: int
-    shared_entry_sub_path: str
-
-
-@api.post("/collaborative/create")
-async def shared_entry_collaborative_create(
-    shared_entry_collaborative_create: SharedEntryCollaborativeCreate,
-    access_info: dict = Depends(jwt_verify),
-    db: AsyncSession = Depends(database),
-):
-    """
-    创建共享条目协作
-
-    参数:
-    - shared_entry_id: 共享条目 ID
-    - shared_entry_sub_path: 共享条目子路径
-    - access_info: 通过 JWT 验证后的用户信息
-    - db: 数据库会话
-
-    返回:
-    - 成功时返回空数据
-    """
-    try:
-        # 验证共享条目子路径
-        shared_entry_sub_path = path_normalize(shared_entry_collaborative_create.shared_entry_sub_path)
-        if not shared_entry_sub_path:
-            return bad_request(message="Invalid shared entry sub path")
-        # 查询共享记录
-        result = await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_collaborative_create.shared_entry_id))
-        shared_entry: SharedEntry = result.scalar()
-        if shared_entry is None:
-            return bad_request(message="Shared entry not found")
-        # 查询文件
-        result = await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))
-        root_entry: Entry = result.scalar()
-        if root_entry is None:
-            return bad_request(message="Entry not found")
-        # 验证权限
-        if root_entry.owner_id != access_info["user_id"]:
-            return forbidden(message="Permission denied")
-        # 查询目标文件
-        result = await db.execute(
-            select(Entry).where(
-                Entry.owner_id == root_entry.owner_id,
-                Entry.entry_path == root_entry.entry_path + shared_entry_sub_path,
-            )
-        )
-        source_entry: Entry = result.scalar()
-        # 验证目标文件
-        if source_entry is None:
-            return bad_request(message="Source collaborative entry not found")
-        if source_entry.entry_type != EntryType.FILE:
-            return bad_request(message="Source collaborative entry must be a file")
-        # 验证共享条目协作是否已存在
-        result = await db.execute(
-            select(SharedEntryCollaborative).where(
-                SharedEntryCollaborative.shared_entry_id == shared_entry.id,
-                SharedEntryCollaborative.shared_entry_sub_path == shared_entry_sub_path,
-            )
-        )
-        if result.scalar() is not None:
-            return bad_request(message="Collaborative entry already exists")
-        # 添加共享条目协作
-        db.add(SharedEntryCollaborative(shared_entry_id=shared_entry.id, shared_entry_sub_path=shared_entry_sub_path))
-        await db.commit()
-        return ok()
-    except:
-        await db.rollback()
         return internal_server_error()
 
 
@@ -262,87 +188,71 @@ class CollaborativeWebSocketManager:
 
     async def connect(
         self,
-        shared_entry_collaborative_id: int,
+        entry_id: int,
         websocket: WebSocket,
     ):
         await websocket.accept()
-        if shared_entry_collaborative_id not in self.conns:
-            self.conns[shared_entry_collaborative_id] = set()
-        self.conns[shared_entry_collaborative_id].add(websocket)
+        if entry_id not in self.conns:
+            self.conns[entry_id] = set()
+        self.conns[entry_id].add(websocket)
 
     def disconnect(
         self,
-        shared_entry_collaborative_id: int,
+        entry_id: int,
         websocket: WebSocket,
     ):
-        self.conns[shared_entry_collaborative_id].remove(websocket)
-        if not self.conns[shared_entry_collaborative_id]:
-            del self.conns[shared_entry_collaborative_id]
+        self.conns[entry_id].remove(websocket)
+        if not self.conns[entry_id]:
+            del self.conns[entry_id]
 
     async def boardcast(
         self,
-        shared_entry_collaborative_id: int,
+        entry_id: int,
         text: str,
     ):
-        if shared_entry_collaborative_id in self.conns:
-            for conn in self.conns[shared_entry_collaborative_id]:
+        if entry_id in self.conns:
+            for conn in self.conns[entry_id]:
                 await conn.send_text(text)
 
 
 collaborative_websocket_manager = CollaborativeWebSocketManager()
 
 
-@ws.websocket("/collaborative/subscribe/{shared_entry_collaborative_id}")
+@ws.websocket("/collaborative/subscribe")
 async def shared_entry_collaborative_subscribe(
     websocket: WebSocket,
-    shared_entry_collaborative_id: int,
+    entry_id: int,
+    shared_entry_id: int = None,
     db: AsyncSession = Depends(database),
+    access_info=Depends(jwt_verify),
 ):
     # 校验
-    result = await db.execute(select(SharedEntryCollaborative).where(SharedEntryCollaborative.id == shared_entry_collaborative_id))
-    shared_entry_collaborative: SharedEntryCollaborative = result.scalar()
-    if shared_entry_collaborative is None:
+    result = await db.execute(select(Entry).where(Entry.id == entry_id))
+    entry: Entry = result.scalar()
+    if entry is None or not entry.is_collaborative:
         await websocket.close(code=1008)
         return
-    result = await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_collaborative.shared_entry_id))
-    shared_entry: SharedEntry = result.scalar()
-    if shared_entry is None:
-        await websocket.close(code=1008)
-        return
-    # 权限解析
-    # 跳过
-    # 查询文件
-    result = await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))
-    root_entry: Entry = result.scalar()
-    if root_entry is None:
-        await websocket.close(code=1008)
-        return
-    result = await db.execute(
-        select(Entry).where(
-            Entry.entry_path == root_entry.entry_path + shared_entry_collaborative.shared_entry_sub_path,
-            Entry.owner_id == root_entry.owner_id,
-        )
-    )
-    source_entry: Entry = result.scalar()
-    if source_entry is None:
-        await websocket.close(code=1008)
-        return
-    source_path = os.path.join(ENTRY_STORAGE_PATH, source_entry.alias)
+
+    # TODO: 验证用户是否有权限访问共享文件
+
+    storage_path = os.path.join(ENTRY_STORAGE_PATH, entry.storage_name)
     # 连接 WebSocket
     await collaborative_websocket_manager.connect(
-        shared_entry_collaborative_id,
+        entry_id,
         websocket,
     )
     # 接收消息
     try:
         # 发送文件
-        async with aiofiles.open(source_path, "rb") as fp:
+        async with aiofiles.open(storage_path, "rb") as fp:
             await websocket.send_bytes(await fp.read())
         while True:
             data = await websocket.receive_text()
-            # OT or CRDT
+
+            # TODO: 使用 OT or CRDT进行实时协作
+
     except:
         collaborative_websocket_manager.disconnect(
-            shared_entry_collaborative_id,
+            entry_id,
             websocket,
         )

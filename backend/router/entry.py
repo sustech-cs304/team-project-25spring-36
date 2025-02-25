@@ -6,6 +6,7 @@ import os
 from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from pydantic import BaseModel
 
 from backend.util.encrypt import jwt_verify
 from backend.util.response import ok, bad_request, internal_server_error
@@ -17,11 +18,55 @@ from backend.config import ENTRY_STORAGE_PATH
 api = APIRouter(prefix="/entry")
 
 
+@api.get("")
+async def entry_get(
+    entry_path: str,
+    entry_depth: int = None,
+    db: AsyncSession = Depends(database),
+    access_info: dict = Depends(jwt_verify),
+):
+    """
+    获取文件或目录信息
+
+    参数:
+    - entry_path: 文件或目录路径
+    - entry_depth: 文件深度（可选）
+    - db: 数据库会话
+    - access_info: 访问信息（通过 JWT 验证后的用户信息）
+
+    返回:
+    - 成功时返回文件或目录信息
+    """
+    try:
+        # 规范化文件路径
+        entry_path = path_normalize(entry_path)
+        if not entry_path:
+            return bad_request(message="Invalid entry path")
+        # 获取用户 ID
+        owner_id = access_info["user_id"]
+        # 查询 Entry 记录列表
+        query = select(Entry).where(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id)
+        # 验证文件深度
+        if entry_depth:
+            query = query.where(Entry.entry_depth <= entry_depth)
+        result = await db.execute(query)
+        entries: list[Entry] = result.scalars().all()
+        # 返回文件或目录信息
+        return ok(data=[entry.dict() for entry in entries])
+    except:
+        return internal_server_error()
+
+
+class EntryPostRequest(BaseModel):
+    entry_path: str
+    entry_type: EntryType
+    is_collabrative: bool = False
+    file: UploadFile = None
+
+
 @api.post("")
 async def entry_post(
-    entry_type: EntryType,
-    entry_path: str,
-    file: UploadFile = File(None),
+    request: EntryPostRequest,
     db: AsyncSession = Depends(database),
     access_info: dict = Depends(jwt_verify),
 ):
@@ -31,6 +76,7 @@ async def entry_post(
     参数:
     - entry_type: 文件类型(FILE 或 DIRECTORY)
     - entry_path: 文件或目录路径
+    - is_collabrative: 是否协作模式(可选)
     - file: 上传的文件(可选)
     - db: 数据库会话
     - access_info: 访问信息(通过 JWT 验证后的用户信息)
@@ -40,46 +86,50 @@ async def entry_post(
     """
     try:
         # 验证文件路径
-        entry_path = path_normalize(entry_path)
-        if not entry_path:
+        request.entry_path = path_normalize(request.entry_path)
+        if not request.entry_path:
             return bad_request(message="Invalid entry path")
         # 获取用户 ID
         owner_id = access_info["user_id"]
         # 验证文件是否已存在
-        result = await db.execute(select(Entry).where(Entry.entry_path == entry_path, Entry.owner_id == owner_id))
+        result = await db.execute(select(Entry).where(Entry.entry_path == request.entry_path, Entry.owner_id == owner_id))
         entry: Entry = result.first()
         if entry is not None:
             return bad_request(message="Entry already exists")
+        # 验证文件类型
+        if request.entry_type == EntryType.DIRECTORY:
+            is_collabrative = False
         # 验证及自动创建父目录
-        await create_parent_directories(db, entry_path, owner_id)
+        await create_parent_directories(db, request.entry_path, owner_id)
         # 创建 Entry 记录
-        if entry_type == EntryType.FILE:
+        if request.entry_type == EntryType.FILE:
             # 验证文件是否为空
             if file is None:
                 return bad_request(message="Missing file")
             # 生成文件别名
-            alias = uuid.uuid4().hex
+            storage_path = uuid.uuid4().hex
             # 异步保存文件到指定目录
-            async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, alias), "wb") as buf:
+            async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, storage_path), "wb") as buf:
                 while chunk := await file.read(1024 * 1024):  # 逐块读取 1MB
                     await buf.write(chunk)
             # 创建新的 Entry 记录
             db.add(
                 Entry(
                     owner_id=owner_id,
-                    entry_type=entry_type,
-                    entry_path=entry_path,
-                    alias=alias,
+                    entry_type=request.entry_type,
+                    entry_path=request.entry_path,
+                    storage_path=storage_path,
+                    is_collabrative=is_collabrative,
                 )
             )
-        elif entry_type == EntryType.DIRECTORY:
+        elif request.entry_type == EntryType.DIRECTORY:
             # 创建新的目录 Entry 记录
             db.add(
                 Entry(
                     owner_id=owner_id,
-                    entry_type=entry_type,
-                    entry_path=entry_path,
-                    alias=None,
+                    entry_type=request.entry_type,
+                    entry_path=request.entry_path,
+                    storage_path=None,
                 )
             )
         else:
@@ -124,7 +174,7 @@ async def entry_delete(
             return bad_request(message="Entry not found")
         if entry.entry_type == EntryType.FILE:
             # 删除文件
-            await aiofiles.os.remove(os.path.join(ENTRY_STORAGE_PATH, entry.alias))
+            await aiofiles.os.remove(os.path.join(ENTRY_STORAGE_PATH, entry.storage_name))
             await db.delete(entry)
         elif entry.entry_type == EntryType.DIRECTORY:
             # 删除目录及其子项
@@ -132,7 +182,7 @@ async def entry_delete(
             sub_entries = result.scalars().all()
             for sub_entry in sub_entries:
                 if sub_entry.entry_type == EntryType.FILE:
-                    await aiofiles.os.remove(os.path.join(ENTRY_STORAGE_PATH, sub_entry.alias))
+                    await aiofiles.os.remove(os.path.join(ENTRY_STORAGE_PATH, sub_entry.storage_name))
                 await db.delete(sub_entry)
         else:
             return internal_server_error()
@@ -144,10 +194,14 @@ async def entry_delete(
         return internal_server_error()
 
 
-@api.put("")
-async def entry_put(
-    entry_path: str,
-    new_entry_path: str,
+class EntryMoveRequest(BaseModel):
+    entry_path: str
+    new_entry_path: str
+
+
+@api.put("/move")
+async def entry_move(
+    request: EntryMoveRequest,
     db: AsyncSession = Depends(database),
     access_info: dict = Depends(jwt_verify),
 ):
@@ -165,34 +219,33 @@ async def entry_put(
     """
     try:
         # 规范化文件路径
-        entry_path, new_entry_path = path_normalize(entry_path), path_normalize(new_entry_path)
-        if not entry_path or not new_entry_path:
+        request.entry_path, request.new_entry_path = path_normalize(request.entry_path), path_normalize(request.new_entry_path)
+        if not request.entry_path or not request.new_entry_path:
             return bad_request(message="Invalid entry path")
         # 验证文件路径是否相同
-        if entry_path == new_entry_path:
+        if request.entry_path == request.new_entry_path:
             return bad_request(message="Entry path unchanged")
         # 获取用户 ID
         owner_id = access_info["user_id"]
         # 查询 Entry 记录
-        result = await db.execute(select(Entry).where(Entry.entry_path == entry_path, Entry.owner_id == owner_id))
+        result = await db.execute(select(Entry).where(Entry.entry_path == request.entry_path, Entry.owner_id == owner_id))
         entry: Entry = result.first()
         # 验证文件是否存在
         if entry is None:
             return bad_request(message="Entry not found")
         # 验证新文件是否已存在
-        result = await db.execute(select(Entry).where(Entry.entry_path == new_entry_path, Entry.owner_id == owner_id))
+        result = await db.execute(select(Entry).where(Entry.entry_path == request.new_entry_path, Entry.owner_id == owner_id))
         new_entry: Entry = result.first()
         if new_entry is not None:
             return bad_request(message="New entry already exists")
         # 验证及自动创建父目录
-        await create_parent_directories(db, new_entry_path, owner_id)
+        await create_parent_directories(db, request.new_entry_path, owner_id)
         # 移动文件或目录
         if entry.entry_type == EntryType.DIRECTORY:
-            result = await db.execute(select(Entry).where(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id))
+            result = await db.execute(select(Entry).where(Entry.entry_path.like(f"{request.entry_path}%"), Entry.owner_id == owner_id))
             sub_entries: list[Entry] = result.scalars().all()
             for sub_entry in sub_entries:
-                sub_entry.entry_path = new_entry_path + sub_entry.entry_path[len(entry_path) :]
-        entry.entry_path = new_entry_path
+                sub_entry.entry_path = request.new_entry_path + sub_entry.entry_path[len(request.entry_path) :]
         # 提交数据库事务
         await db.commit()
         return ok()
@@ -201,47 +254,8 @@ async def entry_put(
         return internal_server_error()
 
 
-@api.get("")
-async def entry_get(
-    entry_path: str,
-    entry_depth: int = None,
-    db: AsyncSession = Depends(database),
-    access_info: dict = Depends(jwt_verify),
-):
-    """
-    获取文件或目录信息
-
-    参数:
-    - entry_path: 文件或目录路径
-    - entry_depth: 文件深度（可选）
-    - db: 数据库会话
-    - access_info: 访问信息（通过 JWT 验证后的用户信息）
-
-    返回:
-    - 成功时返回文件或目录信息
-    """
-    try:
-        # 规范化文件路径
-        entry_path = path_normalize(entry_path)
-        if not entry_path:
-            return bad_request(message="Invalid entry path")
-        # 获取用户 ID
-        owner_id = access_info["user_id"]
-        # 查询 Entry 记录列表
-        query = select(Entry).where(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id)
-        # 验证文件深度
-        if entry_depth:
-            query = query.where(Entry.entry_depth <= entry_depth)
-        result = await db.execute(query)
-        entries: list[Entry] = result.scalars().all()
-        # 返回文件或目录信息
-        return ok(data=[entry.dict() for entry in entries])
-    except:
-        return internal_server_error()
-
-
 @api.get("/download")
-async def entry_get_file(
+async def entry_download(
     entry_path: str,
     db: AsyncSession = Depends(database),
     access_info: dict = Depends(jwt_verify),
@@ -274,7 +288,7 @@ async def entry_get_file(
         if entry.entry_type != EntryType.FILE:
             return bad_request(message="Entry is not a file")
         # 返回文件内容
-        async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, entry.alias), "rb") as buf:
+        async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, entry.storage_name), "rb") as buf:
             return await buf.read()
     except:
         return internal_server_error()
@@ -300,7 +314,7 @@ async def create_parent_directories(db: AsyncSession, entry_path: str, owner_id:
                     owner_id=owner_id,
                     entry_type=EntryType.DIRECTORY,
                     entry_path=path,
-                    alias=None,
+                    storage_path=None,
                 )
             )
     await db.commit()
