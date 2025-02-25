@@ -1,12 +1,11 @@
 import aiofiles
 import os
 
-from fastapi import APIRouter, Depends, Body, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from pydantic import BaseModel
-from enum import Enum as EnumClass
 
 from backend.util.encrypt import jwt_encode, jwt_verify
 from backend.util.response import ok, bad_request, internal_server_error, forbidden
@@ -238,7 +237,7 @@ async def shared_entry_collaborative_subscribe(
     参数:
     - websocket: WebSocket 连接对象
     - entry_id: 文件条目 ID
-    - shared_entry_id: 共享条目 ID(如果是文件的所有者则可以为空)
+    - shared_entry_id: 共享条目 ID (如果是文件的所有者则可以为空)
     - db: 数据库会话
     - access_info: 通过 JWT 验证后的用户信息
     """
