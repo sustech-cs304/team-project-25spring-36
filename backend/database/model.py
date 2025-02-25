@@ -105,7 +105,7 @@ SharedEntryPermissionKey = LiteralString
 
 
 class SharedEntryPermissionValue(BaseModel):
-    permission: SharedEntryPermissionType
+    permission_type: SharedEntryPermissionType
     inherited: bool = False
 
 

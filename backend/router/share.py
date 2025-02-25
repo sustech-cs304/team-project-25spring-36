@@ -2,7 +2,7 @@ import aiofiles
 import os
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
-from typing import Optional, List
+from typing import Optional, List, Set, Dict, LiteralString
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from pydantic import BaseModel
@@ -27,7 +27,7 @@ ws = APIRouter(prefix="/share")
 
 
 class ShareTokenCreateRequest(BaseModel):
-    entry_path: str
+    entry_path: LiteralString
     permissions: Optional[SharedEntryPermission] = None
 
 
@@ -35,7 +35,7 @@ class ShareTokenCreateRequest(BaseModel):
 async def create_share_token(
     request: ShareTokenCreateRequest,
     exp_hours: Optional[int] = None,
-    access_info: dict = Depends(jwt_verify),
+    access_info: Dict = Depends(jwt_verify),
     db: AsyncSession = Depends(database),
 ):
     """
@@ -84,13 +84,13 @@ async def create_share_token(
 
 
 class ShareTokenParseRequest(BaseModel):
-    token: str
+    token: LiteralString
 
 
 @api.post("/token/parse")
 async def share_token_parse(
     request: ShareTokenParseRequest,
-    access_info: dict = Depends(jwt_verify),
+    access_info: Dict = Depends(jwt_verify),
     db: AsyncSession = Depends(database),
 ):
     """
@@ -129,7 +129,7 @@ async def share_token_parse(
 @api.get("/list")
 async def shared_entry_list(
     db: AsyncSession = Depends(database),
-    access_info: dict = Depends(jwt_verify),
+    access_info: Dict = Depends(jwt_verify),
 ):
     """
     获取共享记录列表
@@ -145,7 +145,7 @@ async def shared_entry_list(
         shared_entries = []
         # 查询共享记录
         result = await db.execute(select(SharedEntryUser).where(SharedEntryUser.user_id == access_info["user_id"]))
-        shared_entry_users: list[SharedEntryUser] = result.scalars().all()
+        shared_entry_users: List[SharedEntryUser] = result.scalars().all()
         for shared_entry_user in shared_entry_users:
             result = await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_user.shared_entry_id))
             shared_entry: SharedEntry = result.scalar()
@@ -154,7 +154,7 @@ async def shared_entry_list(
             result = await db.execute(select(User).where(User.id == root_entry.owner_id))
             owner: User = result.scalar()
             result = await db.execute(select(Entry).where(Entry.entry_path.like(f"{root_entry.entry_path}%")))
-            entries: list[Entry] = result.scalars().all()
+            entries: List[Entry] = result.scalars().all()
             shared_entry_info = {
                 "owner_id": root_entry.owner_id,
                 "owner_name": owner.username,
@@ -169,7 +169,7 @@ async def shared_entry_list(
 
 class CollaborativeWebSocketManager:
     def __init__(self):
-        self.conns: dict[int, set[WebSocket]] = {}
+        self.conns: Dict[int, Set[WebSocket]] = {}
 
     async def connect(
         self,
@@ -207,7 +207,7 @@ class CollaborativeWebSocketManager:
     async def boardcast(
         self,
         entry_id: int,
-        text: str,
+        text: LiteralString,
     ):
         """
         广播消息到所有连接的 WebSocket
