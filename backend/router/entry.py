@@ -1,3 +1,4 @@
+import mimetypes
 import os
 import uuid
 from typing import Dict, Optional, Sequence
@@ -5,6 +6,7 @@ from typing import Dict, Optional, Sequence
 import aiofiles
 import aiofiles.os
 from fastapi import APIRouter, Depends, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -13,7 +15,7 @@ from backend.config import ENTRY_STORAGE_PATH
 from backend.database.engine import database
 from backend.database.model import Entry, EntryType
 from backend.util.encrypt import jwt_verify
-from backend.util.path import path_normalize
+from backend.util.path import path_normalize, path_split_dir_base_name
 from backend.util.response import ok, bad_request, internal_server_error
 
 api = APIRouter(prefix="/entry")
@@ -262,8 +264,19 @@ async def entry_download(
         if entry.entry_type != EntryType.FILE:
             return bad_request(message="Entry is not a file")
         # 返回文件内容
-        async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, entry.storage_name), "rb") as buf:
-            return await buf.read()
+        storage_path = os.path.join(ENTRY_STORAGE_PATH, entry.storage_name)
+        # 获取文件名
+        _, filename = path_split_dir_base_name(entry_path)
+        # 使用 mimetypes.guess_type 来获取文件的 MIME 类型
+        media_type, _ = mimetypes.guess_type(filename)
+        if media_type is None:
+            media_type = "application/octet-stream"
+        # 返回文件
+        return FileResponse(
+            storage_path,
+            media_type=media_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
     except:
         return internal_server_error()
 
