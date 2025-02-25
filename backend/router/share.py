@@ -17,29 +17,14 @@ from backend.database.model import (
     EntryType,
     Entry,
     SharedEntry,
+    SharedEntryPermissionType,
+    SharedEntryPermission,
     SharedEntryUser,
 )
 from backend.config import ENTRY_STORAGE_PATH
 
 api = APIRouter(prefix="/share")
 ws = APIRouter(prefix="/share")
-
-
-class SharedEntryPermissionType(EnumClass):
-    """
-    共享条目额外权限类型枚举类
-    """
-
-    READ = "read"
-    READ_WRITE = "read_write"
-    READ_WRITE_DELETE = "read_write_delete"
-    READ_WRITE_DELETE_STICKY = "read_write_delete_sticky"  # 仅目录有效
-
-
-class SharedEntryPermission(BaseModel):
-    entry_sub_path: str
-    permission: SharedEntryPermissionType
-    inherited: bool = False
 
 
 class ShareTokenCreateRequest(BaseModel):
@@ -80,7 +65,7 @@ async def create_share_token(
         # TODO: 验证权限合法性
 
         # 添加共享记录
-        shared_entry = SharedEntry(entry_id=root_entry.id, permission=[p.model_dump() for p in request.permissions])
+        shared_entry = SharedEntry(entry_id=root_entry.id, permissions=[p.dict() for p in request.permissions])
         db.add(shared_entry)
         await db.commit()
         await db.refresh(shared_entry)
@@ -142,7 +127,7 @@ async def share_token_parse(
 
 
 @api.get("/list")
-async def list_shared_entries(
+async def shared_entry_list(
     db: AsyncSession = Depends(database),
     access_info: dict = Depends(jwt_verify),
 ):
@@ -191,6 +176,13 @@ class CollaborativeWebSocketManager:
         entry_id: int,
         websocket: WebSocket,
     ):
+        """
+        连接 WebSocket 并添加到连接管理器
+
+        参数:
+        - entry_id: 文件条目 ID
+        - websocket: WebSocket 连接对象
+        """
         await websocket.accept()
         if entry_id not in self.conns:
             self.conns[entry_id] = set()
@@ -201,6 +193,13 @@ class CollaborativeWebSocketManager:
         entry_id: int,
         websocket: WebSocket,
     ):
+        """
+        断开 WebSocket 连接并从连接管理器中移除
+
+        参数:
+        - entry_id: 文件条目 ID
+        - websocket: WebSocket 连接对象
+        """
         self.conns[entry_id].remove(websocket)
         if not self.conns[entry_id]:
             del self.conns[entry_id]
@@ -210,6 +209,13 @@ class CollaborativeWebSocketManager:
         entry_id: int,
         text: str,
     ):
+        """
+        广播消息到所有连接的 WebSocket
+
+        参数:
+        - entry_id: 文件条目 ID
+        - text: 要广播的消息
+        """
         if entry_id in self.conns:
             for conn in self.conns[entry_id]:
                 await conn.send_text(text)
@@ -226,6 +232,16 @@ async def shared_entry_collaborative_subscribe(
     db: AsyncSession = Depends(database),
     access_info=Depends(jwt_verify),
 ):
+    """
+    订阅共享条目协作
+
+    参数:
+    - websocket: WebSocket 连接对象
+    - entry_id: 文件条目 ID
+    - shared_entry_id: 共享条目 ID(如果是文件的所有者则可以为空)
+    - db: 数据库会话
+    - access_info: 通过 JWT 验证后的用户信息
+    """
     # 校验
     result = await db.execute(select(Entry).where(Entry.id == entry_id))
     entry: Entry = result.scalar()

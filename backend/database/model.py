@@ -5,6 +5,7 @@ from sqlalchemy.orm import class_mapper
 from sqlalchemy.event import listen
 from datetime import datetime
 from enum import Enum as EnumClass
+from pydantic import BaseModel
 
 
 @as_declarative()
@@ -86,6 +87,23 @@ class Entry(Base):
 # 监听 Entry 类的插入和更新事件
 listen(Entry, "before_insert", Entry.event_entry_depth)
 listen(Entry, "before_update", Entry.event_entry_depth)
+
+
+class SharedEntryPermissionType(EnumClass):
+    """
+    共享条目额外权限类型枚举类
+    """
+
+    READ = "read"
+    READ_WRITE = "read_write"
+    READ_WRITE_DELETE = "read_write_delete"
+    READ_WRITE_DELETE_STICKY = "read_write_delete_sticky"  # 仅目录有效
+
+
+class SharedEntryPermission(BaseModel):
+    entry_sub_path: str
+    permission: SharedEntryPermissionType
+    inherited: bool = False
 
 
 class SharedEntry(Base):
