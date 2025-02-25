@@ -297,11 +297,12 @@ async def create_parent_directories(
     await db.commit()
 
 
-async def find_entry(entry_path: str,
-                     db: AsyncSession,
-                     owner_id: int,
-                     nullable: bool = False,
-                     ) -> Optional[Entry]:
+async def find_entry(
+        entry_path: str,
+        db: AsyncSession,
+        owner_id: int,
+        nullable: bool = False,
+) -> Optional[Entry]:
     # 规范化文件路径
     try:
         entry_path = path_normalize(entry_path)
