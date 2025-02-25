@@ -1,8 +1,9 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
-from backend.router.user import api as api_user
+
 from backend.router.entry import api as api_entry
 from backend.router.share import api as api_share, ws as ws_share
+from backend.router.user import api as api_user
 
 # 创建http路由
 api = APIRouter(prefix="/api")
@@ -22,7 +23,7 @@ app = FastAPI(debug=True)
 
 # 添加跨域中间件
 app.add_middleware(
-    CORSMiddleware,
+    CORSMiddleware,  # type: ignore
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],

@@ -1,11 +1,12 @@
+from typing import Dict, List, Union
+
 from fastapi import status
 from fastapi.responses import JSONResponse
-from typing import Dict
 
 
 def ok(
-    data: Dict = None,
-    **kwargs,
+        data: Union[str, Dict, List, None] = None,
+        **kwargs,
 ) -> JSONResponse:
     """
     返回成功响应
@@ -30,8 +31,8 @@ def ok(
 
 
 def bad_request(
-    message: str = "N/A",
-    **kwargs,
+        message: str = "N/A",
+        **kwargs,
 ) -> JSONResponse:
     """
     返回错误请求响应
@@ -56,8 +57,8 @@ def bad_request(
 
 
 def forbidden(
-    message: str = "N/A",
-    **kwargs,
+        message: str = "N/A",
+        **kwargs,
 ) -> JSONResponse:
     """
     返回禁止访问响应
@@ -82,8 +83,8 @@ def forbidden(
 
 
 def internal_server_error(
-    message: str = "N/A",
-    **kwargs,
+        message: str = "N/A",
+        **kwargs,
 ) -> JSONResponse:
     """
     返回服务器内部错误响应
@@ -108,8 +109,8 @@ def internal_server_error(
 
 
 def not_implemented(
-    message: str = "N/A",
-    **kwargs,
+        message: str = "N/A",
+        **kwargs,
 ) -> JSONResponse:
     """
     返回未实现功能响应

@@ -1,10 +1,11 @@
 import posixpath
-from pathvalidate import is_valid_filepath
 from typing import Tuple, Iterator
+
+from pathvalidate import is_valid_filepath
 
 
 def path_normalize(
-    path: str,
+        path: str,
 ) -> str:
     """
     验证并规范化文件路径
@@ -23,7 +24,7 @@ def path_normalize(
 
 
 def path_prefix(
-    path: str,
+        path: str,
 ) -> str:
     """
     获取文件路径的父目录
@@ -42,7 +43,7 @@ def path_prefix(
 
 
 def path_split_dir_file_name(
-    path: str,
+        path: str,
 ) -> Tuple[str, str]:
     """
     分割文件路径为目录和文件名
@@ -56,12 +57,12 @@ def path_split_dir_file_name(
     idx = path.rfind("/")
     return (
         path[:idx],
-        path[idx + 1 :],
+        path[idx + 1:],
     )
 
 
 def path_iterate_parents(
-    path: str,
+        path: str,
 ) -> Iterator[str]:
     """
     迭代文件路径的所有父目录

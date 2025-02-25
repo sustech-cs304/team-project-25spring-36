@@ -1,20 +1,16 @@
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.declarative import as_declarative
-from sqlalchemy.orm import class_mapper
-from sqlalchemy.event import listen
 from datetime import datetime
 from enum import Enum as EnumClass
-from pydantic import BaseModel
 from typing import Dict
 
+from pydantic import BaseModel
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.event import listen
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import class_mapper
 
-@as_declarative()
-class Base:
-    """
-    基础模型类，包含通用方法
-    """
 
+class Mixin:
     def dict(self):
         """将 SQLAlchemy 模型对象转换为字典"""
         return {column.key: str(getattr(self, column.key)) for column in class_mapper(self.__class__).columns}
@@ -24,6 +20,9 @@ class Base:
         for key, val in vars(target).items():
             if key and val and hasattr(self, key):
                 setattr(self, key, val)
+
+
+SQLAlchemyBaseModel = declarative_base()
 
 
 class UserRole(EnumClass):
@@ -36,7 +35,7 @@ class UserRole(EnumClass):
     ADMIN = "admin"
 
 
-class User(Base):
+class User(SQLAlchemyBaseModel, Mixin):
     """
     用户模型类
     """
@@ -59,7 +58,7 @@ class EntryType(EnumClass):
     DIRECTORY = "directory"
 
 
-class Entry(Base):
+class Entry(SQLAlchemyBaseModel, Mixin):
     """
     文件条目模型类
     """
@@ -70,17 +69,18 @@ class Entry(Base):
     entry_type = Column(Enum(EntryType), nullable=False)
     entry_path = Column(String, nullable=False, index=True)
     entry_depth = Column(Integer, nullable=False)
-    storage_name = Column(String, unique=True)
+    storage_name = Column(String, unique=True, nullable=True, default=None)
     is_collaborative = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
     __table_args__ = (
         Index("idx_entry_path", entry_path),  # B-TREE 主索引
-        Index("idx_entry_path_prefix", entry_path, postgresql_using="gin", postgresql_ops={"entry_path": "gin_trgm_ops"}),  # 适用于 LIKE 查询
+        Index("idx_entry_path_prefix", entry_path, postgresql_using="gin",
+              postgresql_ops={"entry_path": "gin_trgm_ops"}),  # 适用于 LIKE 查询
     )
 
     @staticmethod
-    def event_entry_depth(mapper, connection, target: "Entry"):
+    def event_entry_depth(_, __, target: "Entry"):
         """在插入或更新时计算 entry_depth"""
         target.entry_depth = target.entry_path.count("/")
 
@@ -115,7 +115,7 @@ class SharedEntryPermissionValue(BaseModel):
 SharedEntryPermission = Dict[SharedEntryPermissionKey, SharedEntryPermissionValue]
 
 
-class SharedEntry(Base):
+class SharedEntry(SQLAlchemyBaseModel, Mixin):
     """
     共享条目模型类
     """
@@ -128,7 +128,7 @@ class SharedEntry(Base):
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
 
-class SharedEntryUser(Base):
+class SharedEntryUser(SQLAlchemyBaseModel, Mixin):
     """
     共享条目用户模型类
     """

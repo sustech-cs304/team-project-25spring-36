@@ -1,10 +1,11 @@
+from typing import Dict
+from typing import Optional
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.exc import IntegrityError
-from pydantic import BaseModel
-from typing import Optional
-from fastapi import APIRouter, Depends
-from typing import  Dict
 
 from backend.database.engine import database
 from backend.database.model import UserRole, User
@@ -22,8 +23,8 @@ class UserRegisterRequest(BaseModel):
 
 @api.post("/register")
 async def user_register(
-    request: UserRegisterRequest,
-    db: AsyncSession = Depends(database),
+        request: UserRegisterRequest,
+        db: AsyncSession = Depends(database),
 ):
     """
     创建新用户
@@ -56,8 +57,8 @@ class UserLoginRequest(BaseModel):
 
 @api.post("/login")
 async def user_login(
-    request: UserLoginRequest,
-    db: AsyncSession = Depends(database),
+        request: UserLoginRequest,
+        db: AsyncSession = Depends(database),
 ):
     """
     用户登录
@@ -88,9 +89,9 @@ class UserUpdateRequest(BaseModel):
 
 @api.put("")
 async def user_update(
-    request: UserUpdateRequest,
-    access_info: Dict = Depends(jwt_verify),
-    db: AsyncSession = Depends(database),
+        request: UserUpdateRequest,
+        access_info: Dict = Depends(jwt_verify),
+        db: AsyncSession = Depends(database),
 ):
     """
     更新用户信息
@@ -105,7 +106,7 @@ async def user_update(
     """
     try:
         result = await db.execute(select(User).where(User.id == access_info["user_id"]))
-        user: User = result.first()
+        user: User = result.scalar()
         if not user:
             return bad_request(message="User not found")
         user.update(request)
