@@ -87,7 +87,7 @@ async def entry_post(
         # 获取用户 ID
         owner_id = access_info["user_id"]
         try:
-            await find_entry(request.entry_path, db, owner_id)
+            await find_entry(request.entry_path, owner_id, db)
         except ValueError as e:
             return bad_request(message=str(e))
         # 验证及自动创建父目录
@@ -154,7 +154,7 @@ async def entry_delete(
         owner_id = access_info["user_id"]
         # 寻找文件或目录
         try:
-            entry: Entry = await find_entry(entry_path, db, owner_id)
+            entry: Entry = await find_entry(entry_path, owner_id, db)
         except ValueError as e:
             return bad_request(message=str(e))
         if entry.entry_type == EntryType.FILE:
@@ -209,8 +209,8 @@ async def entry_move(
         # 获取用户 ID
         owner_id = access_info["user_id"]
         try:
-            entry: Entry = await find_entry(request.entry_path, db, access_info["user_id"])
-            new_entry: Entry = await find_entry(request.new_entry_path, db, access_info["user_id"], nullable=True)
+            entry: Entry = await find_entry(request.entry_path, access_info["user_id"], db)
+            new_entry: Entry = await find_entry(request.new_entry_path, access_info["user_id"], db, nullable=True)
             # 断言新路径不存在
             if new_entry is not None:
                 return bad_request(message="New entry already exists")
@@ -255,7 +255,7 @@ async def entry_download(
         # 获取用户 ID
         owner_id = access_info["user_id"]
         try:
-            entry: Entry = await find_entry(entry_path, db, owner_id)
+            entry: Entry = await find_entry(entry_path, owner_id, db)
         except ValueError as e:
             return bad_request(message=str(e))
         # 验证文件类型
@@ -299,10 +299,22 @@ async def create_parent_directories(
 
 async def find_entry(
         entry_path: str,
-        db: AsyncSession,
         owner_id: int,
+        db: AsyncSession,
         nullable: bool = False,
 ) -> Optional[Entry]:
+    """
+    查询 Entry 记录
+    
+    参数:
+        - entry_path: 文件或目录路径
+        - owner_id: 用户 ID
+        - db: 数据库会话
+        - nullable: 是否允许返回 None
+        
+    返回:
+        - Entry 记录
+    """
     # 规范化文件路径
     try:
         entry_path = path_normalize(entry_path)
