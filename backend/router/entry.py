@@ -93,7 +93,7 @@ async def entry_post(
         except ValueError as e:
             return bad_request(message=str(e))
         # 验证及自动创建父目录
-        await create_parent_directories(db, request.entry_path, owner_id)
+        await create_parent_directories(request.entry_path, owner_id, db)
         # 创建 Entry 记录
         if request.entry_type == EntryType.FILE:
             # 验证文件是否为空
@@ -219,7 +219,7 @@ async def entry_move(
         except ValueError as e:
             return bad_request(message=str(e))
         # 验证及自动创建父目录
-        await create_parent_directories(db, request.new_entry_path, owner_id)
+        await create_parent_directories(request.new_entry_path, owner_id, db)
         # 移动文件或目录
         if entry.entry_type == EntryType.DIRECTORY:
             result = await db.execute(
@@ -282,9 +282,9 @@ async def entry_download(
 
 
 async def create_parent_directories(
-        db: AsyncSession,
         entry_path: str,
         owner_id: int,
+        db: AsyncSession,
 ) -> None:
     """
     验证及自动创建父目录
