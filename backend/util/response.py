@@ -1,9 +1,12 @@
 from fastapi import status
 from fastapi.responses import JSONResponse
-from typing import Dict, LiteralString
+from typing import Dict
 
 
-def ok(data: Dict = None, **kwargs) -> JSONResponse:
+def ok(
+    data: Dict = None,
+    **kwargs,
+) -> JSONResponse:
     """
     返回成功响应
 
@@ -26,7 +29,10 @@ def ok(data: Dict = None, **kwargs) -> JSONResponse:
     )
 
 
-def bad_request(message: LiteralString = "N/A", **kwargs) -> JSONResponse:
+def bad_request(
+    message: str = "N/A",
+    **kwargs,
+) -> JSONResponse:
     """
     返回错误请求响应
 
@@ -49,7 +55,10 @@ def bad_request(message: LiteralString = "N/A", **kwargs) -> JSONResponse:
     )
 
 
-def forbidden(message: LiteralString = "N/A", **kwargs) -> JSONResponse:
+def forbidden(
+    message: str = "N/A",
+    **kwargs,
+) -> JSONResponse:
     """
     返回禁止访问响应
 
@@ -72,7 +81,10 @@ def forbidden(message: LiteralString = "N/A", **kwargs) -> JSONResponse:
     )
 
 
-def internal_server_error(message: LiteralString = "N/A", **kwargs) -> JSONResponse:
+def internal_server_error(
+    message: str = "N/A",
+    **kwargs,
+) -> JSONResponse:
     """
     返回服务器内部错误响应
 
@@ -95,7 +107,10 @@ def internal_server_error(message: LiteralString = "N/A", **kwargs) -> JSONRespo
     )
 
 
-def not_implemented(message: LiteralString = "N/A", **kwargs) -> JSONResponse:
+def not_implemented(
+    message: str = "N/A",
+    **kwargs,
+) -> JSONResponse:
     """
     返回未实现功能响应
 

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from pydantic import BaseModel
-from typing import Dict, Optional, List, LiteralString
+from typing import Dict, Optional, List
 
 from backend.util.encrypt import jwt_verify
 from backend.util.response import ok, bad_request, internal_server_error
@@ -21,7 +21,7 @@ api = APIRouter(prefix="/entry")
 
 @api.get("")
 async def entry_get(
-    entry_path: LiteralString,
+    entry_path: str,
     entry_depth: Optional[int] = None,
     db: AsyncSession = Depends(database),
     access_info: Dict = Depends(jwt_verify),
@@ -40,8 +40,9 @@ async def entry_get(
     """
     try:
         # 规范化文件路径
-        entry_path = path_normalize(entry_path)
-        if not entry_path:
+        try:
+            entry_path = path_normalize(entry_path)
+        except:
             return bad_request(message="Invalid entry path")
         # 获取用户 ID
         owner_id = access_info["user_id"]
@@ -59,7 +60,7 @@ async def entry_get(
 
 
 class EntryPostRequest(BaseModel):
-    entry_path: LiteralString
+    entry_path: str
     entry_type: EntryType
     is_collabrative: bool = False
     file: Optional[UploadFile] = None
@@ -84,8 +85,9 @@ async def entry_post(
     """
     try:
         # 验证文件路径
-        request.entry_path = path_normalize(request.entry_path)
-        if not request.entry_path:
+        try:
+            request.entry_path = path_normalize(request.entry_path)
+        except:
             return bad_request(message="Invalid entry path")
         # 获取用户 ID
         owner_id = access_info["user_id"]
@@ -94,9 +96,6 @@ async def entry_post(
         entry: Entry = result.first()
         if entry is not None:
             return bad_request(message="Entry already exists")
-        # 目录设置协作缺省值
-        if request.entry_type == EntryType.DIRECTORY:
-            request.is_collabrative = False
         # 验证及自动创建父目录
         await create_parent_directories(db, request.entry_path, owner_id)
         # 创建 Entry 记录
@@ -142,7 +141,7 @@ async def entry_post(
 
 @api.delete("")
 async def entry_delete(
-    entry_path: LiteralString,
+    entry_path: str,
     db: AsyncSession = Depends(database),
     access_info: Dict = Depends(jwt_verify),
 ):
@@ -159,8 +158,9 @@ async def entry_delete(
     """
     try:
         # 规范化文件路径
-        entry_path = path_normalize(entry_path)
-        if not entry_path:
+        try:
+            entry_path = path_normalize(entry_path)
+        except:
             return bad_request(message="Invalid entry path")
         # 获取用户 ID
         owner_id = access_info["user_id"]
@@ -193,8 +193,8 @@ async def entry_delete(
 
 
 class EntryMoveRequest(BaseModel):
-    entry_path: LiteralString
-    new_entry_path: LiteralString
+    entry_path: str
+    new_entry_path: str
 
 
 @api.put("/move")
@@ -216,8 +216,9 @@ async def entry_move(
     """
     try:
         # 规范化文件路径
-        request.entry_path, request.new_entry_path = path_normalize(request.entry_path), path_normalize(request.new_entry_path)
-        if not request.entry_path or not request.new_entry_path:
+        try:
+            request.entry_path, request.new_entry_path = path_normalize(request.entry_path), path_normalize(request.new_entry_path)
+        except:
             return bad_request(message="Invalid entry path")
         # 验证文件路径是否相同
         if request.entry_path == request.new_entry_path:
@@ -254,7 +255,7 @@ async def entry_move(
 
 @api.get("/download")
 async def entry_download(
-    entry_path: LiteralString,
+    entry_path: str,
     db: AsyncSession = Depends(database),
     access_info: Dict = Depends(jwt_verify),
 ):
@@ -271,8 +272,9 @@ async def entry_download(
     """
     try:
         # 规范化文件路径
-        entry_path = path_normalize(entry_path)
-        if not entry_path:
+        try:
+            entry_path = path_normalize(entry_path)
+        except:
             return bad_request(message="Invalid entry path")
         # 获取用户 ID
         owner_id = access_info["user_id"]
@@ -294,7 +296,7 @@ async def entry_download(
 
 async def create_parent_directories(
     db: AsyncSession,
-    entry_path: LiteralString,
+    entry_path: str,
     owner_id: int,
 ):
     """

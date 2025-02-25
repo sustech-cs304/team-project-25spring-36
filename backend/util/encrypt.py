@@ -2,12 +2,15 @@ import jwt
 
 from datetime import datetime, timedelta
 from fastapi import Header, HTTPException, status
-from typing import Optional, LiteralString, Dict
+from typing import Optional, Dict
 
 from backend.config import ENCRYPT_JWT_ALGO, ENCRYPT_KEY
 
 
-def jwt_encode(data: Dict, exp_hours: Optional[int]) -> LiteralString:
+def jwt_encode(
+    data: Dict,
+    exp_hours: Optional[int],
+) -> str:
     """
     生成 JWT
 
@@ -24,7 +27,9 @@ def jwt_encode(data: Dict, exp_hours: Optional[int]) -> LiteralString:
     return jwt.encode(data, ENCRYPT_KEY, ENCRYPT_JWT_ALGO)
 
 
-def jwt_verify(token: LiteralString = Header(None, alias="Access-Token")) -> Dict:
+def jwt_verify(
+    token: str = Header(None, alias="Access-Token"),
+) -> Dict:
     """
     验证 JWT
 

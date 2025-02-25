@@ -1,9 +1,11 @@
 import posixpath
 from pathvalidate import is_valid_filepath
-from typing import Tuple, LiteralString
+from typing import Tuple, Iterator
 
 
-def path_normalize(path: LiteralString) -> LiteralString:
+def path_normalize(
+    path: str,
+) -> str:
     """
     验证并规范化文件路径
 
@@ -15,17 +17,19 @@ def path_normalize(path: LiteralString) -> LiteralString:
     """
     # 验证文件路径
     if not is_valid_filepath(path, platform="linux"):
-        return None
+        raise ValueError("Invalid path")
     # 规范化文件路径
     return posixpath.normpath(path)
 
 
-def path_prefix(path: LiteralString) -> LiteralString:
+def path_prefix(
+    path: str,
+) -> str:
     """
     获取文件路径的父目录
 
     参数:
-    - entry_path: 文件路径
+    - path: 文件路径
 
     返回:
     - 父目录路径，如果父目录是根目录则返回空字符串
@@ -37,9 +41,40 @@ def path_prefix(path: LiteralString) -> LiteralString:
         return dirname
 
 
-def path_dirname_filename(path: LiteralString) -> Tuple[LiteralString, LiteralString]:
+def path_split_dir_file_name(
+    path: str,
+) -> Tuple[str, str]:
+    """
+    分割文件路径为目录和文件名
+
+    参数:
+    - path: 文件路径
+
+    返回:
+    - 目录和文件名的元组
+    """
     idx = path.rfind("/")
     return (
-        path[idx + 1 :],
         path[:idx],
+        path[idx + 1 :],
     )
+
+
+def path_iterate_parents(
+    path: str,
+) -> Iterator[str]:
+    """
+    迭代文件路径的所有父目录
+
+    参数:
+    - path: 文件路径
+
+    返回:
+    - 父目录路径的迭代器
+    """
+    while path:
+        yield path
+        idx = path.rfind("/")
+        if idx == -1:
+            return
+        path = path[:idx]

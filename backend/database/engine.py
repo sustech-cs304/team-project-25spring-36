@@ -3,7 +3,7 @@ import asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from typing import List, LiteralString
+from typing import List
 
 from backend.config import DATABASE_ADMIN_URL, DATABASE_URL, DATABASE_NAME
 from backend.database.model import Base
@@ -26,7 +26,10 @@ async def database():
         yield db
 
 
-async def create_pg_database(engine: AsyncEngine, database_name: LiteralString):
+async def create_pg_database(
+    engine: AsyncEngine,
+    database_name: str,
+):
     """
     创建 PostgreSQL 数据库
 
@@ -44,7 +47,10 @@ async def create_pg_database(engine: AsyncEngine, database_name: LiteralString):
         pass
 
 
-async def create_pg_extensions(engine: AsyncEngine, extensions: List[LiteralString]):
+async def create_pg_extensions(
+    engine: AsyncEngine,
+    extensions: List[str],
+):
     """
     创建 PostgreSQL 数据库扩展
 
@@ -62,7 +68,9 @@ async def create_pg_extensions(engine: AsyncEngine, extensions: List[LiteralStri
         pass
 
 
-async def create_pg_tables(engine: AsyncEngine):
+async def create_pg_tables(
+    engine: AsyncEngine,
+):
     """
     创建 PostgreSQL 数据库表格
 

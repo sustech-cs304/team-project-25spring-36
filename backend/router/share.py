@@ -2,7 +2,7 @@ import aiofiles
 import os
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
-from typing import Optional, List, Set, Dict, LiteralString
+from typing import Optional, List, Set, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from pydantic import BaseModel
@@ -27,7 +27,7 @@ ws = APIRouter(prefix="/share")
 
 
 class ShareTokenCreateRequest(BaseModel):
-    entry_path: LiteralString
+    entry_path: str
     permissions: Optional[SharedEntryPermission] = None
 
 
@@ -52,8 +52,9 @@ async def create_share_token(
     """
     try:
         # 验证文件路径
-        request.entry_path = path_normalize(request.entry_path)
-        if not request.entry_path:
+        try:
+            request.entry_path = path_normalize(request.entry_path)
+        except:
             return bad_request(message="Invalid entry path")
         # 查询文件
         result = await db.execute(select(Entry).where(Entry.entry_path == request.entry_path, Entry.owner_id == access_info["user_id"]))
@@ -84,7 +85,7 @@ async def create_share_token(
 
 
 class ShareTokenParseRequest(BaseModel):
-    token: LiteralString
+    token: str
 
 
 @api.post("/token/parse")
@@ -207,7 +208,7 @@ class CollaborativeWebSocketManager:
     async def boardcast(
         self,
         entry_id: int,
-        text: LiteralString,
+        text: str,
     ):
         """
         广播消息到所有连接的 WebSocket
