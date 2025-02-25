@@ -2,7 +2,6 @@ from datetime import datetime
 from enum import Enum as EnumClass
 from typing import Dict
 
-from pydantic import BaseModel
 from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.event import listen
@@ -104,7 +103,7 @@ class SharedEntryPermissionType(EnumClass):
 SharedEntryPermissionKey = str
 
 
-class SharedEntryPermissionValue(BaseModel):
+class SharedEntryPermissionValue:
     """
     共享条目额外权限值模型类
     """
