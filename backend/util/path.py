@@ -42,7 +42,7 @@ def path_prefix(
         return dirname
 
 
-def path_split_dir_file_name(
+def path_split_dir_base_name(
         path: str,
 ) -> Tuple[str, str]:
     """
