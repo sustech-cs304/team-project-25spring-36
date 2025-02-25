@@ -1,8 +1,9 @@
 from fastapi import status
 from fastapi.responses import JSONResponse
+from typing import Dict, LiteralString
 
 
-def ok(data: dict = None, **kwargs) -> JSONResponse:
+def ok(data: Dict = None, **kwargs) -> JSONResponse:
     """
     返回成功响应
 
@@ -16,7 +17,8 @@ def ok(data: dict = None, **kwargs) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
-            "status": "ok",
+            "status": "success",
+            "code": status.HTTP_200_OK,
             "description": "OK",
             "data": data,
             **kwargs,
@@ -24,7 +26,7 @@ def ok(data: dict = None, **kwargs) -> JSONResponse:
     )
 
 
-def bad_request(message: str = "N/A", **kwargs) -> JSONResponse:
+def bad_request(message: LiteralString = "N/A", **kwargs) -> JSONResponse:
     """
     返回错误请求响应
 
@@ -39,6 +41,7 @@ def bad_request(message: str = "N/A", **kwargs) -> JSONResponse:
         status_code=status.HTTP_200_OK,
         content={
             "status": "error",
+            "code": status.HTTP_400_BAD_REQUEST,
             "description": "Bad Request",
             "message": message,
             **kwargs,
@@ -46,7 +49,7 @@ def bad_request(message: str = "N/A", **kwargs) -> JSONResponse:
     )
 
 
-def forbidden(message: str = "N/A", **kwargs) -> JSONResponse:
+def forbidden(message: LiteralString = "N/A", **kwargs) -> JSONResponse:
     """
     返回禁止访问响应
 
@@ -61,6 +64,7 @@ def forbidden(message: str = "N/A", **kwargs) -> JSONResponse:
         status_code=status.HTTP_200_OK,
         content={
             "status": "error",
+            "code": status.HTTP_403_FORBIDDEN,
             "description": "Forbidden",
             "message": message,
             **kwargs,
@@ -68,7 +72,7 @@ def forbidden(message: str = "N/A", **kwargs) -> JSONResponse:
     )
 
 
-def internal_server_error(message: str = "N/A", **kwargs) -> JSONResponse:
+def internal_server_error(message: LiteralString = "N/A", **kwargs) -> JSONResponse:
     """
     返回服务器内部错误响应
 
@@ -83,6 +87,7 @@ def internal_server_error(message: str = "N/A", **kwargs) -> JSONResponse:
         status_code=status.HTTP_200_OK,
         content={
             "status": "error",
+            "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
             "description": "Internal Server Error",
             "message": message,
             **kwargs,
@@ -90,7 +95,7 @@ def internal_server_error(message: str = "N/A", **kwargs) -> JSONResponse:
     )
 
 
-def not_implemented(message: str = "N/A", **kwargs) -> JSONResponse:
+def not_implemented(message: LiteralString = "N/A", **kwargs) -> JSONResponse:
     """
     返回未实现功能响应
 
@@ -105,6 +110,7 @@ def not_implemented(message: str = "N/A", **kwargs) -> JSONResponse:
         status_code=status.HTTP_200_OK,
         content={
             "status": "error",
+            "code": status.HTTP_501_NOT_IMPLEMENTED,
             "description": "Not Implemented",
             "message": message,
             **kwargs,

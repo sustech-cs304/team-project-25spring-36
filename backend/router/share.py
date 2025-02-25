@@ -28,7 +28,7 @@ ws = APIRouter(prefix="/share")
 
 class ShareTokenCreateRequest(BaseModel):
     entry_path: str
-    permissions: Optional[List[SharedEntryPermission]] = None
+    permissions: Optional[SharedEntryPermission] = None
 
 
 @api.post("/token/create")
@@ -60,6 +60,7 @@ async def create_share_token(
         root_entry: Entry = result.scalar()
         if root_entry is None:
             return bad_request(message="Entry not found")
+        #
 
         # TODO: 验证权限合法性
 

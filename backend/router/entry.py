@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from pydantic import BaseModel
+from typing import Dict, Optional, List, LiteralString
 
 from backend.util.encrypt import jwt_verify
 from backend.util.response import ok, bad_request, internal_server_error
@@ -20,10 +21,10 @@ api = APIRouter(prefix="/entry")
 
 @api.get("")
 async def entry_get(
-    entry_path: str,
-    entry_depth: int = None,
+    entry_path: LiteralString,
+    entry_depth: Optional[int] = None,
     db: AsyncSession = Depends(database),
-    access_info: dict = Depends(jwt_verify),
+    access_info: Dict = Depends(jwt_verify),
 ):
     """
     获取文件或目录信息
@@ -50,7 +51,7 @@ async def entry_get(
         if entry_depth:
             query = query.where(Entry.entry_depth <= entry_depth)
         result = await db.execute(query)
-        entries: list[Entry] = result.scalars().all()
+        entries: List[Entry] = result.scalars().all()
         # 返回文件或目录信息
         return ok(data=[entry.dict() for entry in entries])
     except:
@@ -58,17 +59,17 @@ async def entry_get(
 
 
 class EntryPostRequest(BaseModel):
-    entry_path: str
+    entry_path: LiteralString
     entry_type: EntryType
     is_collabrative: bool = False
-    file: UploadFile = None
+    file: Optional[UploadFile] = None
 
 
 @api.post("")
 async def entry_post(
     request: EntryPostRequest,
     db: AsyncSession = Depends(database),
-    access_info: dict = Depends(jwt_verify),
+    access_info: Dict = Depends(jwt_verify),
 ):
     """
     上传文件或创建目录
@@ -104,13 +105,13 @@ async def entry_post(
         # 创建 Entry 记录
         if request.entry_type == EntryType.FILE:
             # 验证文件是否为空
-            if file is None:
+            if request.file is None:
                 return bad_request(message="Missing file")
             # 生成文件别名
             storage_path = uuid.uuid4().hex
             # 异步保存文件到指定目录
             async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, storage_path), "wb") as buf:
-                while chunk := await file.read(1024 * 1024):  # 逐块读取 1MB
+                while chunk := await request.file.read(1024 * 1024):  # 逐块读取 1MB
                     await buf.write(chunk)
             # 创建新的 Entry 记录
             db.add(
@@ -119,7 +120,7 @@ async def entry_post(
                     entry_type=request.entry_type,
                     entry_path=request.entry_path,
                     storage_path=storage_path,
-                    is_collabrative=is_collabrative,
+                    is_collabrative=request.is_collabrative,
                 )
             )
         elif request.entry_type == EntryType.DIRECTORY:
@@ -144,9 +145,9 @@ async def entry_post(
 
 @api.delete("")
 async def entry_delete(
-    entry_path: str,
+    entry_path: LiteralString,
     db: AsyncSession = Depends(database),
-    access_info: dict = Depends(jwt_verify),
+    access_info: Dict = Depends(jwt_verify),
 ):
     """
     删除文件或目录
@@ -179,7 +180,7 @@ async def entry_delete(
         elif entry.entry_type == EntryType.DIRECTORY:
             # 删除目录及其子项
             result = await db.execute(select(Entry).where(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id))
-            sub_entries = result.scalars().all()
+            sub_entries: List[Entry] = result.scalars().all()
             for sub_entry in sub_entries:
                 if sub_entry.entry_type == EntryType.FILE:
                     await aiofiles.os.remove(os.path.join(ENTRY_STORAGE_PATH, sub_entry.storage_name))
@@ -195,15 +196,15 @@ async def entry_delete(
 
 
 class EntryMoveRequest(BaseModel):
-    entry_path: str
-    new_entry_path: str
+    entry_path: LiteralString
+    new_entry_path: LiteralString
 
 
 @api.put("/move")
 async def entry_move(
     request: EntryMoveRequest,
     db: AsyncSession = Depends(database),
-    access_info: dict = Depends(jwt_verify),
+    access_info: Dict = Depends(jwt_verify),
 ):
     """
     移动文件或目录
@@ -243,9 +244,10 @@ async def entry_move(
         # 移动文件或目录
         if entry.entry_type == EntryType.DIRECTORY:
             result = await db.execute(select(Entry).where(Entry.entry_path.like(f"{request.entry_path}%"), Entry.owner_id == owner_id))
-            sub_entries: list[Entry] = result.scalars().all()
+            sub_entries: List[Entry] = result.scalars().all()
             for sub_entry in sub_entries:
                 sub_entry.entry_path = request.new_entry_path + sub_entry.entry_path[len(request.entry_path) :]
+        entry.entry_path = request.new_entry_path
         # 提交数据库事务
         await db.commit()
         return ok()
@@ -256,9 +258,9 @@ async def entry_move(
 
 @api.get("/download")
 async def entry_download(
-    entry_path: str,
+    entry_path: LiteralString,
     db: AsyncSession = Depends(database),
-    access_info: dict = Depends(jwt_verify),
+    access_info: Dict = Depends(jwt_verify),
 ):
     """
     下载文件
@@ -288,13 +290,13 @@ async def entry_download(
         if entry.entry_type != EntryType.FILE:
             return bad_request(message="Entry is not a file")
         # 返回文件内容
-        async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, entry.storage_name), "rb") as buf:
+        async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, entry.storage_path), "rb") as buf:
             return await buf.read()
     except:
         return internal_server_error()
 
 
-async def create_parent_directories(db: AsyncSession, entry_path: str, owner_id: int):
+async def create_parent_directories(db: AsyncSession, entry_path: LiteralString, owner_id: int):
     """
     验证及自动创建父目录
 

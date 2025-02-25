@@ -1,8 +1,9 @@
 import posixpath
 from pathvalidate import is_valid_filepath
+from typing import Tuple, LiteralString
 
 
-def path_normalize(path: str) -> str:
+def path_normalize(path: LiteralString) -> LiteralString:
     """
     验证并规范化文件路径
 
@@ -19,7 +20,7 @@ def path_normalize(path: str) -> str:
     return posixpath.normpath(path)
 
 
-def path_prefix(entry_path: str) -> str:
+def path_prefix(path: LiteralString) -> LiteralString:
     """
     获取文件路径的父目录
 
@@ -29,8 +30,16 @@ def path_prefix(entry_path: str) -> str:
     返回:
     - 父目录路径，如果父目录是根目录则返回空字符串
     """
-    dirname = posixpath.dirname(entry_path)
+    dirname = posixpath.dirname(path)
     if dirname == "/":
         return ""
     else:
         return dirname
+
+
+def path_dirname_filename(path: LiteralString) -> Tuple[LiteralString, LiteralString]:
+    idx = path.rfind("/")
+    return (
+        path[idx + 1 :],
+        path[:idx],
+    )

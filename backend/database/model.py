@@ -6,6 +6,7 @@ from sqlalchemy.event import listen
 from datetime import datetime
 from enum import Enum as EnumClass
 from pydantic import BaseModel
+from typing import Dict, LiteralString
 
 
 @as_declarative()
@@ -100,10 +101,15 @@ class SharedEntryPermissionType(EnumClass):
     READ_WRITE_DELETE_STICKY = "read_write_delete_sticky"  # 仅目录有效
 
 
-class SharedEntryPermission(BaseModel):
-    entry_sub_path: str
+SharedEntryPermissionKey = LiteralString
+
+
+class SharedEntryPermissionValue(BaseModel):
     permission: SharedEntryPermissionType
     inherited: bool = False
+
+
+SharedEntryPermission = Dict[SharedEntryPermissionKey, SharedEntryPermissionValue]
 
 
 class SharedEntry(Base):

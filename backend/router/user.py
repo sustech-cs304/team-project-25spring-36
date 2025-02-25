@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 from typing import Optional
 from fastapi import APIRouter, Depends
+from typing import LiteralString, Dict
 
 from backend.database.engine import database
 from backend.database.model import UserRole, User
@@ -14,8 +15,8 @@ api = APIRouter(prefix="/user")
 
 
 class UserRegisterRequest(BaseModel):
-    username: str
-    password: str
+    username: LiteralString
+    password: LiteralString
     role: UserRole
 
 
@@ -49,8 +50,8 @@ async def user_register(
 
 
 class UserLoginRequest(BaseModel):
-    username: str
-    password: str
+    username: LiteralString
+    password: LiteralString
 
 
 @api.post("/login")
@@ -80,15 +81,15 @@ async def user_login(
 
 
 class UserUpdateRequest(BaseModel):
-    username: Optional[str] = None
-    password: Optional[str] = None
+    username: Optional[LiteralString] = None
+    password: Optional[LiteralString] = None
     role: Optional[UserRole] = None
 
 
 @api.put("")
 async def user_update(
     request: UserUpdateRequest,
-    access_info: dict = Depends(jwt_verify),
+    access_info: Dict = Depends(jwt_verify),
     db: AsyncSession = Depends(database),
 ):
     """
