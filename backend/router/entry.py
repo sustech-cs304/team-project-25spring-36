@@ -47,7 +47,7 @@ async def entry_get(
         owner_id = access_info["user_id"]
         # 查询 Entry 记录列表
         query = select(Entry).where(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id)
-        # 验证文件深度
+        # 限制文件深度
         if entry_depth:
             query = query.where(Entry.entry_depth <= entry_depth)
         result = await db.execute(query)
@@ -75,10 +75,7 @@ async def entry_post(
     上传文件或创建目录
 
     参数:
-    - entry_type: 文件类型(FILE 或 DIRECTORY)
-    - entry_path: 文件或目录路径
-    - is_collabrative: 是否协作模式(可选)
-    - file: 上传的文件(可选)
+    - request: 包含文件或目录信息的 EntryPostRequest 对象(需要为form-data)
     - db: 数据库会话
     - access_info: 访问信息(通过 JWT 验证后的用户信息)
 
@@ -97,9 +94,9 @@ async def entry_post(
         entry: Entry = result.first()
         if entry is not None:
             return bad_request(message="Entry already exists")
-        # 验证文件类型
+        # 目录设置协作缺省值
         if request.entry_type == EntryType.DIRECTORY:
-            is_collabrative = False
+            request.is_collabrative = False
         # 验证及自动创建父目录
         await create_parent_directories(db, request.entry_path, owner_id)
         # 创建 Entry 记录
@@ -108,9 +105,9 @@ async def entry_post(
             if request.file is None:
                 return bad_request(message="Missing file")
             # 生成文件别名
-            storage_path = uuid.uuid4().hex
+            storage_name = uuid.uuid4().hex
             # 异步保存文件到指定目录
-            async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, storage_path), "wb") as buf:
+            async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, storage_name), "wb") as buf:
                 while chunk := await request.file.read(1024 * 1024):  # 逐块读取 1MB
                     await buf.write(chunk)
             # 创建新的 Entry 记录
@@ -119,7 +116,7 @@ async def entry_post(
                     owner_id=owner_id,
                     entry_type=request.entry_type,
                     entry_path=request.entry_path,
-                    storage_path=storage_path,
+                    storage_name=storage_name,
                     is_collabrative=request.is_collabrative,
                 )
             )
@@ -130,7 +127,7 @@ async def entry_post(
                     owner_id=owner_id,
                     entry_type=request.entry_type,
                     entry_path=request.entry_path,
-                    storage_path=None,
+                    storage_name=None,
                 )
             )
         else:
@@ -210,8 +207,7 @@ async def entry_move(
     移动文件或目录
 
     参数:
-    - entry_path: 原文件或目录路径
-    - new_entry_path: 新文件或目录路径
+    - request: 包含文件或目录移动信息
     - db: 数据库会话
     - access_info: 访问信息（通过 JWT 验证后的用户信息）
 
@@ -290,13 +286,17 @@ async def entry_download(
         if entry.entry_type != EntryType.FILE:
             return bad_request(message="Entry is not a file")
         # 返回文件内容
-        async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, entry.storage_path), "rb") as buf:
+        async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, entry.storage_name), "rb") as buf:
             return await buf.read()
     except:
         return internal_server_error()
 
 
-async def create_parent_directories(db: AsyncSession, entry_path: LiteralString, owner_id: int):
+async def create_parent_directories(
+    db: AsyncSession,
+    entry_path: LiteralString,
+    owner_id: int,
+):
     """
     验证及自动创建父目录
 
@@ -316,7 +316,7 @@ async def create_parent_directories(db: AsyncSession, entry_path: LiteralString,
                     owner_id=owner_id,
                     entry_type=EntryType.DIRECTORY,
                     entry_path=path,
-                    storage_path=None,
+                    storage_name=None,
                 )
             )
     await db.commit()
