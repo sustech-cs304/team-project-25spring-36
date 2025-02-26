@@ -2,12 +2,12 @@ from datetime import datetime
 from enum import Enum as EnumClass
 from typing import Dict
 
+from pydantic import BaseModel as PydanticBaseModel
 from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.event import listen
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import class_mapper
-from pydantic import BaseModel as PydanticBaseModel
 
 
 class Mixin:
