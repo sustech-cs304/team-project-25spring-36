@@ -1,4 +1,5 @@
 ## 目录结构
+
 ```text
 └── backend
     ├── app
@@ -29,14 +30,17 @@
     ├── storage
     └── tests
 ```
+
 ## 启动后端服务
 
 ### 1. 安装依赖
 
 #### 在本机安装 Python
+
 [下载并安装 Python](https://www.python.org/downloads/)（推荐 3.11 及以上版本）。
 
 #### 在本机安装 Docker
+
 [下载并安装 Docker](https://www.docker.com/) 以运行必要的依赖服务。
 
 #### 安装 Python 依赖
@@ -83,7 +87,7 @@ sh backend.sh
 
 - **Swagger UI** 文档：  
   打开浏览器，访问 [http://localhost:8080/docs](http://localhost:8080/docs)
-  
+
 - **ReDoc** 文档：  
   打开浏览器，访问 [http://localhost:8080/redoc](http://localhost:8080/redoc)
 
