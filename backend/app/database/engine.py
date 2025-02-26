@@ -5,8 +5,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.config import DATABASE_ADMIN_URL, DATABASE_URL, DATABASE_NAME
-from backend.database.model import SQLAlchemyBaseModel
+from app.config import DATABASE_ADMIN_URL, DATABASE_URL, DATABASE_NAME
+from ..database.model import SQLAlchemyBaseModel
 
 # 连接目标数据库
 engine = create_async_engine(DATABASE_URL, echo=True, future=True)

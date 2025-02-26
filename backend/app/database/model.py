@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.event import listen
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import class_mapper
+from pydantic import BaseModel as PydanticBaseModel
 
 
 class Mixin:
@@ -103,7 +104,7 @@ class SharedEntryPermissionType(EnumClass):
 SharedEntryPermissionKey = str
 
 
-class SharedEntryPermissionValue:
+class SharedEntryPermissionValue(PydanticBaseModel):
     """
     共享条目额外权限值模型类
     """

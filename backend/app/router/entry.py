@@ -11,12 +11,12 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from backend.config import ENTRY_STORAGE_PATH
-from backend.database.engine import database
-from backend.database.model import Entry, EntryType
-from backend.util.encrypt import jwt_verify
-from backend.util.path import path_normalize, path_split_dir_base_name
-from backend.util.response import ok, bad_request, internal_server_error
+from app.config import ENTRY_STORAGE_PATH
+from app.database.engine import database
+from app.database.model import Entry, EntryType
+from app.util.encrypt import jwt_verify
+from app.util.path import path_normalize, path_split_dir_base_name
+from app.util.response import ok, bad_request, internal_server_error
 
 api = APIRouter(prefix="/entry")
 

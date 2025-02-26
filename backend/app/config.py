@@ -1,7 +1,7 @@
 import os
 
 # 项目根目录
-ENTRY_STORAGE_PATH = os.path.join(".", "storage")
+ENTRY_STORAGE_PATH = os.path.join("..", "storage")
 
 # 数据库配置
 DATABASE_ENGINE = "postgresql"

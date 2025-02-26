@@ -38,19 +38,19 @@ team-project-25spring-36/
 
 #### 安装 Python 依赖
 
-进入 `deployment` 目录并安装所需的 Python 包：
+进入 `app` 目录并安装所需的 Python 包：
 
 ```sh
-cd deployment
+cd deploy
 pip install -r requirements.txt
 ```
 
 ### 2. 启动依赖服务
 
-在 `deployment` 目录下运行以下命令以启动数据库等服务：
+在 `deploy` 目录下运行以下命令以启动数据库等服务：
 
 ```sh
-cd deployment
+cd deploy
 docker-compose up -d
 ```
 
@@ -61,14 +61,14 @@ docker-compose up -d
 #### Windows 平台
 
 ```sh
-cd deployment
+cd deploy
 backend.bat
 ```
 
 #### Linux/Mac 平台
 
 ```sh
-cd deployment
+cd deploy
 sh backend.sh
 ```
 
