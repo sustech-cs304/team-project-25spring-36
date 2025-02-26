@@ -1,31 +1,34 @@
 ## 目录结构
-
+```text
+└── backend
+    ├── app
+    │  ├── __init__.py
+    │  ├── config.py
+    │  ├── main.py
+    │  ├── database
+    │  │  ├── __init__.py
+    │  │  ├── engine.py
+    │  │  └── model.py
+    │  ├── router
+    │  │  ├── __init__.py
+    │  │  ├── entry.py
+    │  │  ├── share.py
+    │  │  └── user.py
+    │  └── util
+    │      ├── __init__.py
+    │      ├── encrypt.py
+    │      ├── path.py
+    │      └── response.py
+    ├── deploy
+    │  ├── backend.bat
+    │  ├── backend.sh
+    │  ├── docker-compose.yaml
+    │  └── requirements.txt
+    ├── docs
+    │  └── README.md
+    ├── storage
+    └── tests
 ```
-team-project-25spring-36/
-├── backend/
-│   ├── database/
-│   │   ├── engine.py
-│   │   ├── model.py
-│   ├── router/
-│   │   ├── user.py
-│   │   ├── entry.py
-│   │   ├── share.py
-│   ├── util/
-│   │   ├── lang.py
-│   │   ├── response.py
-│   │   ├── encrypt.py
-│   │   ├── path.py
-│   ├── main.py
-│   ├── config.py
-│   ├── __init__.py
-├── deployment/
-│   ├── backend.bat
-│   ├── backend.sh
-│   ├── docker-compose.yaml
-│   ├── requirements.txt
-│   ├── README.md
-```
-
 ## 启动后端服务
 
 ### 1. 安装依赖
@@ -38,7 +41,7 @@ team-project-25spring-36/
 
 #### 安装 Python 依赖
 
-进入 `app` 目录并安装所需的 Python 包：
+进入 `deploy` 目录并安装所需的 Python 包：
 
 ```sh
 cd deploy
@@ -56,7 +59,7 @@ docker-compose up -d
 
 ### 3. 启动后端服务器
 
-在 `deployment` 目录下运行以下命令以启动后端服务：
+在 `deploy` 目录下运行以下命令以启动后端服务：
 
 #### Windows 平台
 
