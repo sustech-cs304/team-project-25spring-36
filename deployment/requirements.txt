@@ -7,3 +7,4 @@ pathvalidate
 aiofiles
 aiohttp
 pyjwt
+asyncpg
