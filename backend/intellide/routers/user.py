@@ -89,6 +89,31 @@ class UserUpdateRequest(BaseModel):
     role: Optional[UserRole] = None
 
 
+@api.get("")
+async def user_get(
+        access_info: Dict = Depends(jwt_verify),
+        db: AsyncSession = Depends(database),
+):
+    """
+    获取用户信息
+
+    参数:
+    - access_info: 通过 JWT 验证后的用户信息
+    - db: 数据库会话
+
+    返回:
+    - 成功时返回用户信息
+    """
+    try:
+        result = await db.execute(select(User).where(User.id == access_info["user_id"]))
+        user: User = result.scalar()
+        if not user:
+            return internal_server_error()
+        return ok(data=user.dict())
+    except:
+        return internal_server_error()
+
+
 @api.put("")
 async def user_update(
         request: UserUpdateRequest,
