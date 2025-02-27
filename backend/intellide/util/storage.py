@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 
 from intellide.config import STORAGE_PATH
 
+
 def get_storage_path(storage_name: str) -> str:
     """
     获取存储路径
@@ -19,6 +20,7 @@ def get_storage_path(storage_name: str) -> str:
     - 完整的存储路径
     """
     return os.path.join(STORAGE_PATH, storage_name)
+
 
 async def async_write_file(
         storage_name: str,
@@ -33,6 +35,7 @@ async def async_write_file(
     """
     async with aiofiles.open(get_storage_path(storage_name), "wb") as fp:
         await fp.write(content)
+
 
 async def get_file_response(
         storage_name: str,
@@ -59,11 +62,13 @@ async def get_file_response(
         headers={"Content-Disposition": f"attachment; filename={file_name}"}
     )
 
+
 async def _startup():
     """
     异步创建存储目录（如果不存在）
     """
     await aiofiles.os.makedirs(STORAGE_PATH, exist_ok=True)
+
 
 # 调度 _startup 函数运行
 asyncio.create_task(_startup())
