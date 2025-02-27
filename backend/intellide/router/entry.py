@@ -1,4 +1,3 @@
-import mimetypes
 import os
 import uuid
 from typing import Dict, Optional, Sequence
@@ -6,17 +5,17 @@ from typing import Dict, Optional, Sequence
 import aiofiles
 import aiofiles.os
 from fastapi import APIRouter, Depends, UploadFile
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.config import ENTRY_STORAGE_PATH
-from app.database.engine import database
-from app.database.model import Entry, EntryType
-from app.util.encrypt import jwt_verify
-from app.util.path import path_normalize, path_split_dir_base_name
-from app.util.response import ok, bad_request, internal_server_error
+from intellide.config import STORAGE_PATH
+from intellide.database.engine import database
+from intellide.database.model import Entry, EntryType
+from intellide.util.encrypt import jwt_verify
+from intellide.util.path import path_normalize, path_split_dir_base_name
+from intellide.util.response import ok, bad_request, internal_server_error
+from intellide.util.storage import async_write_file, get_file_response
 
 api = APIRouter(prefix="/entry")
 
@@ -102,9 +101,7 @@ async def entry_post(
             # 生成文件别名
             storage_name = uuid.uuid4().hex
             # 异步保存文件到指定目录
-            async with aiofiles.open(os.path.join(ENTRY_STORAGE_PATH, storage_name), "wb") as buf:
-                while chunk := await request.file.read(1024 * 1024):  # 逐块读取 1MB
-                    await buf.write(chunk)
+            await async_write_file(storage_name, await request.file.read())
             # 创建新的 Entry 记录
             db.add(
                 Entry(
@@ -161,7 +158,7 @@ async def entry_delete(
             return bad_request(message=str(e))
         if entry.entry_type == EntryType.FILE:
             # 删除文件
-            await aiofiles.os.remove(os.path.join(ENTRY_STORAGE_PATH, entry.storage_name))
+            await aiofiles.os.remove(os.path.join(STORAGE_PATH, entry.storage_name))
             await db.delete(entry)
         elif entry.entry_type == EntryType.DIRECTORY:
             # 删除目录及其子项
@@ -170,7 +167,7 @@ async def entry_delete(
             sub_entries: Sequence[Entry] = result.scalars().all()
             for sub_entry in sub_entries:
                 if sub_entry.entry_type == EntryType.FILE:
-                    await aiofiles.os.remove(os.path.join(ENTRY_STORAGE_PATH, sub_entry.storage_name))
+                    await aiofiles.os.remove(os.path.join(STORAGE_PATH, sub_entry.storage_name))
                 await db.delete(sub_entry)
         else:
             return internal_server_error()
@@ -263,20 +260,10 @@ async def entry_download(
         # 验证文件类型
         if entry.entry_type != EntryType.FILE:
             return bad_request(message="Entry is not a file")
-        # 返回文件内容
-        storage_path = os.path.join(ENTRY_STORAGE_PATH, entry.storage_name)
         # 获取文件名
-        _, filename = path_split_dir_base_name(entry_path)
-        # 使用 mimetypes.guess_type 来获取文件的 MIME 类型
-        media_type, _ = mimetypes.guess_type(filename)
-        if media_type is None:
-            media_type = "application/octet-stream"
-        # 返回文件
-        return FileResponse(
-            storage_path,
-            media_type=media_type,
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
-        )
+        _, file_name = path_split_dir_base_name(entry_path)
+        # 返回文件内容
+        return get_file_response(entry.storage_name, file_name)
     except:
         return internal_server_error()
 

@@ -7,18 +7,18 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.config import ENTRY_STORAGE_PATH
-from app.database.engine import database
-from app.database.model import (
+from intellide.config import STORAGE_PATH
+from intellide.database.engine import database
+from intellide.database.model import (
     User,
     Entry,
     SharedEntry,
     SharedEntryPermission,
     SharedEntryUser,
 )
-from app.util.encrypt import jwt_encode, jwt_verify
-from app.util.path import path_normalize
-from app.util.response import ok, bad_request, internal_server_error
+from intellide.util.encrypt import jwt_encode, jwt_verify
+from intellide.util.path import path_normalize
+from intellide.util.response import ok, bad_request, internal_server_error
 
 api = APIRouter(prefix="/share")
 ws = APIRouter(prefix="/share")
@@ -251,7 +251,7 @@ async def shared_entry_collaborative_subscribe(
 
     # TODO: 验证用户是否有权限访问共享文件
 
-    storage_path = os.path.join(ENTRY_STORAGE_PATH, entry.storage_name)
+    storage_path = os.path.join(STORAGE_PATH, entry.storage_name)
     # 连接 WebSocket
     await manager.connect(
         entry_id,

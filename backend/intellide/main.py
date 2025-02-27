@@ -1,9 +1,9 @@
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.router.entry import api as api_entry
-from app.router.share import api as api_share, ws as ws_share
-from app.router.user import api as api_user
+from intellide.router.entry import api as api_entry
+from intellide.router.share import api as api_share, ws as ws_share
+from intellide.router.user import api as api_user
 
 # 服务端主程序
 app = FastAPI(debug=True)

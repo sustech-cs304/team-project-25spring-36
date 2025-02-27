@@ -7,10 +7,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.database.engine import database
-from app.database.model import UserRole, User
-from app.util.encrypt import jwt_encode, jwt_verify
-from app.util.response import ok, bad_request, internal_server_error
+from intellide.database.engine import database
+from intellide.database.model import UserRole, User
+from intellide.util.encrypt import jwt_encode, jwt_verify
+from intellide.util.response import ok, bad_request, internal_server_error
 
 api = APIRouter(prefix="/user")
 
