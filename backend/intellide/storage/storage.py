@@ -1,4 +1,3 @@
-import asyncio
 import mimetypes
 import os
 
@@ -61,14 +60,3 @@ async def get_file_response(
         media_type=media_type,
         headers={"Content-Disposition": f"attachment; filename={file_name}"}
     )
-
-
-async def _startup():
-    """
-    异步创建存储目录（如果不存在）
-    """
-    await aiofiles.os.makedirs(STORAGE_PATH, exist_ok=True)
-
-
-# 调度 _startup 函数运行
-asyncio.create_task(_startup())

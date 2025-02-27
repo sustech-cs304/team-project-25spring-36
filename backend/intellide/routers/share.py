@@ -16,9 +16,9 @@ from intellide.database.model import (
     SharedEntryPermission,
     SharedEntryUser,
 )
-from intellide.util.encrypt import jwt_encode, jwt_verify
-from intellide.util.path import path_normalize
-from intellide.util.response import ok, bad_request, internal_server_error
+from intellide.utils.encrypt import jwt_encode, jwt_verify
+from intellide.utils.path import path_normalize
+from intellide.utils.response import ok, bad_request, internal_server_error
 
 api = APIRouter(prefix="/share")
 ws = APIRouter(prefix="/share")
