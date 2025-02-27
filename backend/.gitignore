@@ -1,0 +1,12 @@
+# ide cache #
+**/.vscode
+**/.idea
+
+# compiled python files #
+**/__pycache__
+**/.pytest_cache
+*.pyc
+
+
+/storage
+/temp
