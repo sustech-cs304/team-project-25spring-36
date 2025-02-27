@@ -10,10 +10,18 @@ from intellide.utils.encrypt import jwt_verify
 
 
 async def get_user_by_username(
-    username: str,
+        username: str,
 ) -> User:
     async with async_session() as db:
         result = await db.execute(select(User).filter(User.username == username))
+        return result.scalar()
+
+
+async def get_user_by_id(
+        user_id: int,
+) -> User:
+    async with async_session() as db:
+        result = await db.execute(select(User).filter(User.id == user_id))
         return result.scalar()
 
 
@@ -41,7 +49,7 @@ async def test_user_register_success(client: AsyncClient):
 
 @pytest.mark.anyio
 @pytest.mark.dependency(depends=["test_user_register_success"])
-async def test_user_register_failure_duplicate_username(client: AsyncClient):
+async def test_user_register_failure_username_duplicated(client: AsyncClient):
     response = await client.post(
         url="/api/user/register",
         json={
@@ -123,6 +131,17 @@ async def test_user_update_success(client: AsyncClient):
     )
     response = response.json()
     assert_json_response_code(response, status.HTTP_200_OK)
+    response = await client.get(
+        url="/api/user",
+        headers={
+            "Access-Token": token,
+        },
+    )
+    response = response.json()
+    user = response["data"]
+    assert user["username"] == "update1"
+    assert user["password"] == "update2"
+    assert user["role"] == "teacher"
 
 
 @pytest.mark.anyio
@@ -149,5 +168,3 @@ async def test_user_update_failure_username_duplicated(client: AsyncClient):
     )
     response = response.json()
     assert_json_response_code(response, status.HTTP_400_BAD_REQUEST)
-
-
