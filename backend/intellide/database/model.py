@@ -1,5 +1,5 @@
 from datetime import datetime
-from enum import Enum as EnumClass
+from enum import Enum as PyEnum
 from typing import Dict
 
 from pydantic import BaseModel as PydanticBaseModel
@@ -20,6 +20,16 @@ class Mixin:
         for key, val in vars(target).items():
             if key and val and hasattr(self, key):
                 setattr(self, key, val)
+
+
+class EnumClass(PyEnum):
+    """
+    枚举类基类
+    """
+
+    def __str__(self):
+        # 重写 __str__，返回 enum 的值
+        return str(self.value)
 
 
 SQLAlchemyBaseModel = declarative_base()
