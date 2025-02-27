@@ -1,34 +1,38 @@
 ## 目录结构
 
 ```text
-└── backend
-    ├── app
-    │  ├── __init__.py
-    │  ├── config.py
-    │  ├── main.py
-    │  ├── database
-    │  │  ├── __init__.py
-    │  │  ├── engine.py
-    │  │  └── model.py
-    │  ├── router
-    │  │  ├── __init__.py
-    │  │  ├── entry.py
-    │  │  ├── share.py
-    │  │  └── user.py
-    │  └── util
-    │      ├── __init__.py
-    │      ├── encrypt.py
-    │      ├── path.py
-    │      └── response.py
-    ├── deploy
-    │  ├── backend.bat
-    │  ├── backend.sh
-    │  ├── docker-compose.yaml
-    │  └── requirements.txt
-    ├── docs
-    │  └── README.md
-    ├── storage
-    └── tests
+backend
+├── .gitignore
+├── deploy
+│   ├── backend.bat
+│   ├── backend.sh
+│   ├── docker-compose.yaml
+│   └── requirements.txt
+├── docs
+│   └── README.md
+├── intellide
+│   ├── __init__.py
+│   ├── config.py
+│   ├── database
+│   │   ├── __init__.py
+│   │   ├── engine.py
+│   │   └── model.py
+│   ├── main.py
+│   ├── router
+│   │   ├── __init__.py
+│   │   ├── entry.py
+│   │   ├── share.py
+│   │   └── user.py
+│   ├── tests
+│   │   └── __init__.py
+│   └── util
+│       ├── __init__.py
+│       ├── encrypt.py
+│       ├── path.py
+│       ├── response.py
+│       └── storage.py
+└── tools
+    └── tree.py
 ```
 
 ## 启动后端服务

@@ -4,7 +4,7 @@ from typing import Optional, Dict
 import jwt
 from fastapi import Header, HTTPException, status
 
-from app.config import ENCRYPT_JWT_ALGO, ENCRYPT_KEY
+from intellide.config import ENCRYPT_JWT_ALGO, ENCRYPT_KEY
 
 
 def jwt_encode(

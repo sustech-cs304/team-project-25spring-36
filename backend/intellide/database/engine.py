@@ -5,8 +5,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.config import DATABASE_ADMIN_URL, DATABASE_URL, DATABASE_NAME
-from ..database.model import SQLAlchemyBaseModel
+from intellide.config import DATABASE_ADMIN_URL, DATABASE_URL, DATABASE_NAME
+from intellide.database.model import SQLAlchemyBaseModel
 
 # 连接目标数据库
 engine = create_async_engine(DATABASE_URL, echo=True, future=True)
@@ -26,7 +26,7 @@ async def database():
         yield db
 
 
-async def create_pg_database(
+async def _create_pg_database(
         async_engine: AsyncEngine,
         database_name: str,
 ):
@@ -47,7 +47,7 @@ async def create_pg_database(
         pass
 
 
-async def create_pg_extensions(
+async def _create_pg_extensions(
         async_engine: AsyncEngine,
         extensions: List[str],
 ):
@@ -68,7 +68,7 @@ async def create_pg_extensions(
         pass
 
 
-async def create_pg_tables(
+async def _create_pg_tables(
         async_engine: AsyncEngine,
 ):
     """
@@ -84,22 +84,22 @@ async def create_pg_tables(
 
 
 # 初始化数据库
-async def startup():
+async def _startup():
     """
     初始化数据库，包括创建数据库、扩展和表格
     """
-    await create_pg_database(
+    await _create_pg_database(
         async_engine=create_async_engine(DATABASE_ADMIN_URL, future=True),
         database_name=DATABASE_NAME,
     )
-    await create_pg_extensions(
+    await _create_pg_extensions(
         async_engine=engine,
         extensions=["pg_trgm"],
     )
-    await create_pg_tables(
+    await _create_pg_tables(
         async_engine=engine,
     )
 
 
 # 启动数据库初始化任务
-asyncio.create_task(startup())
+asyncio.create_task(_startup())
