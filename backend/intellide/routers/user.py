@@ -9,7 +9,7 @@ from sqlalchemy.future import select
 
 from intellide.database.engine import database
 from intellide.database.model import UserRole, User
-from intellide.utils.encrypt import jwt_encode, jwt_verify
+from intellide.utils.encrypt import jwt_encode, jwt_decode
 from intellide.utils.response import ok, bad_request, internal_server_error
 
 api = APIRouter(prefix="/user")
@@ -47,6 +47,7 @@ async def user_register(
         return bad_request("Username already exists")
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         await db.rollback()
         return internal_server_error()
@@ -91,7 +92,7 @@ class UserUpdateRequest(BaseModel):
 
 @api.get("")
 async def user_get(
-        access_info: Dict = Depends(jwt_verify),
+        access_info: Dict = Depends(jwt_decode),
         db: AsyncSession = Depends(database),
 ):
     """
@@ -117,7 +118,7 @@ async def user_get(
 @api.put("")
 async def user_update(
         request: UserUpdateRequest,
-        access_info: Dict = Depends(jwt_verify),
+        access_info: Dict = Depends(jwt_decode),
         db: AsyncSession = Depends(database),
 ):
     """

@@ -13,7 +13,7 @@ from intellide.config import STORAGE_PATH
 from intellide.database.engine import database
 from intellide.database.model import Entry, EntryType
 from intellide.storage.storage import async_write_file, get_file_response
-from intellide.utils.encrypt import jwt_verify
+from intellide.utils.encrypt import jwt_decode
 from intellide.utils.path import path_normalize, path_split_dir_base_name
 from intellide.utils.response import ok, bad_request, internal_server_error
 
@@ -25,7 +25,7 @@ async def entry_get(
         entry_path: str,
         entry_depth: Optional[int] = None,
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_verify),
+        access_info: Dict = Depends(jwt_decode),
 ):
     """
     获取文件或目录信息
@@ -71,7 +71,7 @@ class EntryPostRequest(BaseModel):
 async def entry_post(
         request: EntryPostRequest,
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_verify),
+        access_info: Dict = Depends(jwt_decode),
 ):
     """
     上传文件或创建目录
@@ -135,7 +135,7 @@ async def entry_post(
 async def entry_delete(
         entry_path: str,
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_verify),
+        access_info: Dict = Depends(jwt_decode),
 ):
     """
     删除文件或目录
@@ -188,7 +188,7 @@ class EntryMoveRequest(BaseModel):
 async def entry_move(
         request: EntryMoveRequest,
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_verify),
+        access_info: Dict = Depends(jwt_decode),
 ):
     """
     移动文件或目录
@@ -237,7 +237,7 @@ async def entry_move(
 async def entry_download(
         entry_path: str,
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_verify),
+        access_info: Dict = Depends(jwt_decode),
 ):
     """
     下载文件
@@ -305,13 +305,13 @@ async def find_entry(
 ) -> Optional[Entry]:
     """
     查询 Entry 记录
-    
+
     参数:
         - entry_path: 文件或目录路径
         - owner_id: 用户 ID
         - db: 数据库会话
         - nullable: 是否允许返回 None
-        
+
     返回:
         - Entry 记录
     """

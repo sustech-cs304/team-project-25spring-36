@@ -10,7 +10,7 @@ from intellide.routers.user import api as api_user
 from intellide.storage.startup import startup as storage_startup
 
 
-# 定义声明周期函数
+# 定义生命周期函数
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # 程序启动

@@ -16,7 +16,7 @@ from intellide.database.model import (
     SharedEntryPermission,
     SharedEntryUser,
 )
-from intellide.utils.encrypt import jwt_encode, jwt_verify
+from intellide.utils.encrypt import jwt_encode, jwt_decode
 from intellide.utils.path import path_normalize
 from intellide.utils.response import ok, bad_request, internal_server_error
 
@@ -33,7 +33,7 @@ class ShareTokenCreateRequest(BaseModel):
 async def create_share_token(
         request: ShareTokenCreateRequest,
         exp_hours: Optional[int] = None,
-        access_info: Dict = Depends(jwt_verify),
+        access_info: Dict = Depends(jwt_decode),
         db: AsyncSession = Depends(database),
 ):
     """
@@ -89,7 +89,7 @@ class ShareTokenParseRequest(BaseModel):
 @api.post("/token/parse")
 async def share_token_parse(
         request: ShareTokenParseRequest,
-        access_info: Dict = Depends(jwt_verify),
+        access_info: Dict = Depends(jwt_decode),
         db: AsyncSession = Depends(database),
 ):
     """
@@ -106,7 +106,7 @@ async def share_token_parse(
     try:
         # 解析共享令牌的 JWT
         try:
-            share_info = jwt_verify(token=request.token)
+            share_info = jwt_decode(token=request.token)
         except:
             return bad_request(message="Invalid share token")
         # 验证共享令牌字段
@@ -129,7 +129,7 @@ async def share_token_parse(
 @api.get("/list")
 async def shared_entry_list(
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_verify),
+        access_info: Dict = Depends(jwt_decode),
 ):
     """
     获取共享记录列表
@@ -230,7 +230,7 @@ async def shared_entry_collaborative_subscribe(
         entry_id: int,
         shared_entry_id: Optional[int] = None,
         db: AsyncSession = Depends(database),
-        access_info=Depends(jwt_verify),
+        access_info=Depends(jwt_decode),
 ):
     """
     订阅共享条目协作
