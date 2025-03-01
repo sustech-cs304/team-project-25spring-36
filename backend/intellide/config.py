@@ -1,5 +1,9 @@
 import os
 
+# 服务器配置
+SERVER_HOST = "0.0.0.0"
+SERVER_PORT = 8080
+
 # 项目存储路径
 STORAGE_PATH = os.path.join(os.path.dirname(__file__), "storage")
 

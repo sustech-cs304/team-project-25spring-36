@@ -8,8 +8,5 @@ aiofiles
 aiohttp
 pyjwt
 asyncpg
-asgi_lifespan
-httpx
 pytest
-pytest-asyncio
 pytest-dependency

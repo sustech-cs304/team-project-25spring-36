@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 
+import uvicorn
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
+from intellide.config import SERVER_HOST, SERVER_PORT
 from intellide.database.startup import startup as database_startup
 from intellide.routers.entry import api as api_entry
 from intellide.routers.share import api as api_share, ws as ws_share
@@ -48,3 +50,6 @@ ws.include_router(ws_share)
 # 添加路由
 app.include_router(api)
 app.include_router(ws)
+
+if __name__ == "__main__":
+    uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT)

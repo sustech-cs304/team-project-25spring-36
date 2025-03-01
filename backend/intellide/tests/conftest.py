@@ -1,68 +1,95 @@
-import asyncio
+import os.path
+import subprocess
 from itertools import count
 
 import pytest
-from asgi_lifespan import LifespanManager
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import create_engine, text
 
-from intellide.config import DATABASE_ADMIN_URL, DATABASE_NAME
-from intellide.database.startup import startup as database_startup
-from intellide.main import app as application
-from intellide.storage.startup import startup as storage_startup
+from intellide.config import DATABASE_ENGINE, DATABASE_USER, DATABASE_PASSWORD, DATABASE_HOST, DATABASE_PORT, \
+    DATABASE_NAME, SERVER_HOST, SERVER_PORT
+
+WORK_DIRECTORY = os.path.join(os.path.dirname(__file__), "..", "..")
+
+LOG_DIRECTORY = os.path.join(WORK_DIRECTORY, "logs")
+
+DATABASE_TEST_BASE_URL = f"{DATABASE_ENGINE}+psycopg2://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}"
+DATABASE_TEST_ADMIN_URL = f"{DATABASE_ENGINE}+psycopg2://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/postgres"
+DATABASE_TEST_URL = f"{DATABASE_ENGINE}+psycopg2://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
+
+SERVER_BASE_URL = f"http://{SERVER_HOST if SERVER_HOST != '0.0.0.0' else 'localhost'}:{SERVER_PORT}"
 
 
+# 清理数据库
 @pytest.fixture(scope="session", autouse=True)
-def startup():
-    async def drop_database_tables():
-        # 连接目标数据库
-        async_engine = create_async_engine(DATABASE_ADMIN_URL, echo=True, future=True)
-        async with async_engine.connect() as conn:
-            conn = await conn.execution_options(isolation_level="AUTOCOMMIT")
-            # 确保数据库存在才执行删除操作
-            await conn.execute(text(f"DROP DATABASE IF EXISTS {DATABASE_NAME}"))
+def clean():
+    """测试前后清理数据库"""
+    engine = create_engine(DATABASE_TEST_ADMIN_URL, isolation_level="AUTOCOMMIT")
 
-    async def _init():
-        await drop_database_tables()
-        await database_startup()
-        await storage_startup()
+    def drop():
+        try:
+            with engine.connect() as conn:
+                # 终止所有连接
+                conn.execute(
+                    text(
+                        """
+                            SELECT pg_terminate_backend(pg_stat_activity.pid)
+                            FROM pg_stat_activity
+                            WHERE datname = :dbname AND pid <> pg_backend_pid();
+                        """
+                    ),
+                    {"dbname": DATABASE_NAME},
+                )
+                # 删除数据库
+                conn.execute(text(f"DROP DATABASE IF EXISTS {DATABASE_NAME}"))
+        except Exception:
+            import traceback
 
-    asyncio.run(_init())
+            traceback.print_exc()
+
+    # **测试前清理**
+    drop()
+    yield  # 允许后续 fixture 执行
+
+
+# 启动测试服务器
+@pytest.fixture(scope="session", autouse=True)
+def server(clean):
+    """启动 FastAPI 服务器，并在测试结束后关闭。"""
+    os.makedirs(LOG_DIRECTORY, exist_ok=True)
+    # 日志文件路径
+    log_out_path = os.path.join(LOG_DIRECTORY, "out.log")
+    log_err_path = os.path.join(LOG_DIRECTORY, "err.log")
+    # 日志文件清空
+    with open(log_out_path, "w") as out, open(log_err_path, "w") as err:
+        # 启动服务器
+        process = subprocess.Popen(
+            args=["uvicorn", "intellide.main:app", "--host", SERVER_HOST, "--port", f"{SERVER_PORT}"],
+            cwd=WORK_DIRECTORY,
+            stdout=out,
+            stderr=err,
+        )
+        # 返回进程对象，方便测试用例使用
+        yield process
+        # **关闭服务器**
+        try:
+            process.terminate()
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
 
 
 @pytest.fixture(scope="session")
-def anyio_backend():
-    return "asyncio"
-
-
-@pytest.fixture(scope="session")
-async def app():
-    async with LifespanManager(application) as manager:
-        yield manager.app
-
-
-@pytest.fixture(scope="session")
-async def client(app):
-    async with AsyncClient(
-            transport=ASGITransport(app=application),
-            base_url="http://test",
-    ) as client:
-        yield client
-
-
-@pytest.fixture(scope="session")
-def counter():
+def unique_counter():
     return count(start=1000)
 
 
 @pytest.fixture(scope="session")
-def f4uint(counter):
-    counter = count(start=1000)
-    return lambda: next(counter)
+def unique_string_generator(unique_counter):
+    unique_counter = count(start=1000)
+    return lambda: f"str_{hex(next(unique_counter))}"
 
 
 @pytest.fixture(scope="session")
-def f4ustr(counter):
-    counter = count(start=1000)
-    return lambda: f"test_{hex(next(counter))}"
+def unique_integer_generator(unique_counter):
+    unique_counter = count(start=1000)
+    return lambda: next(unique_counter)
