@@ -4,17 +4,23 @@ from typing import Dict, Optional, Sequence
 
 import aiofiles
 import aiofiles.os
-from fastapi import APIRouter, Depends, UploadFile
+from fastapi import APIRouter, Depends, UploadFile, File, Form
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from intellide.config import STORAGE_PATH
 from intellide.database.engine import database
-from intellide.database.model import Entry, EntryType
+from intellide.database.model import (
+    Entry,
+    SharedEntry,
+    SharedEntryUser,
+    SharedEntryPermissionType,
+    EntryType,
+)
 from intellide.storage.storage import async_write_file, get_file_response
 from intellide.utils.encrypt import jwt_decode
-from intellide.utils.path import path_normalize, path_split_dir_base_name
+from intellide.utils.path import path_normalize, path_prefix, path_split_dir_base_name
 from intellide.utils.response import ok, bad_request, internal_server_error
 
 api = APIRouter(prefix="/entry")
@@ -60,16 +66,12 @@ async def entry_get(
         return internal_server_error()
 
 
-class EntryPostRequest(BaseModel):
-    entry_path: str
-    entry_type: EntryType
-    is_collaborative: bool = False
-    file: Optional[UploadFile] = None
-
-
 @api.post("")
 async def entry_post(
-        request: EntryPostRequest,
+        entry_path: str = Form(...),
+        entry_type: EntryType = Form(...),
+        is_collaborative: bool = Form(False),
+        file: Optional[UploadFile] = File(None),
         db: AsyncSession = Depends(database),
         access_info: Dict = Depends(jwt_decode),
 ):
@@ -88,37 +90,39 @@ async def entry_post(
         # 获取用户 ID
         owner_id = access_info["user_id"]
         try:
-            await find_entry(request.entry_path, owner_id, db)
+            entry: Optional[Entry] = await find_entry(entry_path, owner_id, db, nullable=True)
+            if entry is not None:
+                return bad_request(message="Entry already exists")
         except ValueError as e:
             return bad_request(message=str(e))
         # 验证及自动创建父目录
-        await create_parent_directories(request.entry_path, owner_id, db)
+        await create_parent_directories(entry_path, owner_id, db)
         # 创建 Entry 记录
-        if request.entry_type == EntryType.FILE:
+        if entry_type == EntryType.FILE:
             # 验证文件是否为空
-            if request.file is None:
+            if file is None:
                 return bad_request(message="Missing file")
             # 生成文件别名
             storage_name = uuid.uuid4().hex
             # 异步保存文件到指定目录
-            await async_write_file(storage_name, await request.file.read())
+            await async_write_file(storage_name, await file.read())
             # 创建新的 Entry 记录
             db.add(
                 Entry(
                     owner_id=owner_id,
-                    entry_type=request.entry_type,
-                    entry_path=request.entry_path,
+                    entry_type=entry_type,
+                    entry_path=entry_path,
                     storage_name=storage_name,
-                    is_collaborative=request.is_collaborative,
+                    is_collaborative=is_collaborative,
                 )
             )
-        elif request.entry_type == EntryType.DIRECTORY:
+        elif entry_type == EntryType.DIRECTORY:
             # 创建新的目录 Entry 记录
             db.add(
                 Entry(
                     owner_id=owner_id,
-                    entry_type=request.entry_type,
-                    entry_path=request.entry_path,
+                    entry_type=entry_type,
+                    entry_path=entry_path,
                 )
             )
         else:

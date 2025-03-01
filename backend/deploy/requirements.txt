@@ -10,3 +10,4 @@ pyjwt
 asyncpg
 pytest
 pytest-dependency
+python-multipart

@@ -10,6 +10,7 @@ from intellide.database.model import UserRole
 from intellide.tests.conftest import SERVER_BASE_URL
 from intellide.tests.utils import *
 
+
 def user_register_success(
         user_register_dict: Dict,
 ) -> str:
@@ -48,7 +49,6 @@ def user_select_success(
     return response["data"]
 
 
-
 @pytest.fixture(scope="session")
 def unique_user_dict_generator(
         unique_string_generator: Callable,
@@ -70,6 +70,7 @@ def default_user_dict_sender(
 ) -> Dict:
     return unique_user_dict_generator()
 
+
 # 预定义测试用户数据
 @pytest.fixture(scope="session")
 def default_user_dict_receiver(
@@ -88,7 +89,7 @@ def test_user_register_success(
 
 
 @pytest.mark.dependency(depends=["test_user_register_success"])
-def test_user_upload_success(
+def test_entry_post_success(
         default_user_dict_sender: Dict,
         default_user_dict_receiver: Dict,
 ):
@@ -112,4 +113,44 @@ def test_user_upload_success(
     assert_code(response, status.HTTP_200_OK)
 
 
+@pytest.mark.dependency(depends=["test_user_register_success"])
+def test_create_share_token_success(
+        default_user_dict_sender: Dict,
+        default_user_dict_receiver: Dict,
+):
+    sender_token = user_login_success(default_user_dict_sender)
+    receiver_token = user_login_success(default_user_dict_receiver)
+    response = requests.post(
+        url=f"{SERVER_BASE_URL}/api/share/token/create",
+        headers={
+            "Access-Token": sender_token,
+        },
+        json={
+            "entry_path": "/aa/bb/file.txt",  # 文件路径
+        },
+        params={
 
+        },
+    ).json()
+    print(response)
+    assert_code(response, status.HTTP_200_OK)
+
+
+@pytest.mark.dependency(depends=["test_user_register_success"])
+def test_entry_get_success(
+        default_user_dict_sender: Dict,
+        default_user_dict_receiver: Dict,
+):
+    sender_token = user_login_success(default_user_dict_sender)
+    receiver_token = user_login_success(default_user_dict_receiver)
+    response = requests.get(
+        url=f"{SERVER_BASE_URL}/api/entry",
+        headers={
+            "Access-Token": receiver_token,
+        },
+        params={
+            "entry_path": "/",  # 文件路径
+        }
+    ).json()
+    print(response)
+    assert_code(response, status.HTTP_200_OK)
