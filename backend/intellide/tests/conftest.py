@@ -1,8 +1,10 @@
-import os.path
+import os
+import socket
 import subprocess
 from itertools import count
 
 import pytest
+import urllib3
 from sqlalchemy import create_engine, text
 
 from intellide.config import DATABASE_ENGINE, DATABASE_USER, DATABASE_PASSWORD, DATABASE_HOST, DATABASE_PORT, \
@@ -17,6 +19,14 @@ DATABASE_TEST_ADMIN_URL = f"{DATABASE_ENGINE}+psycopg2://{DATABASE_USER}:{DATABA
 DATABASE_TEST_URL = f"{DATABASE_ENGINE}+psycopg2://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
 
 SERVER_BASE_URL = f"http://{SERVER_HOST if SERVER_HOST != '0.0.0.0' else 'localhost'}:{SERVER_PORT}"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def net():
+    def allowed_gai_family():
+        return socket.AF_INET
+
+    urllib3.util.connection.allowed_gai_family = allowed_gai_family
 
 
 # 清理数据库
