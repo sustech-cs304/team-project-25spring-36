@@ -66,17 +66,23 @@ def clean():
 def server(clean):
     """启动 FastAPI 服务器，并在测试结束后关闭。"""
     os.makedirs(LOG_DIRECTORY, exist_ok=True)
-    # 日志文件路径
-    log_out_path = os.path.join(LOG_DIRECTORY, "out.log")
-    log_err_path = os.path.join(LOG_DIRECTORY, "err.log")
-    # 日志文件清空
-    with open(log_out_path, "w") as out, open(log_err_path, "w") as err:
+    # 日志文件
+    with open(os.path.join(LOG_DIRECTORY, "test.log"), "w") as log:
         # 启动服务器
         process = subprocess.Popen(
-            args=["uvicorn", "intellide.main:app", "--host", SERVER_HOST, "--port", f"{SERVER_PORT}"],
+            args=[
+                "uvicorn",
+                "intellide.main:app",
+                "--host",
+                SERVER_HOST,
+                "--port",
+                f"{SERVER_PORT}",
+                "--log-level",
+                "trace"
+            ],
             cwd=WORK_DIRECTORY,
-            stdout=out,
-            stderr=err,
+            stdout=log,
+            stderr=log,
         )
         # 返回进程对象，方便测试用例使用
         yield process
