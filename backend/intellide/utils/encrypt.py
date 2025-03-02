@@ -27,7 +27,7 @@ def jwt_encode(
     return jwt.encode(data, ENCRYPT_KEY, ENCRYPT_JWT_ALGO)
 
 
-def jwt_verify(
+def jwt_decode(
         token: str = Header(None, alias="Access-Token"),
 ) -> Dict:
     """

@@ -15,10 +15,12 @@ from intellide.database.model import (
     SharedEntry,
     SharedEntryPermission,
     SharedEntryUser,
+    SharedEntryPermissionType,
+    EntryType,
 )
-from intellide.util.encrypt import jwt_encode, jwt_verify
-from intellide.util.path import path_normalize
-from intellide.util.response import ok, bad_request, internal_server_error
+from intellide.utils.encrypt import jwt_encode, jwt_decode
+from intellide.utils.path import path_normalize
+from intellide.utils.response import ok, bad_request, internal_server_error
 
 api = APIRouter(prefix="/share")
 ws = APIRouter(prefix="/share")
@@ -33,7 +35,7 @@ class ShareTokenCreateRequest(BaseModel):
 async def create_share_token(
         request: ShareTokenCreateRequest,
         exp_hours: Optional[int] = None,
-        access_info: Dict = Depends(jwt_verify),
+        access_info: Dict = Depends(jwt_decode),
         db: AsyncSession = Depends(database),
 ):
     """
@@ -61,10 +63,24 @@ async def create_share_token(
         if root_entry is None:
             return bad_request(message="Entry not found")
 
-        # TODO: 验证权限类型合法性
+        # 验证权限类型合法性
+        if request.permissions:
+            for permission_value in request.permissions.values():
+                # 检查权限类型是否在枚举中定义
+                if permission_value.permission_type not in SharedEntryPermissionType:
+                    return bad_request(message=f"Invalid permission type: {permission_value.permission_type}")
+
+                # 如果是READ_WRITE_STICKY权限，检查条目是否为目录
+                if (permission_value.permission_type == SharedEntryPermissionType.READ_WRITE_STICKY.value and
+                        root_entry.entry_type != EntryType.DIRECTORY):
+                    return bad_request(message="READ_WRITE_STICKY permission can only be used with directories")
 
         # 添加共享记录
-        shared_entry = SharedEntry(entry_id=root_entry.id, permissions=[p.dict() for p in request.permissions])
+        permissions_data = []
+        if request.permissions:
+            permissions_data = [p.dict() for p in request.permissions]
+
+        shared_entry = SharedEntry(entry_id=root_entry.id, permissions=permissions_data)
         db.add(shared_entry)
         await db.commit()
         await db.refresh(shared_entry)
@@ -89,7 +105,7 @@ class ShareTokenParseRequest(BaseModel):
 @api.post("/token/parse")
 async def share_token_parse(
         request: ShareTokenParseRequest,
-        access_info: Dict = Depends(jwt_verify),
+        access_info: Dict = Depends(jwt_decode),
         db: AsyncSession = Depends(database),
 ):
     """
@@ -106,7 +122,7 @@ async def share_token_parse(
     try:
         # 解析共享令牌的 JWT
         try:
-            share_info = jwt_verify(token=request.token)
+            share_info = jwt_decode(token=request.token)
         except:
             return bad_request(message="Invalid share token")
         # 验证共享令牌字段
@@ -129,7 +145,7 @@ async def share_token_parse(
 @api.get("/list")
 async def shared_entry_list(
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_verify),
+        access_info: Dict = Depends(jwt_decode),
 ):
     """
     获取共享记录列表
@@ -230,7 +246,7 @@ async def shared_entry_collaborative_subscribe(
         entry_id: int,
         shared_entry_id: Optional[int] = None,
         db: AsyncSession = Depends(database),
-        access_info=Depends(jwt_verify),
+        access_info=Depends(jwt_decode),
 ):
     """
     订阅共享条目协作
@@ -272,3 +288,91 @@ async def shared_entry_collaborative_subscribe(
             entry_id,
             websocket,
         )
+
+
+
+
+async def check_shared_entry_permission_read(
+        entry_path: str,
+        entry_depth: Optional[int] = None,
+        db: AsyncSession = Depends(database),
+        access_info: Dict = Depends(jwt_decode),
+) -> Optional[str]:
+    """
+    检查用户是否有权限访问共享条目，并返回查询结果
+    
+    参数:
+    - entry_path: 条目路径
+    - user_id: 用户ID
+    - db: 数据库会话
+    
+    返回:
+    - 如果有权限，返回查询结果；否则返回None
+    """
+    current_path = entry_path
+    have_permission = False
+    while current_path:
+        # 查询当前路径的条目
+        current_entry = (await db.execute(select(Entry).where(Entry.entry_path == current_path))).scalar()
+        if current_entry:
+            # 查询是否有共享记录
+            shared_entry_id_result = (await db.execute(
+                select(SharedEntryUser).where(
+                    SharedEntryUser.shared_entry_id == current_entry.id,
+                    SharedEntryUser.user_id == access_info["user_id"]
+                )
+            )).scalar()
+
+            if shared_entry_id_result:
+                # 查询用户是否有权限访问该共享条目
+                permission = (await db.execute(
+                    select(SharedEntry).where(SharedEntry.id == shared_entry_id_result.shared_entry_id)
+                )).scalar().permissions
+
+                if permission == SharedEntryPermissionType.READ.value or permission == SharedEntryPermissionType.READ_WRITE.value:
+                    have_permission = True
+                    break
+
+        # 如果当前路径不是共享条目，则检查父目录
+        if current_path == "/":
+            break
+
+        # 获取父目录路径
+        current_path = path_prefix(current_path)
+        if not current_path:
+            break
+
+    if have_permission:
+        # 查询与当前路径相关的所有共享条目
+        query = select(Entry).where(Entry.entry_path.like(f"{entry_path}%"))
+        all_entries = (await db.execute(query)).scalars().all()
+        for entry in all_entries:
+            if entry.entry_path != entry_path:
+                # 检查该目录是否有明确的权限设置
+                shared_entry_result = (await db.execute(
+                    select(SharedEntryUser).join(SharedEntry).where(
+                        SharedEntryUser.shared_entry_id == SharedEntry.id,
+                        SharedEntry.entry_id == entry.id,
+                        SharedEntryUser.user_id == access_info["user_id"]
+                    )
+                )).scalar()
+
+                if shared_entry_result:
+                    # 检查权限类型
+                    permission = (await db.execute(
+                        select(SharedEntry).where(SharedEntry.id == shared_entry_result.shared_entry_id)
+                    )).scalar().permissions
+
+                    # 如果明确设置了不可读权限，则从查询中删除该条目
+                    if permission == SharedEntryPermissionType.NONE.value:
+                        query = query.where(~Entry.entry_path.like(f"{entry.entry_path}%"))
+                    if permission == SharedEntryPermissionType.READ_WRITE_STICKY.value:
+                        query = query.where(~Entry.entry_path.like(f"{entry.entry_path}/%"))
+
+        # 添加深度限制
+        if entry_depth is not None:
+            query = query.where(Entry.entry_depth <= entry_depth)
+
+        return query
+    else:
+        return None

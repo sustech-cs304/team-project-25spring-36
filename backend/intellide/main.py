@@ -1,12 +1,30 @@
+from contextlib import asynccontextmanager
+
+import uvicorn
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
-from intellide.router.entry import api as api_entry
-from intellide.router.share import api as api_share, ws as ws_share
-from intellide.router.user import api as api_user
+from intellide.config import SERVER_HOST, SERVER_PORT
+from intellide.database.startup import startup as database_startup
+from intellide.routers.entry import api as api_entry
+from intellide.routers.share import api as api_share, ws as ws_share
+from intellide.routers.user import api as api_user
+from intellide.storage.startup import startup as storage_startup
+
+
+# 定义生命周期函数
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # 程序启动
+    await database_startup()
+    await storage_startup()
+    # 程序运行
+    yield
+    # 程序结束
+
 
 # 服务端主程序
-app = FastAPI(debug=True)
+app = FastAPI(lifespan=lifespan, debug=True)
 
 # 添加跨域中间件
 app.add_middleware(
@@ -32,3 +50,6 @@ ws.include_router(ws_share)
 # 添加路由
 app.include_router(api)
 app.include_router(ws)
+
+if __name__ == "__main__":
+    uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT)

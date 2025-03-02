@@ -9,8 +9,8 @@ from sqlalchemy.future import select
 
 from intellide.database.engine import database
 from intellide.database.model import UserRole, User
-from intellide.util.encrypt import jwt_encode, jwt_verify
-from intellide.util.response import ok, bad_request, internal_server_error
+from intellide.utils.encrypt import jwt_encode, jwt_decode
+from intellide.utils.response import ok, bad_request, internal_server_error
 
 api = APIRouter(prefix="/user")
 
@@ -45,7 +45,10 @@ async def user_register(
     except IntegrityError:
         await db.rollback()
         return bad_request("Username already exists")
-    except:
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
         await db.rollback()
         return internal_server_error()
 
@@ -87,10 +90,35 @@ class UserUpdateRequest(BaseModel):
     role: Optional[UserRole] = None
 
 
+@api.get("")
+async def user_get(
+        access_info: Dict = Depends(jwt_decode),
+        db: AsyncSession = Depends(database),
+):
+    """
+    获取用户信息
+
+    参数:
+    - access_info: 通过 JWT 验证后的用户信息
+    - db: 数据库会话
+
+    返回:
+    - 成功时返回用户信息
+    """
+    try:
+        result = await db.execute(select(User).where(User.id == access_info["user_id"]))
+        user: User = result.scalar()
+        if not user:
+            return internal_server_error()
+        return ok(data=user.dict())
+    except:
+        return internal_server_error()
+
+
 @api.put("")
 async def user_update(
         request: UserUpdateRequest,
-        access_info: Dict = Depends(jwt_verify),
+        access_info: Dict = Depends(jwt_decode),
         db: AsyncSession = Depends(database),
 ):
     """

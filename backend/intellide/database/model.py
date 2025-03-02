@@ -1,5 +1,5 @@
 from datetime import datetime
-from enum import Enum as EnumClass
+from enum import Enum as PyEnum
 from typing import Dict
 
 from pydantic import BaseModel as PydanticBaseModel
@@ -20,6 +20,16 @@ class Mixin:
         for key, val in vars(target).items():
             if key and val and hasattr(self, key):
                 setattr(self, key, val)
+
+
+class EnumClass(PyEnum):
+    """
+    枚举类基类
+    """
+
+    def __str__(self):
+        # 重写 __str__，返回 enum 的值
+        return str(self.value)
 
 
 SQLAlchemyBaseModel = declarative_base()
@@ -94,11 +104,10 @@ class SharedEntryPermissionType(EnumClass):
     """
     共享条目额外权限类型枚举类
     """
-
-    READ = "read"
-    READ_WRITE = "read_write"
-    READ_WRITE_DELETE = "read_write_delete"
-    READ_WRITE_DELETE_STICKY = "read_write_delete_sticky"  # 仅目录有效
+    NONE = "none"  # 已共享的某个目录里，如果有一个文件或目录唯独它不想共享可以用none
+    READ = "read"  # 对纯文件来说可读内容，对目录来说可读里面的文件
+    READ_WRITE = "read_write"  # 对纯文件来说可读写内容和删除自身，对目录来说可读写里面的文件（包括创建和删除文件）和删除自身
+    READ_WRITE_STICKY = "read_write_sticky"  # 仅目录有效，只允许你在里面创建文件，只有你创建的文件有read_write权限
 
 
 SharedEntryPermissionKey = str
@@ -109,7 +118,8 @@ class SharedEntryPermissionValue(PydanticBaseModel):
     共享条目额外权限值模型类
     """
     permission_type: SharedEntryPermissionType
-    inherited: bool = False
+    # 默认继承父目录的权限
+    # inherited: bool = False
 
 
 SharedEntryPermission = Dict[SharedEntryPermissionKey, SharedEntryPermissionValue]
