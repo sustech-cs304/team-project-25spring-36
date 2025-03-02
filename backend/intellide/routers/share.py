@@ -32,7 +32,7 @@ class ShareTokenCreateRequest(BaseModel):
 
 
 @api.post("/token/create")
-async def create_share_token(
+async def share_token_create(
         request: ShareTokenCreateRequest,
         exp_hours: Optional[int] = None,
         access_info: Dict = Depends(jwt_decode),
@@ -76,11 +76,10 @@ async def create_share_token(
                     return bad_request(message="READ_WRITE_STICKY permission can only be used with directories")
 
         # 添加共享记录
-        permissions_data = []
-        if request.permissions:
-            permissions_data = [p.dict() for p in request.permissions]
-
-        shared_entry = SharedEntry(entry_id=root_entry.id, permissions=permissions_data)
+        shared_entry = SharedEntry(
+            entry_id=root_entry.id,
+            permissions=[p.dict() for p in request.permissions] if request.permissions else []
+        )
         db.add(shared_entry)
         await db.commit()
         await db.refresh(shared_entry)
@@ -143,7 +142,7 @@ async def share_token_parse(
 
 
 @api.get("/list")
-async def shared_entry_list(
+async def shared_list(
         db: AsyncSession = Depends(database),
         access_info: Dict = Depends(jwt_decode),
 ):

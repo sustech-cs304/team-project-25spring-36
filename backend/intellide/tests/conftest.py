@@ -1,4 +1,5 @@
 import os
+import shutil
 import socket
 import subprocess
 from itertools import count
@@ -8,7 +9,7 @@ import urllib3
 from sqlalchemy import create_engine, text
 
 from intellide.config import DATABASE_ENGINE, DATABASE_USER, DATABASE_PASSWORD, DATABASE_HOST, DATABASE_PORT, \
-    DATABASE_NAME, SERVER_HOST, SERVER_PORT
+    DATABASE_NAME, SERVER_HOST, SERVER_PORT, STORAGE_PATH
 
 WORK_DIRECTORY = os.path.join(os.path.dirname(__file__), "..", "..")
 
@@ -35,7 +36,7 @@ def clean():
     """测试前后清理数据库"""
     engine = create_engine(DATABASE_TEST_ADMIN_URL, isolation_level="AUTOCOMMIT")
 
-    def drop():
+    def drop_database():
         try:
             with engine.connect() as conn:
                 # 终止所有连接
@@ -52,12 +53,13 @@ def clean():
                 # 删除数据库
                 conn.execute(text(f"DROP DATABASE IF EXISTS {DATABASE_NAME}"))
         except Exception:
-            import traceback
+            pass
 
-            traceback.print_exc()
-
-    # **测试前清理**
-    drop()
+    # 清理数据库
+    drop_database()
+    # 清理存储目录
+    if os.path.exists(STORAGE_PATH):
+        shutil.rmtree(STORAGE_PATH)
     yield  # 允许后续 fixture 执行
 
 
@@ -109,3 +111,23 @@ def unique_string_generator(unique_counter):
 def unique_integer_generator(unique_counter):
     unique_counter = count(start=1000)
     return lambda: next(unique_counter)
+
+
+@pytest.fixture(scope="session")
+def temp_file_content() -> bytes:
+    return b"TEST CONTENT"
+
+
+@pytest.fixture(scope="session")
+def temp_file_path(
+        temp_file_content: bytes,
+) -> str:
+    test_file = os.path.join(os.path.dirname(__file__), "..", "..", "temp", "file.txt")
+    # 写入测试文件
+    with open(test_file, "wb") as fp:
+        fp.write(temp_file_content)
+    # 返回文件路径
+    yield test_file
+    # 清理测试文件
+    if os.path.exists(test_file):
+        os.remove(test_file)

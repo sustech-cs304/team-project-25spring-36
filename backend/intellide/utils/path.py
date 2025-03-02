@@ -1,4 +1,3 @@
-import os.path
 import posixpath
 from typing import Tuple, Iterator
 
@@ -63,8 +62,9 @@ def path_dir_base_name(
         path[idx + 1:],
     )
 
+
 def path_base_name(
-        path:str,
+        path: str,
 ) -> str:
     """
     获取文件路径的文件名
@@ -123,9 +123,10 @@ def path_parts(
         raise RuntimeError(f"Index {index} is out of range for path '{path}'")
     return parts[index]
 
-def path_parts_first_n(
-        path:str,
-        n:int,
+
+def path_first_n(
+        path: str,
+        n: int,
 ) -> str:
     """
     提取路径中的前 n 个目录

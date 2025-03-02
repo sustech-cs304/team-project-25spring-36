@@ -5,10 +5,11 @@ import pytest
 import requests
 from fastapi import status
 
+from intellide.storage.storage import get_storage_path
 from intellide.tests.conftest import SERVER_BASE_URL
 from intellide.tests.test_user import user_register_success, unique_user_dict_generator
 from intellide.tests.utils import *
-from intellide.utils.path import path_iterate_parents, path_parts_first_n, path_parts
+from intellide.utils.path import path_iterate_parents, path_first_n, path_parts
 
 
 def entry_get_success(
@@ -47,26 +48,6 @@ def entry_post(
         },
         files={"file": open(file_path, "rb")} if file_path else None
     ).json()
-
-
-@pytest.fixture(scope="session")
-def temp_file_content() -> bytes:
-    return b"TEST FILE"
-
-
-@pytest.fixture(scope="session")
-def temp_file_path(
-        temp_file_content: bytes,
-) -> str:
-    test_file = os.path.join(os.path.dirname(__file__), "..", "..", "temp", "file.txt")
-    # 写入测试文件
-    with open(test_file, "wb") as fp:
-        fp.write(temp_file_content)
-    # 返回文件路径
-    yield test_file
-    # 清理测试文件
-    if os.path.exists(test_file):
-        os.remove(test_file)
 
 
 @pytest.fixture(scope="session")
@@ -130,6 +111,8 @@ def test_entry_post_success(
         ),
         status.HTTP_200_OK
     )
+    storage_name = entry_get_success(user_token_default, entry_path_file)[0]["storage_name"]
+    assert os.path.exists(get_storage_path(storage_name))
     assert_code(
         entry_post(
             user_token_default,
@@ -279,7 +262,7 @@ def test_entry_move_success_directory(
 ):
     src_entry_directory_path = unique_path_generator(depth=4)
     dst_entry_directory_path = unique_path_generator(depth=3)
-    src_entry_directory_move_path = path_parts_first_n(src_entry_directory_path, 3)
+    src_entry_directory_move_path = path_first_n(src_entry_directory_path, 3)
     assert_code(
         entry_post(
             user_token_default,
@@ -369,6 +352,97 @@ def test_entry_move_failure_entry_path_occupied(
             json={
                 "src_entry_path": src_entry_path,
                 "dst_entry_path": dst_entry_path
+            }
+        ).json(),
+        status.HTTP_400_BAD_REQUEST
+    )
+
+
+@pytest.mark.dependency(depends=["test_entry_get_success"])
+def test_entry_delete_success_file(
+        user_token_default: str,
+        temp_file_path: str,
+        unique_path_generator: Callable,
+):
+    entry_path = unique_path_generator(depth=3, suffix="txt")
+    assert_code(
+        entry_post(
+            user_token_default,
+            entry_path,
+            "file",
+            "false",
+            temp_file_path
+        ),
+        status.HTTP_200_OK
+    )
+    storage_name = entry_get_success(user_token_default, entry_path)[0]["storage_name"]
+    assert_code(
+        requests.delete(
+            url=f"{SERVER_BASE_URL}/api/entry",
+            headers={
+                "Access-Token": user_token_default,
+            },
+            params={
+                "entry_path": entry_path
+            }
+        ).json(),
+        status.HTTP_200_OK
+    )
+    entry_paths = {d["entry_path"] for d in entry_get_success(user_token_default, "/")}
+    assert entry_path not in entry_paths
+    assert path_first_n(entry_path, 2) in entry_paths
+    assert path_first_n(entry_path, 1) in entry_paths
+    assert not os.path.exists(get_storage_path(storage_name))
+
+
+@pytest.mark.dependency(depends=["test_entry_get_success"])
+def test_entry_delete_success_directory(
+        user_token_default: str,
+        temp_file_path: str,
+        unique_path_generator: Callable,
+):
+    entry_path = unique_path_generator(depth=4)
+    assert_code(
+        entry_post(
+            user_token_default,
+            entry_path,
+            "directory",
+            "false"
+        ),
+        status.HTTP_200_OK
+    )
+    assert_code(
+        requests.delete(
+            url=f"{SERVER_BASE_URL}/api/entry",
+            headers={
+                "Access-Token": user_token_default,
+            },
+            params={
+                "entry_path": path_first_n(entry_path, 3)
+            }
+        ).json(),
+        status.HTTP_200_OK
+    )
+    entry_paths = {d["entry_path"] for d in entry_get_success(user_token_default, "/")}
+    assert entry_path not in entry_paths
+    assert path_first_n(entry_path, 3) not in entry_paths
+    assert path_first_n(entry_path, 2) in entry_paths
+    assert path_first_n(entry_path, 1) in entry_paths
+
+
+@pytest.mark.dependency(depends=["test_entry_delete_success_file", "test_entry_delete_success_directory"])
+def test_entry_delete_failure_entry_path_not_exists(
+        user_token_default: str,
+        unique_path_generator: Callable,
+):
+    assert_code(
+        requests.delete(
+            url=f"{SERVER_BASE_URL}/api/entry",
+            headers={
+                "Access-Token": user_token_default,
+            },
+            params={
+                "entry_path": unique_path_generator(depth=3)
             }
         ).json(),
         status.HTTP_400_BAD_REQUEST
