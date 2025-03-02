@@ -78,7 +78,7 @@ def test_user_register_success(
 
 
 @pytest.mark.dependency(depends=["test_user_register_success"])
-def test_user_register_failure_username_duplicated(
+def test_user_register_failure_username_occupied(
         user_dict_default: Dict,
 ):
     response = requests.post(
@@ -96,7 +96,7 @@ def test_user_login_success(
 
 
 @pytest.mark.dependency(depends=["test_user_login_success"])
-def test_user_login_failure_username_incorrect(
+def test_user_login_failure_username_not_exists(
         user_dict_default: Dict,
         unique_string_generator: Callable,
 ):
@@ -135,7 +135,7 @@ def test_user_select_success(
 
 
 @pytest.mark.dependency(depends=["test_user_select_success"])
-def test_user_select_failed_token_error(
+def test_user_select_failure_token_incorrect(
         user_dict_default: Dict,
         unique_string_generator: Callable,
 ):
@@ -172,7 +172,7 @@ def test_user_update_success(
 
 @pytest.mark.anyio
 @pytest.mark.dependency(depends=["test_user_select_success"])
-def test_user_update_failure_username_duplicated(
+def test_user_update_failure_username_occupied(
         user_dict_default: Dict,
         unique_user_dict_generator: Callable,
 ):

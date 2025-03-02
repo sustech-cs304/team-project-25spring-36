@@ -8,7 +8,7 @@ from fastapi import status
 from intellide.tests.conftest import SERVER_BASE_URL
 from intellide.tests.test_user import user_register_success, unique_user_dict_generator
 from intellide.tests.utils import *
-from intellide.utils.path import path_iterate_parents
+from intellide.utils.path import path_iterate_parents, path_parts_first_n, path_parts
 
 
 def entry_get_success(
@@ -70,13 +70,32 @@ def temp_file_path(
 
 
 @pytest.fixture(scope="session")
-def entry_path_file() -> str:
-    return "/aa/bb/file.txt"
+def unique_path_generator(
+        unique_string_generator: Callable
+) -> Callable:
+    def _unique_path_generator(
+            depth: int,
+            suffix: Optional[str] = None,
+    ) -> str:
+        if depth <= 0:
+            raise ValueError("depth must be greater than 0")
+        return "/" + "/".join(unique_string_generator() for _ in range(depth)) + (f".{suffix}" if suffix else "")
+
+    return _unique_path_generator
 
 
 @pytest.fixture(scope="session")
-def entry_path_directory() -> str:
-    return "/ww/tt/ee"
+def entry_path_file(
+        unique_path_generator: Callable,
+) -> str:
+    return unique_path_generator(depth=3, suffix="txt")
+
+
+@pytest.fixture(scope="session")
+def entry_path_directory(
+        unique_path_generator: Callable,
+) -> str:
+    return unique_path_generator(depth=3)
 
 
 # 预定义测试用户数据
@@ -123,7 +142,7 @@ def test_entry_post_success(
 
 
 @pytest.mark.dependency(depends=["test_entry_post_success"])
-def test_entry_post_failure_entry_path_duplicated(
+def test_entry_post_failure_entry_path_occupied(
         user_token_default: str,
         entry_path_file: str,
         entry_path_directory: str,
@@ -200,7 +219,7 @@ def test_entry_download_failure_entry_path_not_exists(
 
 
 @pytest.mark.dependency(depends=["test_entry_post_success"])
-def test_entry_download_failure_target_is_not_file(
+def test_entry_download_failure_target_not_file(
         user_token_default: str,
         entry_path_directory: str
 ):
@@ -214,3 +233,143 @@ def test_entry_download_failure_target_is_not_file(
         }
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.dependency(depends=["test_entry_get_success"])
+def test_entry_move_success_file(
+        user_token_default: str,
+        temp_file_path: str,
+        unique_path_generator: Callable,
+):
+    src_entry_file_path = unique_path_generator(depth=3, suffix="txt")
+    dst_entry_file_path = unique_path_generator(depth=1, suffix="txt")
+    assert_code(
+        entry_post(
+            user_token_default,
+            src_entry_file_path,
+            "file",
+            "false",
+            temp_file_path
+        ),
+        status.HTTP_200_OK
+    )
+    assert_code(
+        requests.put(
+            url=f"{SERVER_BASE_URL}/api/entry/move",
+            headers={
+                "Access-Token": user_token_default,
+            },
+            json={
+                "src_entry_path": src_entry_file_path,
+                "dst_entry_path": dst_entry_file_path
+            }
+        ).json(),
+        status.HTTP_200_OK
+    )
+    entry_paths = {d["entry_path"] for d in entry_get_success(user_token_default, "/")}
+    assert src_entry_file_path not in entry_paths
+    assert dst_entry_file_path in entry_paths
+
+
+@pytest.mark.dependency(depends=["test_entry_get_success"])
+def test_entry_move_success_directory(
+        user_token_default: str,
+        temp_file_path: str,
+        unique_path_generator: Callable,
+):
+    src_entry_directory_path = unique_path_generator(depth=4)
+    dst_entry_directory_path = unique_path_generator(depth=3)
+    src_entry_directory_move_path = path_parts_first_n(src_entry_directory_path, 3)
+    assert_code(
+        entry_post(
+            user_token_default,
+            src_entry_directory_path,
+            "directory",
+            "false",
+            temp_file_path
+        ),
+        status.HTTP_200_OK
+    )
+    assert_code(
+        requests.put(
+            url=f"{SERVER_BASE_URL}/api/entry/move",
+            headers={
+                "Access-Token": user_token_default,
+            },
+            json={
+                "src_entry_path": src_entry_directory_move_path,
+                "dst_entry_path": dst_entry_directory_path
+            }
+        ).json(),
+        status.HTTP_200_OK
+    )
+    entry_paths = {d["entry_path"] for d in entry_get_success(user_token_default, "/")}
+    assert src_entry_directory_path not in entry_paths
+    assert src_entry_directory_move_path not in entry_paths
+    assert dst_entry_directory_path in entry_paths
+    assert dst_entry_directory_path + "/" + path_parts(src_entry_directory_path, 3) in entry_paths
+
+
+@pytest.mark.dependency(depends=["test_entry_move_success_file", "test_entry_move_success_directory"])
+def test_entry_move_failure_entry_path_same(
+        user_token_default: str,
+        temp_file_path: str,
+        unique_path_generator: Callable,
+):
+    entry_path = unique_path_generator(depth=3)
+    assert_code(
+        requests.put(
+            url=f"{SERVER_BASE_URL}/api/entry/move",
+            headers={
+                "Access-Token": user_token_default,
+            },
+            json={
+                "src_entry_path": entry_path,
+                "dst_entry_path": entry_path
+            }
+        ).json(),
+        status.HTTP_400_BAD_REQUEST
+    )
+
+
+@pytest.mark.dependency(depends=["test_entry_move_success_file", "test_entry_move_success_directory"])
+def test_entry_move_failure_entry_path_occupied(
+        user_token_default: str,
+        temp_file_path: str,
+        unique_path_generator: Callable,
+):
+    src_entry_path = unique_path_generator(depth=3)
+    dst_entry_path = unique_path_generator(depth=3)
+    assert_code(
+        entry_post(
+            user_token_default,
+            src_entry_path,
+            "directory",
+            "false",
+            temp_file_path
+        ),
+        status.HTTP_200_OK
+    )
+    assert_code(
+        entry_post(
+            user_token_default,
+            dst_entry_path,
+            "directory",
+            "false",
+            temp_file_path
+        ),
+        status.HTTP_200_OK
+    )
+    assert_code(
+        requests.put(
+            url=f"{SERVER_BASE_URL}/api/entry/move",
+            headers={
+                "Access-Token": user_token_default,
+            },
+            json={
+                "src_entry_path": src_entry_path,
+                "dst_entry_path": dst_entry_path
+            }
+        ).json(),
+        status.HTTP_400_BAD_REQUEST
+    )
