@@ -12,6 +12,16 @@ export function registerLoginCommand(context: vscode.ExtensionContext) {
         // Store token securely as login certificate
         await context.secrets.store('authToken', token);
         vscode.window.showInformationMessage('Login successful!');
+        
+        const userInfo = await authenticationService.getUserInfo(token);
+        // Create and show a status bar item with login info.
+        const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+        statusBarItem.text = `$(account) ${userInfo.username} (${userInfo.role})`;
+        statusBarItem.tooltip = "Logged in user info";
+        statusBarItem.show();
+
+        // Optionally, add statusBarItem to context.subscriptions so it is disposed on deactivation.
+        context.subscriptions.push(statusBarItem);
       } catch (error: any) {
         // Check if axios error contains response data for additional details
         const detailedError = error.response?.data?.message || error.message;

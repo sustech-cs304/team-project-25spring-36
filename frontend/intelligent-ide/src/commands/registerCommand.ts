@@ -25,7 +25,18 @@ export function registerRegisterCommand(context: vscode.ExtensionContext) {
         try {
             const token = await authenticationService.register(username, password, role);
             await context.secrets.store("authToken", token);
+            const userInfo = await authenticationService.getUserInfo(token);
             vscode.window.showInformationMessage(`Registration successful for ${username} as ${role}!`);
+
+            // Create and show a status bar item with login info.
+            const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+            statusBarItem.text = `$(account) ${userInfo.username} (${userInfo.role})`;
+            statusBarItem.tooltip = "Logged in user info";
+            statusBarItem.show();
+
+            // Optionally, add statusBarItem to context.subscriptions so it is disposed on deactivation.
+            context.subscriptions.push(statusBarItem);
+
         } catch (error: any) {
             const detailedError = error.response?.data?.message || error.message;
             vscode.window.showErrorMessage(`Registration failed: ${detailedError}`);
