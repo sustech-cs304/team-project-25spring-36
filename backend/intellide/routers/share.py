@@ -19,7 +19,7 @@ from intellide.database.model import (
     EntryType,
 )
 from intellide.utils.encrypt import jwt_encode, jwt_decode
-from intellide.utils.path import path_normalize
+from intellide.utils.path import path_normalize, path_prefix
 from intellide.utils.response import ok, bad_request, internal_server_error
 
 api = APIRouter(prefix="/share")
