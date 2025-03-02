@@ -36,7 +36,7 @@ async def async_write_file(
         await fp.write(content)
 
 
-async def get_file_response(
+def get_file_response(
         storage_name: str,
         file_name: str,
 ) -> FileResponse:

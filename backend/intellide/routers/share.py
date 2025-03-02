@@ -290,8 +290,6 @@ async def shared_entry_collaborative_subscribe(
         )
 
 
-
-
 async def check_shared_entry_permission_read(
         entry_path: str,
         entry_depth: Optional[int] = None,
