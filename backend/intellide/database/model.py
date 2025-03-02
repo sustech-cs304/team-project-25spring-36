@@ -3,12 +3,11 @@ from enum import Enum as PyEnum
 from typing import Dict
 
 from pydantic import BaseModel as PydanticBaseModel
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey, delete, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.event import listen
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import class_mapper
-
 
 class Mixin:
     def dict(self):
@@ -95,6 +94,7 @@ class Entry(SQLAlchemyBaseModel, Mixin):
         target.entry_depth = target.entry_path.count("/")
 
 
+
 # 监听 Entry 类的插入和更新事件
 listen(Entry, "before_insert", Entry.event_entry_depth)
 listen(Entry, "before_update", Entry.event_entry_depth)
@@ -104,25 +104,17 @@ class SharedEntryPermissionType(EnumClass):
     """
     共享条目额外权限类型枚举类
     """
-    NONE = "none"  # 已共享的某个目录里，如果有一个文件或目录唯独它不想共享可以用none
-    READ = "read"  # 对纯文件来说可读内容，对目录来说可读里面的文件
-    READ_WRITE = "read_write"  # 对纯文件来说可读写内容和删除自身，对目录来说可读写里面的文件（包括创建和删除文件）和删除自身
-    READ_WRITE_STICKY = "read_write_sticky"  # 仅目录有效，只允许你在里面创建文件，只有你创建的文件有read_write权限
+    NO : str = "no"  # 没有权限
+    READ : str = "read"  # 默认权限，对纯文件来说可读内容，对目录来说可读里面的文件
+    READ_WRITE : str = "read_write"  # 对纯文件来说可读写内容和删除自身，对目录来说可读写里面的文件（包括创建和删除文件）和删除自身
+    # READ_WRITE_STICKY : str = "read_write_sticky"  # 仅目录有效，有read的所有权限，允许你在里面创建文件，只有你创建的文件有write权限，暂未实现
 
 
-SharedEntryPermissionKey = str
+SharedEntryPermissionPath = str
 
 
-class SharedEntryPermissionValue(PydanticBaseModel):
-    """
-    共享条目额外权限值模型类
-    """
-    permission_type: SharedEntryPermissionType
-    # 默认继承父目录的权限
-    # inherited: bool = False
 
-
-SharedEntryPermission = Dict[SharedEntryPermissionKey, SharedEntryPermissionValue]
+SharedEntryPermission = Dict[SharedEntryPermissionPath, SharedEntryPermissionType]
 
 
 class SharedEntry(SQLAlchemyBaseModel, Mixin):
@@ -136,6 +128,20 @@ class SharedEntry(SQLAlchemyBaseModel, Mixin):
     permissions = Column(JSONB)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+
+    @staticmethod
+    def event_delete(mapper, connection, target: "SharedEntry"):
+        """在删除时删除对应的共享条目用户"""
+        # 在SQLAlchemy事件中，我们使用同步连接执行删除操作
+        # 这是因为事件处理程序在事务提交之前同步执行
+        connection.execute(
+            text("DELETE FROM shared_entry_users WHERE shared_entry_id = :shared_entry_id"),
+            {"shared_entry_id": target.id}
+        )
+
+
+
+listen(SharedEntry, "before_delete", SharedEntry.event_delete)
 
 
 class SharedEntryUser(SQLAlchemyBaseModel, Mixin):
