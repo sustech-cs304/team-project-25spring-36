@@ -23,10 +23,12 @@ export function registerRegisterCommand(context: vscode.ExtensionContext) {
 
         // Call your service to register the new user.
         try {
-            await authenticationService.register(username, password, role);
+            const token = await authenticationService.register(username, password, role);
+            await context.secrets.store("authToken", token);
             vscode.window.showInformationMessage(`Registration successful for ${username} as ${role}!`);
-        } catch (error) {
-            vscode.window.showErrorMessage('Registration failed!');
+        } catch (error: any) {
+            const detailedError = error.response?.data?.message || error.message;
+            vscode.window.showErrorMessage(`Registration failed: ${detailedError}`);
         }
     });
     context.subscriptions.push(disposable);

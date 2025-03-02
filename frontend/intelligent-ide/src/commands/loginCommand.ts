@@ -8,10 +8,14 @@ export function registerLoginCommand(context: vscode.ExtensionContext) {
 
     if (username && password) {
       try {
-        await authenticationService.login(username, password);
+        const token = await authenticationService.login(username, password);
+        // Store token securely as login certificate
+        await context.secrets.store('authToken', token);
         vscode.window.showInformationMessage('Login successful!');
-      } catch (error) {
-        vscode.window.showErrorMessage('Login failed!');
+      } catch (error: any) {
+        // Check if axios error contains response data for additional details
+        const detailedError = error.response?.data?.message || error.message;
+        vscode.window.showErrorMessage(`Login failed: ${detailedError}`);
       }
     } else {
       vscode.window.showErrorMessage('Username and password are required.');
