@@ -4,7 +4,7 @@ from typing import Dict, Optional, Sequence
 
 import aiofiles
 import aiofiles.os
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -13,14 +13,11 @@ from intellide.config import STORAGE_PATH
 from intellide.database.engine import database
 from intellide.database.model import (
     Entry,
-    SharedEntry,
-    SharedEntryUser,
-    SharedEntryPermissionType,
     EntryType,
 )
 from intellide.storage.storage import async_write_file, get_file_response
 from intellide.utils.encrypt import jwt_decode
-from intellide.utils.path import path_normalize, path_prefix, path_split_dir_base_name
+from intellide.utils.path import path_normalize, path_dir_base_name
 from intellide.utils.response import ok, bad_request, internal_server_error
 
 api = APIRouter(prefix="/entry")
@@ -184,8 +181,8 @@ async def entry_delete(
 
 
 class EntryMoveRequest(BaseModel):
-    entry_path: str
-    new_entry_path: str
+    src_entry_path: str
+    dst_entry_path: str
 
 
 @api.put("/move")
@@ -207,28 +204,31 @@ async def entry_move(
     """
     try:
         # 验证文件路径是否相同
-        if request.entry_path == request.new_entry_path:
+        if request.src_entry_path == request.dst_entry_path:
             return bad_request(message="Entry path unchanged")
         # 获取用户 ID
         owner_id = access_info["user_id"]
         try:
-            entry: Entry = await find_entry(request.entry_path, access_info["user_id"], db)
-            new_entry: Entry = await find_entry(request.new_entry_path, access_info["user_id"], db, nullable=True)
+            src_entry: Entry = await find_entry(request.src_entry_path, access_info["user_id"], db)
+            dst_entry: Entry = await find_entry(request.dst_entry_path, access_info["user_id"], db, nullable=True)
             # 断言新路径不存在
-            if new_entry is not None:
+            if dst_entry is not None:
                 return bad_request(message="New entry already exists")
         except ValueError as e:
             return bad_request(message=str(e))
         # 验证及自动创建父目录
-        await create_parent_directories(request.new_entry_path, owner_id, db)
+        await create_parent_directories(request.dst_entry_path, owner_id, db)
         # 移动文件或目录
-        if entry.entry_type == EntryType.DIRECTORY:
+        if src_entry.entry_type == EntryType.DIRECTORY:
             result = await db.execute(
-                select(Entry).where(Entry.entry_path.like(f"{request.entry_path}%"), Entry.owner_id == owner_id))
+                select(Entry).where(Entry.entry_path.like(f"{request.src_entry_path}%"), Entry.owner_id == owner_id))
             sub_entries: Sequence[Entry] = result.scalars().all()
             for sub_entry in sub_entries:
-                sub_entry.entry_path = request.new_entry_path + sub_entry.entry_path[len(request.entry_path):]
-        entry.entry_path = request.new_entry_path
+                sub_entry.entry_path = request.dst_entry_path + sub_entry.entry_path[len(request.src_entry_path):]
+        elif src_entry.entry_type == EntryType.FILE:
+            src_entry.entry_path = request.dst_entry_path
+        else:
+            return internal_server_error()
         # 提交数据库事务
         await db.commit()
         return ok()
@@ -260,14 +260,16 @@ async def entry_download(
         try:
             entry: Entry = await find_entry(entry_path, owner_id, db)
         except ValueError as e:
-            return bad_request(message=str(e))
+            raise HTTPException(status_code=400, detail=str(e))
         # 验证文件类型
         if entry.entry_type != EntryType.FILE:
-            return bad_request(message="Entry is not a file")
+            raise HTTPException(status_code=400, detail="Entry is not a file")
         # 获取文件名
-        _, file_name = path_split_dir_base_name(entry_path)
+        _, file_name = path_dir_base_name(entry_path)
         # 返回文件内容
         return get_file_response(entry.storage_name, file_name)
+    except HTTPException:
+        raise
     except:
         return internal_server_error()
 

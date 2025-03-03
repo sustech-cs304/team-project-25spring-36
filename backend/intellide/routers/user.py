@@ -46,9 +46,6 @@ async def user_register(
         await db.rollback()
         return bad_request("Username already exists")
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
         await db.rollback()
         return internal_server_error()
 
