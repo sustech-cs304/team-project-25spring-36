@@ -80,7 +80,7 @@ def shared_entry_post(
             headers=headers,
             params=params,
             data=data,
-        )
+        ).json()
     return response
 
 
@@ -271,7 +271,8 @@ def test_shared_entry_post_success(
         user_token_receiver: str,
         shared_entry_base_id_ref: Ref[int],
         unique_path_generator: Callable,
-        temp_file_path: str
+        temp_file_path: str,
+        shared_entry_base_path: str,
 ):
     shared_entry_base_id = shared_entry_base_id_ref.get()
     shared_entry_path_post_directory = unique_path_generator(depth=2)
@@ -296,6 +297,7 @@ def test_shared_entry_post_success(
             "/"
         )
     }
+
     for parent in path_iterate_parents(shared_entry_path_post_directory):
         assert parent in shared_entry_paths
     for parent in path_iterate_parents(shared_entry_path_post_file):
@@ -319,11 +321,18 @@ def test_shared_entry_move_success(
     )
     response = requests.put(
         url=f"{SERVER_BASE_URL}/api/share/move",
+        headers={
+            "Access-Token": user_token_receiver,
+        },
         json={
             "src_entry_path": shared_entry_src_path,
             "dst_entry_path": shared_entry_dst_path,
+        },
+        params={
+            "shared_entry_id": shared_entry_base_id,
         }
     ).json()
+
     assert_code(response, status.HTTP_200_OK)
     shared_entry_paths = {
         entry["entry_path"] for entry in shared_entry_get_success(
@@ -354,6 +363,9 @@ def test_shared_entry_delete_success(
     )
     response = requests.delete(
         url=f"{SERVER_BASE_URL}/api/share",
+        headers={
+            "Access-Token": user_token_receiver,
+        },
         params={
             "shared_entry_id": shared_entry_base_id,
             "entry_path": shared_entry_path_post,
