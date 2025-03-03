@@ -9,6 +9,7 @@ from intellide.tests.test_entry import entry_post
 from intellide.tests.test_user import user_register_success, unique_user_dict_generator
 from intellide.tests.utils import *
 from intellide.utils.path import path_first_n, path_iterate_parents
+from intellide.utils.encrypt import jwt_decode
 
 
 def shared_entry_info_get_success(
@@ -138,13 +139,15 @@ def shared_entry_base_path(
 ) -> str:
     return path_first_n(entry_path_inviter, 2)
 
+@pytest.fixture(scope="session")
+def shared_entry_base_token_ref() -> Ref[str]:
+    return Ref()
 
 @pytest.fixture(scope="session")
 def shared_entry_base_permissions() -> Dict:
     return {
         "": "read_write",
     }
-
 
 @pytest.fixture(scope="session")
 def shared_entry_base_id_ref() -> Ref[int]:
@@ -161,6 +164,7 @@ def test_shared_entry_token_create_success(
         user_token_inviter: str,
         shared_entry_base_path: str,
         shared_entry_base_id_ref: Ref[int],
+shared_entry_base_token_ref:Ref[str],
         shared_entry_base_permissions: Dict,
 ):
     response = requests.post(
@@ -174,7 +178,9 @@ def test_shared_entry_token_create_success(
         },
     ).json()
     assert_code(response, status.HTTP_200_OK)
-    shared_entry_id = response["data"]["shared_entry_id"]
+    token = response["data"]
+    shared_entry_base_token_ref.set(token)
+    shared_entry_id = jwt_decode(token)["shared_entry_id"]
     shared_entry_base_id_ref.set(shared_entry_id)
 
 
@@ -198,11 +204,13 @@ def test_shared_entry_token_parse_success(
 @pytest.mark.dependency(depends=["test_shared_entry_token_parse_success"])
 def test_shared_entry_info_get_success(
         user_token_receiver: str,
-        shared_entry_base_id: Ref[int],
+        shared_entry_base_id_ref: Ref[int],
 ):
     shared_entry_infos = shared_entry_info_get_success(user_token_receiver)
     assert shared_entry_infos
-    assert shared_entry_base_id.get() in [info["shared_entry_id"] for info in shared_entry_infos]
+    shared_entry_base_id = shared_entry_base_id_ref.get()
+    shared_entry_ids = {info["shared_entry_id"] for info in shared_entry_infos}
+    assert shared_entry_base_id in shared_entry_ids
     # TODO: 校验返回数据
 
 
