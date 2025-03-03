@@ -3,7 +3,7 @@
 /out
 # Ignore vscode settings
 /.vscode-test
-/.vscode
+
 # Ignore node_modules
 /node_modules
 
