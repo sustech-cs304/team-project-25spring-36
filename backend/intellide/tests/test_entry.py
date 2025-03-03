@@ -36,33 +36,31 @@ def entry_post(
         is_collaborative: str,
         file_path: Optional[str] = None,
 ) -> Dict:
-    return requests.post(
-        url=f"{SERVER_BASE_URL}/api/entry",
-        headers={
-            "Access-Token": user_token,
-        },
-        data={
-            "entry_path": entry_path,  # 文件路径
-            "entry_type": entry_type,  # 条目类型：file或directory
-            "is_collaborative": is_collaborative  # 布尔值需要转为字符串
-        },
-        files={"file": open(file_path, "rb")} if file_path else None
-    ).json()
-
-
-@pytest.fixture(scope="session")
-def unique_path_generator(
-        unique_string_generator: Callable
-) -> Callable:
-    def _unique_path_generator(
-            depth: int,
-            suffix: Optional[str] = None,
-    ) -> str:
-        if depth <= 0:
-            raise ValueError("depth must be greater than 0")
-        return "/" + "/".join(unique_string_generator() for _ in range(depth)) + (f".{suffix}" if suffix else "")
-
-    return _unique_path_generator
+    url = f"{SERVER_BASE_URL}/api/entry"
+    headers = {
+        "Access-Token": user_token,
+    }
+    data = {
+        "entry_path": entry_path,  # 文件路径
+        "entry_type": entry_type,  # 条目类型：file或directory
+        "is_collaborative": is_collaborative  # 布尔值需要转为字符串
+    }
+    if file_path:
+        with open(file_path, "rb") as f:
+            return requests.post(
+                url=url,
+                headers=headers,
+                data=data,
+                files={
+                    "file": f
+                }
+            ).json()
+    else:
+        return requests.post(
+            url=url,
+            headers=headers,
+            data=data,
+        ).json()
 
 
 @pytest.fixture(scope="session")

@@ -3,6 +3,7 @@ import shutil
 import socket
 import subprocess
 from itertools import count
+from typing import Callable, Optional
 
 import pytest
 import urllib3
@@ -102,15 +103,34 @@ def unique_counter():
 
 
 @pytest.fixture(scope="session")
-def unique_string_generator(unique_counter):
+def unique_string_generator(
+        unique_counter: count,
+):
     unique_counter = count(start=1000)
     return lambda: f"str_{hex(next(unique_counter))}"
 
 
 @pytest.fixture(scope="session")
-def unique_integer_generator(unique_counter):
+def unique_integer_generator(
+        unique_counter: count,
+):
     unique_counter = count(start=1000)
     return lambda: next(unique_counter)
+
+
+@pytest.fixture(scope="session")
+def unique_path_generator(
+        unique_string_generator: Callable
+) -> Callable:
+    def _unique_path_generator(
+            depth: int,
+            suffix: Optional[str] = None,
+    ) -> str:
+        if depth <= 0:
+            raise ValueError("depth must be greater than 0")
+        return "/" + "/".join(unique_string_generator() for _ in range(depth)) + (f".{suffix}" if suffix else "")
+
+    return _unique_path_generator
 
 
 @pytest.fixture(scope="session")

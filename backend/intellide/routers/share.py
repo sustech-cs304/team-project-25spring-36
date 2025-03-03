@@ -35,7 +35,7 @@ class ShareTokenCreateRequest(BaseModel):
 
 
 @api.post("/token/create")
-async def share_token_create(
+async def shared_entry_token_create(
         request: ShareTokenCreateRequest,
         exp_hours: Optional[int] = None,
         access_info: Dict = Depends(jwt_decode),
@@ -100,7 +100,7 @@ class ShareTokenParseRequest(BaseModel):
 
 
 @api.post("/token/parse")
-async def share_token_parse(
+async def shared_entry_token_parse(
         request: ShareTokenParseRequest,
         access_info: Dict = Depends(jwt_decode),
         db: AsyncSession = Depends(database),
@@ -139,8 +139,8 @@ async def share_token_parse(
         return internal_server_error()
 
 
-@api.get("/list")
-async def shared_list(
+@api.get("/info")
+async def shared_entry_info_get(
         db: AsyncSession = Depends(database),
         access_info: Dict = Depends(jwt_decode),
 ):
@@ -166,12 +166,9 @@ async def shared_list(
             root_entry: Entry = result.scalar()
             result = await db.execute(select(User).where(User.id == root_entry.owner_id))
             owner: User = result.scalar()
-            result = await db.execute(select(Entry).where(Entry.entry_path.like(f"{root_entry.entry_path}%")))
-            entries: Sequence[Entry] = result.scalars().all()
             shared_entry_info = {
                 "owner_id": root_entry.owner_id,
                 "owner_name": owner.username,
-                "entries": [e.dict() for e in entries],
                 "shared_entry_id": shared_entry.id, # 共享条目ID,用于共享的各种操作
                 "permissions": shared_entry.permissions,
             }
@@ -183,7 +180,7 @@ async def shared_list(
 
 
 @api.get("")
-async def shared_get(
+async def shared_entry_get(
         shared_entry_id: int,
         entry_path: str,
         entry_depth: Optional[int] = None,
@@ -203,6 +200,7 @@ async def shared_get(
     返回:
     - 成功时返回文件或目录信息
     """
+    # TODO: 查询SharedEntryUser
     try:
 
         shared_entry: SharedEntry = (await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_id))).scalar()
@@ -268,7 +266,7 @@ async def shared_get(
 
 
 @api.post("")
-async def share_post(
+async def shared_entry_post(
         shared_entry_id: int,
         entry_path: str = Form(...),
         entry_type: EntryType = Form(...),
@@ -292,6 +290,7 @@ async def share_post(
     返回:
     - 成功时返回空响应
     """
+    # TODO: 查询SharedEntryUser
     try:
         # 查询共享条目
         shared_entry: SharedEntry = (await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_id))).scalar()
@@ -370,7 +369,7 @@ async def share_post(
 
 
 @api.delete("")
-async def share_delete(
+async def shared_entry_delete(
         shared_entry_id: int,
         entry_path: str,
         db: AsyncSession = Depends(database),
@@ -450,7 +449,7 @@ class EntryMoveRequest(BaseModel):
 
 
 @api.put("/move")
-async def entry_move(
+async def shared_entry_move(
         request: EntryMoveRequest,
         shared_entry_id: int,
         db: AsyncSession = Depends(database),
