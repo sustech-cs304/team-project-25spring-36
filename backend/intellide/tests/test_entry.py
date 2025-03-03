@@ -63,6 +63,24 @@ def entry_post(
         ).json()
 
 
+def entry_post_success(
+        user_token: str,
+        entry_path: str,
+        entry_type: str,
+        is_collaborative: str,
+        file_path: Optional[str] = None,
+):
+    response = entry_post(
+        user_token,
+        entry_path,
+        entry_type,
+        is_collaborative,
+        file_path
+    )
+    assert_code(response, status.HTTP_200_OK)
+    return response["data"]
+
+
 @pytest.fixture(scope="session")
 def entry_path_file(
         unique_path_generator: Callable,
@@ -99,26 +117,20 @@ def test_entry_post_success(
         entry_path_directory: str,
         temp_file_path: str,
 ):
-    assert_code(
-        entry_post(
-            user_token_default,
-            entry_path_file,
-            "file",
-            "false",
-            temp_file_path
-        ),
-        status.HTTP_200_OK
+    entry_post_success(
+        user_token_default,
+        entry_path_file,
+        "file",
+        "false",
+        temp_file_path
     )
     storage_name = entry_get_success(user_token_default, entry_path_file)[0]["storage_name"]
     assert os.path.exists(get_storage_path(storage_name))
-    assert_code(
-        entry_post(
-            user_token_default,
-            entry_path_directory,
-            "directory",
-            "false"
-        ),
-        status.HTTP_200_OK
+    entry_post_success(
+        user_token_default,
+        entry_path_directory,
+        "directory",
+        "false"
     )
 
 
@@ -224,15 +236,12 @@ def test_entry_move_success_file(
 ):
     src_entry_file_path = unique_path_generator(depth=3, suffix="txt")
     dst_entry_file_path = unique_path_generator(depth=1, suffix="txt")
-    assert_code(
-        entry_post(
-            user_token_default,
-            src_entry_file_path,
-            "file",
-            "false",
-            temp_file_path
-        ),
-        status.HTTP_200_OK
+    entry_post_success(
+        user_token_default,
+        src_entry_file_path,
+        "file",
+        "false",
+        temp_file_path
     )
     assert_code(
         requests.put(
@@ -261,15 +270,12 @@ def test_entry_move_success_directory(
     src_entry_directory_path = unique_path_generator(depth=4)
     dst_entry_directory_path = unique_path_generator(depth=3)
     src_entry_directory_move_path = path_first_n(src_entry_directory_path, 3)
-    assert_code(
-        entry_post(
-            user_token_default,
-            src_entry_directory_path,
-            "directory",
-            "false",
-            temp_file_path
-        ),
-        status.HTTP_200_OK
+    entry_post_success(
+        user_token_default,
+        src_entry_directory_path,
+        "directory",
+        "false",
+        temp_file_path
     )
     assert_code(
         requests.put(
@@ -321,25 +327,19 @@ def test_entry_move_failure_entry_path_occupied(
 ):
     src_entry_path = unique_path_generator(depth=3)
     dst_entry_path = unique_path_generator(depth=3)
-    assert_code(
-        entry_post(
-            user_token_default,
-            src_entry_path,
-            "directory",
-            "false",
-            temp_file_path
-        ),
-        status.HTTP_200_OK
+    entry_post_success(
+        user_token_default,
+        src_entry_path,
+        "directory",
+        "false",
+        temp_file_path
     )
-    assert_code(
-        entry_post(
-            user_token_default,
-            dst_entry_path,
-            "directory",
-            "false",
-            temp_file_path
-        ),
-        status.HTTP_200_OK
+    entry_post_success(
+        user_token_default,
+        dst_entry_path,
+        "directory",
+        "false",
+        temp_file_path
     )
     assert_code(
         requests.put(
@@ -363,15 +363,12 @@ def test_entry_delete_success_file(
         unique_path_generator: Callable,
 ):
     entry_path = unique_path_generator(depth=3, suffix="txt")
-    assert_code(
-        entry_post(
-            user_token_default,
-            entry_path,
-            "file",
-            "false",
-            temp_file_path
-        ),
-        status.HTTP_200_OK
+    entry_post_success(
+        user_token_default,
+        entry_path,
+        "file",
+        "false",
+        temp_file_path
     )
     storage_name = entry_get_success(user_token_default, entry_path)[0]["storage_name"]
     assert_code(
@@ -400,14 +397,11 @@ def test_entry_delete_success_directory(
         unique_path_generator: Callable,
 ):
     entry_path = unique_path_generator(depth=4)
-    assert_code(
-        entry_post(
-            user_token_default,
-            entry_path,
-            "directory",
-            "false"
-        ),
-        status.HTTP_200_OK
+    entry_post_success(
+        user_token_default,
+        entry_path,
+        "directory",
+        "false"
     )
     assert_code(
         requests.delete(

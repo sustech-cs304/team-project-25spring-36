@@ -4,12 +4,12 @@ import pytest
 import requests
 from fastapi import status
 
-from intellide.tests.conftest import SERVER_BASE_URL
+from intellide.tests.conftest import SERVER_BASE_URL, unique_path_generator
 from intellide.tests.test_entry import entry_post
 from intellide.tests.test_user import user_register_success, unique_user_dict_generator
 from intellide.tests.utils import *
-from intellide.utils.path import path_first_n, path_iterate_parents
 from intellide.utils.encrypt import jwt_decode
+from intellide.utils.path import path_first_n, path_iterate_parents
 
 
 def shared_entry_info_get_success(
@@ -44,7 +44,7 @@ def shared_entry_get_success(
     return response["data"]
 
 
-def shared_entry_post_success(
+def shared_entry_post(
         user_token: str,
         shared_entry_id: int,
         shared_entry_type: str,
@@ -81,8 +81,60 @@ def shared_entry_post_success(
             params=params,
             data=data,
         )
+    return response
+
+
+def shared_entry_post_success(
+        user_token: str,
+        shared_entry_id: int,
+        shared_entry_type: str,
+        entry_path: str,
+        file_path: Optional[str] = None,
+) -> Dict:
+    response = shared_entry_post(
+        user_token,
+        shared_entry_id,
+        shared_entry_type,
+        entry_path,
+        file_path
+    )
     assert_code(response, status.HTTP_200_OK)
     return response["data"]
+
+
+def shared_entry_token_create_success(
+        user_token: str,
+        entry_path: str,
+        permissions: Dict,
+) -> str:
+    response = requests.post(
+        url=f"{SERVER_BASE_URL}/api/share/token/create",
+        headers={
+            "Access-Token": user_token,
+        },
+        json={
+            "entry_path": entry_path,  # 文件路径
+            "permissions": permissions
+        },
+    ).json()
+    assert_code(response, status.HTTP_200_OK)
+    return response["data"]
+
+
+def shared_entry_token_parse_success(
+        user_token: str,
+        share_token: str
+) -> None:
+    response = requests.post(
+        url=f"{SERVER_BASE_URL}/api/share/token/parse",
+        headers={
+            "Access-Token": user_token,
+        },
+        json={
+            "token": share_token,  # 文件路径
+        },
+    ).json()
+    assert_code(response, status.HTTP_200_OK)
 
 
 @pytest.fixture(scope="session")
@@ -139,15 +191,18 @@ def shared_entry_base_path(
 ) -> str:
     return path_first_n(entry_path_inviter, 2)
 
+
 @pytest.fixture(scope="session")
 def shared_entry_base_token_ref() -> Ref[str]:
     return Ref()
+
 
 @pytest.fixture(scope="session")
 def shared_entry_base_permissions() -> Dict:
     return {
         "": "read_write",
     }
+
 
 @pytest.fixture(scope="session")
 def shared_entry_base_id_ref() -> Ref[int]:
@@ -164,21 +219,14 @@ def test_shared_entry_token_create_success(
         user_token_inviter: str,
         shared_entry_base_path: str,
         shared_entry_base_id_ref: Ref[int],
-shared_entry_base_token_ref:Ref[str],
+        shared_entry_base_token_ref: Ref[str],
         shared_entry_base_permissions: Dict,
 ):
-    response = requests.post(
-        url=f"{SERVER_BASE_URL}/api/share/token/create",
-        headers={
-            "Access-Token": user_token_inviter,
-        },
-        json={
-            "entry_path": shared_entry_base_path,  # 文件路径
-            "permissions": shared_entry_base_permissions
-        },
-    ).json()
-    assert_code(response, status.HTTP_200_OK)
-    token = response["data"]
+    token = shared_entry_token_create_success(
+        user_token_inviter,
+        shared_entry_base_path,
+        shared_entry_base_permissions
+    )
     shared_entry_base_token_ref.set(token)
     shared_entry_id = jwt_decode(token)["shared_entry_id"]
     shared_entry_base_id_ref.set(shared_entry_id)
@@ -189,16 +237,7 @@ def test_shared_entry_token_parse_success(
         user_token_receiver: str,
         shared_entry_base_token_ref: Ref,
 ):
-    response = requests.post(
-        url=f"{SERVER_BASE_URL}/api/share/token/parse",
-        headers={
-            "Access-Token": user_token_receiver,
-        },
-        json={
-            "token": shared_entry_base_token_ref.get(),  # 文件路径
-        },
-    ).json()
-    assert_code(response, status.HTTP_200_OK)
+    shared_entry_token_parse_success(user_token_receiver, shared_entry_base_token_ref.get())
 
 
 @pytest.mark.dependency(depends=["test_shared_entry_token_parse_success"])
@@ -329,3 +368,44 @@ def test_shared_entry_delete_success(
         )
     }
     assert shared_entry_path_post not in shared_entry_paths
+
+
+@pytest.mark.dependency(depends=["test_shared_entry_post_success"])
+def test_shared_entry_basic_permission_success(
+        user_token_inviter: str,
+        user_token_receiver: str,
+        entry_path_inviter: str,
+        unique_path_generator: Callable,
+        unique_user_dict_generator: Callable,
+        temp_file_path: str,
+):
+    shared_entry_path = path_first_n(entry_path_inviter, 2)
+    read_token = shared_entry_token_create_success(
+        user_token_inviter,
+        shared_entry_path,
+        {"": "read"}
+    )
+    read_token_shared_entry_id = jwt_decode(read_token)["shared_entry_id"]
+    read_write_token = shared_entry_token_create_success(
+        user_token_inviter,
+        shared_entry_path,
+        {"": "read_write"}
+    )
+    read_write_token_shared_entry_id = jwt_decode(read_write_token)["shared_entry_id"]
+    shared_entry_token_parse_success(user_token_receiver, read_token)
+    shared_entry_token_parse_success(user_token_receiver, read_write_token)
+    assert_code(
+        shared_entry_post(
+            user_token_receiver,
+            read_token_shared_entry_id,
+            "directory",
+            unique_path_generator(depth=4)
+        ),
+        status.HTTP_403_FORBIDDEN
+    )
+    shared_entry_post_success(
+        user_token_receiver,
+        read_write_token_shared_entry_id,
+        "directory",
+        unique_path_generator(depth=4)
+    )
