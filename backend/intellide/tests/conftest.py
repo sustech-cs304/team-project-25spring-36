@@ -134,8 +134,10 @@ def unique_path_generator(
 
 
 @pytest.fixture(scope="session")
-def temp_file_content() -> bytes:
-    return b"TEST CONTENT"
+def temp_file_content(
+        unique_string_generator: Callable,
+) -> bytes:
+    return unique_string_generator().encode()
 
 
 @pytest.fixture(scope="session")
