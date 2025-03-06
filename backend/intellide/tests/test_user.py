@@ -143,7 +143,6 @@ def test_user_select_success(
 
 @pytest.mark.dependency(depends=["test_user_select_success"])
 def test_user_select_failure_token_incorrect(
-        cache: Dict,
         unique_string_generator: Callable,
 ):
     response = requests.get(
