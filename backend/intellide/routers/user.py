@@ -45,9 +45,6 @@ async def user_register(
     except IntegrityError:
         await db.rollback()
         return bad_request("Username already exists")
-    except Exception as e:
-        await db.rollback()
-        return internal_server_error()
 
 
 class UserLoginRequest(BaseModel):
@@ -71,14 +68,11 @@ async def user_login(
     - 成功时返回包含用户的JWT
     - 失败时返回错误信息
     """
-    try:
-        result = await db.execute(select(User).where(User.username == request.username))
-        user: User = result.scalar()
-        if not user or user.password != request.password:
-            return bad_request(message="Invalid username or password")
-        return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
-    except:
-        return internal_server_error()
+    result = await db.execute(select(User).where(User.username == request.username))
+    user: User = result.scalar()
+    if not user or user.password != request.password:
+        return bad_request(message="Invalid username or password")
+    return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
 
 
 class UserUpdateRequest(BaseModel):
@@ -102,14 +96,11 @@ async def user_get(
     返回:
     - 成功时返回用户信息
     """
-    try:
-        result = await db.execute(select(User).where(User.id == access_info["user_id"]))
-        user: User = result.scalar()
-        if not user:
-            return internal_server_error()
-        return ok(data=user.dict())
-    except:
+    result = await db.execute(select(User).where(User.id == access_info["user_id"]))
+    user: User = result.scalar()
+    if not user:
         return internal_server_error()
+    return ok(data=user.dict())
 
 
 @api.put("")
@@ -141,6 +132,3 @@ async def user_update(
     except IntegrityError:
         await db.rollback()
         return bad_request("Username already exists")
-    except:
-        await db.rollback()
-        return internal_server_error()

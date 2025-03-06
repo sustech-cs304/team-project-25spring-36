@@ -2,12 +2,12 @@ from datetime import datetime
 from enum import Enum as PyEnum
 from typing import Dict
 
-from pydantic import BaseModel as PydanticBaseModel
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey, delete, text
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.event import listen
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import class_mapper
+
 
 class Mixin:
     def dict(self):
@@ -94,7 +94,6 @@ class Entry(SQLAlchemyBaseModel, Mixin):
         target.entry_depth = target.entry_path.count("/")
 
 
-
 # 监听 Entry 类的插入和更新事件
 listen(Entry, "before_insert", Entry.event_entry_depth)
 listen(Entry, "before_update", Entry.event_entry_depth)
@@ -104,15 +103,13 @@ class SharedEntryPermissionType(EnumClass):
     """
     共享条目额外权限类型枚举类
     """
-    NO : str = "no"  # 没有权限
-    READ : str = "read"  # 默认权限，对纯文件来说可读内容，对目录来说可读里面的文件
-    READ_WRITE : str = "read_write"  # 对纯文件来说可读写内容和删除自身，对目录来说可读写里面的文件（包括创建和删除文件）和删除自身
+    NO: str = "no"  # 没有权限
+    READ: str = "read"  # 默认权限，对纯文件来说可读内容，对目录来说可读里面的文件
+    READ_WRITE: str = "read_write"  # 对纯文件来说可读写内容和删除自身，对目录来说可读写里面的文件（包括创建和删除文件）和删除自身
     # READ_WRITE_STICKY : str = "read_write_sticky"  # 仅目录有效，有read的所有权限，允许你在里面创建文件，只有你创建的文件有write权限，暂未实现
 
 
 SharedEntryPermissionPath = str
-
-
 
 SharedEntryPermission = Dict[SharedEntryPermissionPath, SharedEntryPermissionType]
 
@@ -138,7 +135,6 @@ class SharedEntry(SQLAlchemyBaseModel, Mixin):
             text("DELETE FROM shared_entry_users WHERE shared_entry_id = :shared_entry_id"),
             {"shared_entry_id": target.id}
         )
-
 
 
 listen(SharedEntry, "before_delete", SharedEntry.event_delete)

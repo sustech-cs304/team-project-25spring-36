@@ -1,4 +1,4 @@
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Callable
 
 from fastapi import status
 from fastapi.responses import JSONResponse
@@ -82,6 +82,32 @@ def forbidden(
     )
 
 
+def not_found(
+        message: str = "N/A",
+        **kwargs,
+) -> JSONResponse:
+    """
+    返回未找到资源响应
+
+    参数:
+    - message: 错误信息（可选）
+    - kwargs: 其他附加内容（可选）
+
+    返回:
+    - JSONResponse: 包含状态为 "error" 和描述为 "Not Found" 的响应
+    """
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "status": "error",
+            "code": status.HTTP_404_NOT_FOUND,
+            "description": "Not Found",
+            "message": message,
+            **kwargs,
+        }
+    )
+
+
 def internal_server_error(
         message: str = "N/A",
         **kwargs,
@@ -132,3 +158,32 @@ def not_implemented(
             **kwargs,
         },
     )
+
+
+class APIError(Exception):
+    _map = {
+        bad_request: status.HTTP_400_BAD_REQUEST,
+        forbidden: status.HTTP_403_FORBIDDEN,
+        not_found: status.HTTP_404_NOT_FOUND,
+        internal_server_error: status.HTTP_500_INTERNAL_SERVER_ERROR,
+        not_implemented: status.HTTP_501_NOT_IMPLEMENTED
+    }
+
+    def __init__(
+            self,
+            func: Callable,
+            message: str = "N/A",
+            **kwargs,
+    ):
+        self._func = func
+        self._msg = message
+        self._kwargs = kwargs
+
+    def code(self) -> int:
+        return self._map[self._func]
+
+    def response(self) -> JSONResponse:
+        return self._func(message=self._msg, **self._kwargs)
+
+    def message(self) -> str:
+        return self._msg

@@ -10,6 +10,7 @@ from intellide.routers.entry import api as api_entry
 from intellide.routers.share import api as api_share, ws as ws_share
 from intellide.routers.user import api as api_user
 from intellide.storage.startup import startup as storage_startup
+from intellide.utils.response import APIError, internal_server_error
 
 
 # 定义生命周期函数
@@ -50,6 +51,17 @@ ws.include_router(ws_share)
 # 添加路由
 app.include_router(api)
 app.include_router(ws)
+
+
+@app.exception_handler(APIError)
+async def api_error_handler(_, error: APIError):
+    return error.response()
+
+
+@app.exception_handler(Exception)
+async def exception_handler(_, error: Exception):
+    return internal_server_error(message=str(error))
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT)

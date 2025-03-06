@@ -3,6 +3,8 @@ from typing import Tuple, Iterator
 
 from pathvalidate import is_valid_filepath
 
+from intellide.utils.response import APIError, bad_request
+
 
 def path_normalize(
         path: str,
@@ -18,7 +20,7 @@ def path_normalize(
     """
     # 验证文件路径
     if not is_valid_filepath(path, platform="linux"):
-        raise ValueError("Invalid path")
+        raise APIError(bad_request, "Invalid file path")
     # 规范化文件路径
     return posixpath.normpath(path)
 

@@ -1,8 +1,8 @@
 import os
-import uuid
-from typing import Optional, Set, Dict, Sequence, List
+from typing import Optional, Set, Dict, Sequence, Tuple
 
 import aiofiles
+import aiofiles.os
 from fastapi import APIRouter, Depends, WebSocket, Form, File, UploadFile, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,11 +19,10 @@ from intellide.database.model import (
     SharedEntryPermissionType,
     EntryType,
 )
-from intellide.routers.entry import find_entry, create_parent_directories
-from intellide.storage.storage import async_write_file, get_file_response
+from intellide.routers.entry import download_entry, delete_entry, post_entry, move_entry
 from intellide.utils.encrypt import jwt_encode, jwt_decode
-from intellide.utils.path import path_normalize, path_prefix, path_dir_base_name
-from intellide.utils.response import ok, bad_request, internal_server_error, forbidden
+from intellide.utils.path import path_normalize, path_prefix
+from intellide.utils.response import ok, bad_request, forbidden, APIError
 
 api = APIRouter(prefix="/share")
 ws = APIRouter(prefix="/share")
@@ -53,42 +52,37 @@ async def shared_entry_token_create(
     返回:
     - 成功时返回共享令牌
     """
-    try:
-        # 验证文件路径
-        try:
-            request.entry_path = path_normalize(request.entry_path)
-        except:
-            return bad_request(message="Invalid entry path")
-        # 查询文件
-        result = await db.execute(
-            select(Entry).where(Entry.entry_path == request.entry_path, Entry.owner_id == access_info["user_id"]))
-        root_entry: Entry = result.scalar()
-        if root_entry is None:
-            return bad_request(message="Entry not found")
+    # 验证文件路径
+    request.entry_path = path_normalize(request.entry_path)
 
-        # 添加共享记录
-        shared_entry = SharedEntry(
-            entry_id=root_entry.id,
-            permissions={path: SharedEntryPermissionType(permission).value for path, permission in
-                         request.permissions.items()} if request.permissions else {}
+    # 查询文件
+    result = await db.execute(
+        select(Entry).where(Entry.entry_path == request.entry_path, Entry.owner_id == access_info["user_id"]))
+    root_entry: Entry = result.scalar()
+    if root_entry is None:
+        return bad_request(message="Entry not found")
+
+    # 添加共享记录
+    shared_entry = SharedEntry(
+        entry_id=root_entry.id,
+        permissions={
+            path: SharedEntryPermissionType(permission).value for path, permission in request.permissions.items()
+        } if request.permissions else {}
+    )
+
+    db.add(shared_entry)
+    await db.commit()
+    await db.refresh(shared_entry)
+
+    # 生成共享令牌
+    return ok(
+        jwt_encode(
+            data={
+                "shared_entry_id": shared_entry.id,
+            },
+            exp_hours=exp_hours,
         )
-
-        db.add(shared_entry)
-        await db.commit()
-        await db.refresh(shared_entry)
-
-        # 生成共享令牌
-        return ok(
-            jwt_encode(
-                data={
-                    "shared_entry_id": shared_entry.id,
-                },
-                exp_hours=exp_hours,
-            )
-        )
-    except:
-        await db.rollback()
-        return internal_server_error()
+    )
 
 
 class ShareTokenParseRequest(BaseModel):
@@ -112,27 +106,23 @@ async def shared_entry_token_parse(
     返回:
     - 成功时返回空数据
     """
+    # 解析共享令牌的 JWT
     try:
-        # 解析共享令牌的 JWT
-        try:
-            share_info = jwt_decode(token=request.token)
-        except:
-            return bad_request(message="Invalid share token")
-        # 验证共享令牌字段
-        if "shared_entry_id" not in share_info:
-            return bad_request(message="Invalid share token")
-        # 添加共享记录
-        db.add(
-            SharedEntryUser(
-                shared_entry_id=share_info["shared_entry_id"],
-                user_id=access_info["user_id"],
-            )
-        )
-        await db.commit()
-        return ok()
+        share_info = jwt_decode(token=request.token)
     except:
-        await db.rollback()
-        return internal_server_error()
+        return bad_request(message="Invalid share token")
+    # 验证共享令牌字段
+    if "shared_entry_id" not in share_info:
+        return bad_request(message="Invalid share token")
+    # 添加共享记录
+    db.add(
+        SharedEntryUser(
+            shared_entry_id=share_info["shared_entry_id"],
+            user_id=access_info["user_id"],
+        )
+    )
+    await db.commit()
+    return ok()
 
 
 @api.get("/info")
@@ -150,28 +140,25 @@ async def shared_entry_info_get(
     返回:
     - 成功时返回共享记录列表
     """
-    try:
-        shared_entries = []
-        # 查询共享记录
-        result = await db.execute(select(SharedEntryUser).where(SharedEntryUser.user_id == access_info["user_id"]))
-        shared_entry_users: Sequence[SharedEntryUser] = result.scalars().all()
-        for shared_entry_user in shared_entry_users:
-            result = await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_user.shared_entry_id))
-            shared_entry: SharedEntry = result.scalar()
-            result = await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))
-            root_entry: Entry = result.scalar()
-            result = await db.execute(select(User).where(User.id == root_entry.owner_id))
-            owner: User = result.scalar()
-            shared_entry_info = {
-                "owner_id": root_entry.owner_id,
-                "owner_name": owner.username,
-                "shared_entry_id": shared_entry.id,  # 共享条目ID,用于共享的各种操作
-                "permissions": shared_entry.permissions,
-            }
-            shared_entries.append(shared_entry_info)
-        return ok(data=shared_entries)
-    except:
-        return internal_server_error()
+    shared_entries = []
+    # 查询共享记录
+    result = await db.execute(select(SharedEntryUser).where(SharedEntryUser.user_id == access_info["user_id"]))
+    shared_entry_users: Sequence[SharedEntryUser] = result.scalars().all()
+    for shared_entry_user in shared_entry_users:
+        result = await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_user.shared_entry_id))
+        shared_entry: SharedEntry = result.scalar()
+        result = await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))
+        root_entry: Entry = result.scalar()
+        result = await db.execute(select(User).where(User.id == root_entry.owner_id))
+        owner: User = result.scalar()
+        shared_entry_info = {
+            "owner_id": root_entry.owner_id,
+            "owner_name": owner.username,
+            "shared_entry_id": shared_entry.id,  # 共享条目ID,用于共享的各种操作
+            "permissions": shared_entry.permissions,
+        }
+        shared_entries.append(shared_entry_info)
+    return ok(data=shared_entries)
 
 
 @api.get("")
@@ -195,78 +182,50 @@ async def shared_entry_get(
     返回:
     - 成功时返回文件或目录信息
     """
+    # 查询共享条目
+    user_id = access_info["user_id"]
+    shared_entry, root_entry = await select_shared_entry_with_root_entry_by_id(user_id, shared_entry_id, db)
+    # 获取共享根目录信息
+    root_entry_path = root_entry.entry_path
+    root_entry_depth = root_entry.entry_depth
+    # 规范化文件路径
+    entry_path = path_normalize(entry_path)
+    absolute_path = shared_entry_absolute_path(root_entry, entry_path)
+    # 查询 Entry 记录列表
+    query = select(Entry).where(Entry.entry_path.like(f"{absolute_path}%"))
+    # 对于查询结果中的每个条目，检查其是否有权限
+    # 首先获取所有条目
+    all_entries_result = await db.execute(query)
+    all_entries: Sequence[Entry] = all_entries_result.scalars().all()
+    # 创建一个新的条目列表，只包含有权限的条目
+    allowed_entry_ids = []
+    for entry in all_entries:
+        relative_path = entry.entry_path[len(root_entry_path):]
+        if not verify_permissions(
+                relative_path,
+                shared_entry.permissions,
+                (SharedEntryPermissionType.READ, SharedEntryPermissionType.READ_WRITE)
+        ):
+            continue
 
-    try:
-        # 查询SharedEntryUser该用户是否具有这一条共享记录
-        result = await db.execute(select(SharedEntryUser).where(SharedEntryUser.user_id == access_info["user_id"],
-                                                                SharedEntryUser.shared_entry_id == shared_entry_id))
-        shared_entry_user: SharedEntryUser = result.scalar()
-        if shared_entry_user is None:
-            return bad_request(message="You havn't join this shared entry")
-
-        # 查询共享条目
-        shared_entry: SharedEntry = (
-            await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_id))).scalar()
-        if shared_entry is None:
-            return bad_request(message="Shared entry not found")
-        root_entry = (await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))).scalar()
-        if root_entry is None:
-            return bad_request(message="Root entry not found")
-
-        root_entry_path = root_entry.entry_path
-        root_entry_depth = root_entry.entry_depth
-
-        permissions: SharedEntryPermission = shared_entry.permissions
-
-        try:
-            entry_path = path_normalize(entry_path)
-        except:
-            return bad_request(message="Invalid entry path")
-
-        if entry_path == "/":
-            full_path = root_entry_path
-        else:
-            full_path = f"{root_entry_path}{entry_path}"
-
-        # 查询 Entry 记录列表
-        query = select(Entry).where(Entry.entry_path.like(f"{full_path}%"))
-
-        # 对于查询结果中的每个条目，检查其是否有权限
-        # 首先获取所有条目
-        all_entries_result = await db.execute(query)
-        all_entries: Sequence[Entry] = all_entries_result.scalars().all()
-
-        # 创建一个新的条目列表，只包含有权限的条目
-        allowed_entry_ids = []
-        for entry in all_entries:
-            relative_path = entry.entry_path[len(root_entry_path):]
-            if not check_permission(relative_path, permissions,
-                                    [SharedEntryPermissionType.READ, SharedEntryPermissionType.READ_WRITE]):
-                continue
-
-            # 如果没有在权限列表中找到，则保留该条目
-            allowed_entry_ids.append(entry.id)
-
-        # 更新查询，只包含允许的条目
-        query = query.where(Entry.id.in_(allowed_entry_ids))
-
-        # 限制文件深度
-        if entry_depth:
-            query = query.where(Entry.entry_depth <= entry_depth + root_entry_depth)
-        result = await db.execute(query)
-        entries: Sequence[Entry] = result.scalars().all()
-
-        # 返回文件或目录信息
-        return ok(data=[
-            {
-                **entry.dict(),  # 展开原始字典
-                'entry_path': entry.entry_path[len(root_entry_path):],  # 处理路径
-                'entry_depth': entry.entry_depth - root_entry_depth  # 处理深度
-            }
-            for entry in entries
-        ])
-    except:
-        return internal_server_error()
+        # 如果没有在权限列表中找到，则保留该条目
+        allowed_entry_ids.append(entry.id)
+    # 更新查询，只包含允许的条目
+    query = query.where(Entry.id.in_(allowed_entry_ids))
+    # 限制文件深度
+    if entry_depth:
+        query = query.where(Entry.entry_depth <= entry_depth + root_entry_depth)
+    result = await db.execute(query)
+    entries: Sequence[Entry] = result.scalars().all()
+    # 返回文件或目录信息
+    return ok(data=[
+        {
+            **entry.dict(),  # 展开原始字典
+            "entry_path": entry.entry_path[len(root_entry_path):],  # 处理路径
+            "entry_depth": entry.entry_depth - root_entry_depth  # 处理深度
+        }
+        for entry in entries
+    ])
 
 
 @api.post("")
@@ -294,86 +253,30 @@ async def shared_entry_post(
     返回:
     - 成功时返回空响应
     """
-
-    try:
-        # 查询SharedEntryUser该用户是否具有这一条共享记录
-        result = await db.execute(select(SharedEntryUser).where(SharedEntryUser.user_id == access_info["user_id"],
-                                                                SharedEntryUser.shared_entry_id == shared_entry_id))
-        shared_entry_user: SharedEntryUser = result.scalar()
-        if shared_entry_user is None:
-            return bad_request(message="You havn't join this shared entry")
-
-        # 查询共享条目
-        shared_entry: SharedEntry = (
-            await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_id))).scalar()
-        if shared_entry is None:
-            return bad_request(message="Shared entry not found")
-
-        # 获取根目录条目
-        root_entry = (await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))).scalar()
-        if root_entry is None:
-            return bad_request(message="Root entry not found")
-        root_entry_path = root_entry.entry_path
-
-        # 获取权限设置
-        permissions: SharedEntryPermission = shared_entry.permissions
-
-        # 检查用户是否具有写入权限
-        if not check_permission(entry_path, permissions, [SharedEntryPermissionType.READ_WRITE]):
-            return forbidden(message="No permission to post")
-
-        if entry_path == "/":
-            full_path = root_entry_path
-        else:
-            full_path = f"{root_entry_path}{entry_path}"
-
-        # 获取原主人用户 ID
-        owner_id = root_entry.owner_id
-
-        try:
-            entry: Optional[Entry] = await find_entry(full_path, owner_id, db, nullable=True)
-            if entry is not None:
-                return bad_request(message="Entry already exists")
-        except ValueError as e:
-            return bad_request(message=str(e))
-        # 验证及自动创建父目录
-        await create_parent_directories(full_path, owner_id, db)
-        # 创建 Entry 记录
-        if entry_type == EntryType.FILE:
-            # 验证文件是否为空
-            if file is None:
-                return bad_request(message="Missing file")
-            # 生成文件别名
-            storage_name = uuid.uuid4().hex
-            # 异步保存文件到指定目录
-            await async_write_file(storage_name, await file.read())
-            # 创建新的 Entry 记录
-            db.add(
-                Entry(
-                    owner_id=owner_id,
-                    entry_type=entry_type,
-                    entry_path=full_path,
-                    storage_name=storage_name,
-                    is_collaborative=is_collaborative,
-                )
-            )
-        elif entry_type == EntryType.DIRECTORY:
-            # 创建新的目录 Entry 记录
-            db.add(
-                Entry(
-                    owner_id=owner_id,
-                    entry_type=entry_type,
-                    entry_path=full_path,
-                )
-            )
-        else:
-            return internal_server_error()
-        # 提交数据库事务
-        await db.commit()
-        return ok()
-    except:
-        await db.rollback()
-        return internal_server_error()
+    # 查询共享条目
+    shared_entry, root_entry = await select_shared_entry_with_root_entry_by_id(access_info["user_id"], shared_entry_id,
+                                                                               db)
+    # 检查用户是否具有写入权限
+    if not verify_permissions(
+            entry_path,
+            shared_entry.permissions,
+            (SharedEntryPermissionType.READ_WRITE,)
+    ):
+        return forbidden(message="No permission to post")
+    # 规范化文件路径
+    absolute_path = shared_entry_absolute_path(root_entry, entry_path)
+    # 获取原主人用户 ID
+    owner_id = root_entry.owner_id
+    # 验证及自动创建父目录
+    await post_entry(
+        owner_id=owner_id,
+        entry_path=absolute_path,
+        entry_type=entry_type,
+        is_collaborative=is_collaborative,
+        file=file,
+        db=db,
+    )
+    return ok()
 
 
 @api.delete("")
@@ -395,64 +298,25 @@ async def shared_entry_delete(
     返回:
     - 成功时返回空响应
     """
-    try:
-        # 查询SharedEntryUser该用户是否具有这一条共享记录
-        result = await db.execute(select(SharedEntryUser).where(SharedEntryUser.user_id == access_info["user_id"],
-                                                                SharedEntryUser.shared_entry_id == shared_entry_id))
-        shared_entry_user: SharedEntryUser = result.scalar()
-        if shared_entry_user is None:
-            return bad_request(message="You havn't join this shared entry")
-
-        # 查询共享条目
-        shared_entry: SharedEntry = (
-            await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_id))).scalar()
-        if shared_entry is None:
-            return bad_request(message="Shared entry not found")
-        # 获取根目录条目
-        root_entry = (await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))).scalar()
-        if root_entry is None:
-            return bad_request(message="Root entry not found")
-        root_entry_path = root_entry.entry_path
-        # 获取权限设置  
-        permissions: SharedEntryPermission = shared_entry.permissions
-
-        if not check_permission(entry_path, permissions, [SharedEntryPermissionType.READ_WRITE]):
-            return forbidden(message="No permission to delete")
-
-        if entry_path == "/":
-            full_path = root_entry_path
-        else:
-            full_path = f"{root_entry_path}{entry_path}"
-
-        # 获取原主人用户 ID
-        owner_id = root_entry.owner_id
-
-        # 寻找文件或目录
-        try:
-            entry: Entry = await find_entry(full_path, owner_id, db)
-        except ValueError as e:
-            return bad_request(message=str(e))
-        if entry.entry_type == EntryType.FILE:
-            # 删除文件
-            await aiofiles.os.remove(os.path.join(STORAGE_PATH, entry.storage_name))
-            await db.delete(entry)
-        elif entry.entry_type == EntryType.DIRECTORY:
-            # 删除目录及其子项
-            result = await db.execute(
-                select(Entry).where(Entry.entry_path.like(f"{full_path}%"), Entry.owner_id == owner_id))
-            sub_entries: Sequence[Entry] = result.scalars().all()
-            for sub_entry in sub_entries:
-                if sub_entry.entry_type == EntryType.FILE:
-                    await aiofiles.os.remove(os.path.join(STORAGE_PATH, sub_entry.storage_name))
-                await db.delete(sub_entry)
-        else:
-            return internal_server_error()
-        # 提交数据库事务
-        await db.commit()
-        return ok()
-    except:
-        await db.rollback()
-        return internal_server_error()
+    # 查询共享条目
+    user_id = access_info["user_id"]
+    shared_entry, root_entry = await select_shared_entry_with_root_entry_by_id(user_id, shared_entry_id, db)
+    # 验证文件权限
+    if not verify_permissions(
+            entry_path,
+            shared_entry.permissions,
+            (SharedEntryPermissionType.READ_WRITE,),
+    ):
+        return forbidden(message="No permission to delete")
+    # 规范化文件路径
+    absolute_path = shared_entry_absolute_path(root_entry, entry_path)
+    # 删除文件或目录
+    await delete_entry(
+        owner_id=root_entry.owner_id,
+        entry_path=absolute_path,
+        db=db,
+    )
+    return ok()
 
 
 class EntryMoveRequest(BaseModel):
@@ -484,75 +348,33 @@ async def shared_entry_move(
     返回:
     - 成功时返回空响应
     """
-    try:
-        # 查询SharedEntryUser该用户是否具有这一条共享记录
-        result = await db.execute(select(SharedEntryUser).where(SharedEntryUser.user_id == access_info["user_id"],
-                                                                SharedEntryUser.shared_entry_id == shared_entry_id))
-        shared_entry_user: SharedEntryUser = result.scalar()
-        if shared_entry_user is None:
-            return bad_request(message="You havn't join this shared entry")
-
-        # 验证文件路径是否相同
-        if request.src_entry_path == request.dst_entry_path:
-            return bad_request(message="Entry path unchanged")
-
-        # 查询共享条目
-        shared_entry: SharedEntry = (
-            await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_id))).scalar()
-        if shared_entry is None:
-            return bad_request(message="Shared entry not found")
-        # 获取根目录条目
-        root_entry = (await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))).scalar()
-        if root_entry is None:
-            return bad_request(message="Root entry not found")
-        root_entry_path = root_entry.entry_path
-        # 获取权限设置
-        permissions: SharedEntryPermission = shared_entry.permissions
-
-        if not check_permission(request.src_entry_path, permissions, [SharedEntryPermissionType.READ_WRITE]):
-            return forbidden(message="No permission to move from source")
-        if not check_permission(request.dst_entry_path, permissions, [SharedEntryPermissionType.READ_WRITE]):
-            return forbidden(message="No permission to move to destination")
-
-        if request.src_entry_path == "/":
-            src_full_path = root_entry_path
-        else:
-            src_full_path = f"{root_entry_path}{request.src_entry_path}"
-
-        if request.dst_entry_path == "/":
-            dst_full_path = root_entry_path
-        else:
-            dst_full_path = f"{root_entry_path}{request.dst_entry_path}"
-
-        # 获取用户 ID
-        owner_id = root_entry.owner_id
-        try:
-            src_entry: Entry = await find_entry(src_full_path, owner_id, db)
-            dst_entry: Entry = await find_entry(dst_full_path, owner_id, db, nullable=True)
-            # 断言新路径不存在
-            if dst_entry is not None:
-                return bad_request(message="New entry already exists")
-        except ValueError as e:
-            return bad_request(message=str(e))
-        # 验证及自动创建父目录
-        await create_parent_directories(dst_full_path, owner_id, db)
-        # 移动文件或目录
-        if src_entry.entry_type == EntryType.DIRECTORY:
-            result = await db.execute(
-                select(Entry).where(Entry.entry_path.like(f"{src_full_path}%"), Entry.owner_id == owner_id))
-            sub_entries: Sequence[Entry] = result.scalars().all()
-            for sub_entry in sub_entries:
-                sub_entry.entry_path = dst_full_path + sub_entry.entry_path[len(src_full_path):]
-        elif src_entry.entry_type == EntryType.FILE:
-            src_entry.entry_path = dst_full_path
-        else:
-            return internal_server_error()
-        # 提交数据库事务
-        await db.commit()
-        return ok()
-    except:
-        await db.rollback()
-        return internal_server_error()
+    # 查询共享条目
+    shared_entry, root_entry = await select_shared_entry_with_root_entry_by_id(access_info["user_id"], shared_entry_id,
+                                                                               db)
+    # 验证文件权限
+    if not verify_permissions(
+            request.src_entry_path,
+            shared_entry.permissions,
+            (SharedEntryPermissionType.READ_WRITE,),
+    ):
+        return forbidden(message="No permission to move from source")
+    if not verify_permissions(
+            request.dst_entry_path,
+            shared_entry.permissions,
+            (SharedEntryPermissionType.READ_WRITE,),
+    ):
+        return forbidden(message="No permission to move to destination")
+    # 规范化文件路径
+    src_absolute_path = shared_entry_absolute_path(root_entry, request.src_entry_path)
+    dst_absolute_path = shared_entry_absolute_path(root_entry, request.dst_entry_path)
+    # 移动文件或目录
+    await move_entry(
+        owner_id=root_entry.owner_id,
+        src_entry_path=src_absolute_path,
+        dst_entry_path=dst_absolute_path,
+        db=db,
+    )
+    return ok()
 
 
 @api.get("/download")
@@ -575,50 +397,24 @@ async def shared_entry_download(
     - 成功时返回文件内容
     """
     try:
-        # 查询SharedEntryUser该用户是否具有这一条共享记录
-        result = await db.execute(select(SharedEntryUser).where(SharedEntryUser.user_id == access_info["user_id"],
-                                                                SharedEntryUser.shared_entry_id == shared_entry_id))
-        shared_entry_user: SharedEntryUser = result.scalar()
-        if shared_entry_user is None:
-            return bad_request(message="You havn't join this shared entry")
-
-        # 查询共享条目
-        shared_entry: SharedEntry = (
-            await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_id))).scalar()
-        if shared_entry is None:
-            return bad_request(message="Shared entry not found")
-        # 获取根目录条目
-        root_entry = (await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))).scalar()
-        if root_entry is None:
-            return bad_request(message="Root entry not found")
-        root_entry_path = root_entry.entry_path
-        permissions: SharedEntryPermission = shared_entry.permissions
-        if not check_permission(entry_path, permissions,
-                                [SharedEntryPermissionType.READ, SharedEntryPermissionType.READ_WRITE]):
-            return forbidden(message="No permission to download")
-        
-        if entry_path == "/":
-            full_path = root_entry_path
-        else:
-            full_path = f"{root_entry_path}{entry_path}"
-
+        user_id = access_info["user_id"]
+        shared_entry, root_entry = await select_shared_entry_with_root_entry_by_id(user_id, shared_entry_id, db)
+        if not verify_permissions(
+                entry_path,
+                shared_entry.permissions,
+                (SharedEntryPermissionType.READ, SharedEntryPermissionType.READ_WRITE,),
+        ):
+            raise HTTPException(status_code=403, detail="No permission to download")
+        # 获取文件路径
+        absolute_path = shared_entry_absolute_path(root_entry, entry_path)
         # 获取用户 ID
-        owner_id = root_entry.owner_id
-        try:
-            entry: Entry = await find_entry(full_path, owner_id, db)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-        # 验证文件类型
-        if entry.entry_type != EntryType.FILE:
-            raise HTTPException(status_code=400, detail="Entry is not a file")
-        # 获取文件名
-        _, file_name = path_dir_base_name(full_path)
-        # 返回文件内容
-        return get_file_response(entry.storage_name, file_name)
+        return await download_entry(absolute_path, root_entry.owner_id, db)
+    except APIError as e:
+        raise HTTPException(status_code=e.code(), detail=e.message())
     except HTTPException:
         raise
-    except:
-        return internal_server_error()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 class CollaborativeWebSocketManager:
@@ -714,9 +510,11 @@ async def shared_entry_collaborative_subscribe(
         if root_entry is None:
             await websocket.close(code=1008)
             return
-        root_entry_path = root_entry.entry_path
-        if not check_permission(entry.entry_path, root_entry_path, shared_entry.permissions,
-                                [SharedEntryPermissionType.READ_WRITE]):
+        if not verify_permissions(
+                entry.entry_path,
+                shared_entry.permissions,
+                (SharedEntryPermissionType.READ_WRITE,),
+        ):
             await websocket.close(code=1008)
             return
 
@@ -743,8 +541,11 @@ async def shared_entry_collaborative_subscribe(
         )
 
 
-def check_permission(entry_path: str, permissions: SharedEntryPermission,
-                     allowed_permission_types: List[SharedEntryPermissionType]) -> bool:
+def verify_permissions(
+        entry_path: str,
+        permissions: SharedEntryPermission,
+        allowed_permission_types: Tuple[SharedEntryPermissionType, ...]
+) -> bool:
     """
     检查用户是否对共享目录中的指定条目路径具有某些权限之一。
     
@@ -762,7 +563,6 @@ def check_permission(entry_path: str, permissions: SharedEntryPermission,
         permission_enum = SharedEntryPermissionType(permissions[entry_path])
         if permission_enum not in allowed_permission_types:
             return False
-
     # 递归检查父路径
     current_path = entry_path
     while current_path != "":
@@ -774,5 +574,37 @@ def check_permission(entry_path: str, permissions: SharedEntryPermission,
             if permission_enum not in allowed_permission_types:
                 return False
             break
-
     return True
+
+
+async def select_shared_entry_with_root_entry_by_id(
+        user_id: int,
+        shared_entry_id: int,
+        db: AsyncSession,
+) -> Tuple[SharedEntry, Entry]:
+    result = await db.execute(
+        select(SharedEntryUser).where(
+            SharedEntryUser.user_id == user_id,
+            SharedEntryUser.shared_entry_id == shared_entry_id
+        )
+    )
+    shared_entry_user: SharedEntryUser = result.scalar()
+    if shared_entry_user is None:
+        raise APIError(bad_request, "You have not join this shared entry")
+    # 查询共享条目
+    shared_entry: SharedEntry = (
+        await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_id))).scalar()
+    if shared_entry is None:
+        raise APIError(bad_request, "Shared entry not found")
+    result = await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))
+    root_entry: Entry = result.scalar()
+    if root_entry is None:
+        raise APIError(bad_request, "Root entry not found")
+    return shared_entry, root_entry
+
+
+def shared_entry_absolute_path(
+        root_entry: Entry,
+        relative_entry_path: str,
+) -> str:
+    return path_normalize(f"{root_entry.entry_path}{relative_entry_path}")
