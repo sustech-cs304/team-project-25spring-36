@@ -244,7 +244,6 @@ def test_shared_entry_post_success(
             "/"
         )
     }
-
     for parent in path_iterate_parents(shared_entry_path_post_directory):
         assert parent in shared_entry_paths
     for parent in path_iterate_parents(shared_entry_path_post_file):
