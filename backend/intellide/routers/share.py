@@ -254,8 +254,8 @@ async def shared_entry_post(
     - 成功时返回空响应
     """
     # 查询共享条目
-    shared_entry, root_entry = await select_shared_entry_with_root_entry_by_id(access_info["user_id"], shared_entry_id,
-                                                                               db)
+    user_id = access_info["user_id"]
+    shared_entry, root_entry = await select_shared_entry_with_root_entry_by_id(user_id, shared_entry_id, db)
     # 检查用户是否具有写入权限
     if not verify_permissions(
             entry_path,
@@ -349,8 +349,8 @@ async def shared_entry_move(
     - 成功时返回空响应
     """
     # 查询共享条目
-    shared_entry, root_entry = await select_shared_entry_with_root_entry_by_id(access_info["user_id"], shared_entry_id,
-                                                                               db)
+    user_id = access_info["user_id"]
+    shared_entry, root_entry = await select_shared_entry_with_root_entry_by_id(user_id, shared_entry_id, db)
     # 验证文件权限
     if not verify_permissions(
             request.src_entry_path,
