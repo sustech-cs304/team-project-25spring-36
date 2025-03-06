@@ -24,10 +24,9 @@ class Ref(Generic[T]):
     def __init__(self, val: T = None):
         self.val = val
 
-    def __str__(self):
-        return self.val
-
     def get(self):
+        if self.val is None:
+            raise RuntimeError("Value not set")
         return self.val
 
     def set(self, val: T):

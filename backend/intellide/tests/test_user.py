@@ -62,25 +62,28 @@ def unique_user_dict_generator(
     return _unique_user_generator
 
 
-# 预定义测试用户数据
 @pytest.fixture(scope="session")
-def user_dict_default(
-        unique_user_dict_generator: Callable
+def cache(
+        unique_user_dict_generator: Callable,
 ) -> Dict:
-    return unique_user_dict_generator()
+    return {
+        "user_dict_default": unique_user_dict_generator(),
+    }
 
 
 @pytest.mark.dependency
 def test_user_register_success(
-        user_dict_default: Dict,
+        cache: Dict,
 ):
+    user_dict_default = cache["user_dict_default"]
     user_register_success(user_dict_default)
 
 
 @pytest.mark.dependency(depends=["test_user_register_success"])
 def test_user_register_failure_username_occupied(
-        user_dict_default: Dict,
+        cache: Dict,
 ):
+    user_dict_default = cache["user_dict_default"]
     response = requests.post(
         url=f"{SERVER_BASE_URL}/api/user/register",
         json=user_dict_default,
@@ -90,16 +93,18 @@ def test_user_register_failure_username_occupied(
 
 @pytest.mark.dependency(depends=["test_user_register_success"])
 def test_user_login_success(
-        user_dict_default: Dict,
+        cache: Dict,
 ):
+    user_dict_default = cache["user_dict_default"]
     user_login_success(user_dict_default)
 
 
 @pytest.mark.dependency(depends=["test_user_login_success"])
 def test_user_login_failure_username_not_exists(
-        user_dict_default: Dict,
+        cache: Dict,
         unique_string_generator: Callable,
 ):
+    user_dict_default = cache["user_dict_default"]
     response = requests.post(
         url=f"{SERVER_BASE_URL}/api/user/login",
         json={
@@ -112,9 +117,10 @@ def test_user_login_failure_username_not_exists(
 
 @pytest.mark.dependency(depends=["test_user_login_success"])
 def test_user_login_failure_password_incorrect(
-        user_dict_default: Dict,
+        cache: Dict,
         unique_string_generator: Callable,
 ):
+    user_dict_default = cache["user_dict_default"]
     response = requests.post(
         url=f"{SERVER_BASE_URL}/api/user/login",
         json={
@@ -127,8 +133,9 @@ def test_user_login_failure_password_incorrect(
 
 @pytest.mark.dependency(depends=["test_user_login_success"])
 def test_user_select_success(
-        user_dict_default: Dict,
+        cache: Dict,
 ):
+    user_dict_default = cache["user_dict_default"]
     user_token = user_login_success(user_dict_default)
     user_select_dict = user_select_success(user_token)
     assert_dict(user_select_dict, user_dict_default, ["username", "password", "role"])
@@ -136,7 +143,7 @@ def test_user_select_success(
 
 @pytest.mark.dependency(depends=["test_user_select_success"])
 def test_user_select_failure_token_incorrect(
-        user_dict_default: Dict,
+        cache: Dict,
         unique_string_generator: Callable,
 ):
     response = requests.get(
@@ -173,9 +180,10 @@ def test_user_update_success(
 @pytest.mark.anyio
 @pytest.mark.dependency(depends=["test_user_select_success"])
 def test_user_update_failure_username_occupied(
-        user_dict_default: Dict,
+        cache: Dict,
         unique_user_dict_generator: Callable,
 ):
+    user_dict_default = cache["user_dict_default"]
     # 先注册用户
     new_user_dict = unique_user_dict_generator()
     new_user_token = user_register_success(new_user_dict)
