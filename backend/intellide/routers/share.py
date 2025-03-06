@@ -28,14 +28,14 @@ api = APIRouter(prefix="/share")
 ws = APIRouter(prefix="/share")
 
 
-class ShareTokenCreateRequest(BaseModel):
+class SharedEntryTokenCreateRequest(BaseModel):
     entry_path: str
     permissions: Optional[SharedEntryPermission] = None
 
 
 @api.post("/token/create")
 async def shared_entry_token_create(
-        request: ShareTokenCreateRequest,
+        request: SharedEntryTokenCreateRequest,
         exp_hours: Optional[int] = None,
         access_info: Dict = Depends(jwt_decode),
         db: AsyncSession = Depends(database),
@@ -57,7 +57,11 @@ async def shared_entry_token_create(
 
     # 查询文件
     result = await db.execute(
-        select(Entry).where(Entry.entry_path == request.entry_path, Entry.owner_id == access_info["user_id"]))
+        select(Entry).where(
+            Entry.entry_path == request.entry_path,
+            Entry.owner_id == access_info["user_id"]
+        )
+    )
     root_entry: Entry = result.scalar()
     if root_entry is None:
         return bad_request(message="Entry not found")
@@ -85,13 +89,13 @@ async def shared_entry_token_create(
     )
 
 
-class ShareTokenParseRequest(BaseModel):
+class SharedEntryTokenParseRequest(BaseModel):
     token: str
 
 
 @api.post("/token/parse")
 async def shared_entry_token_parse(
-        request: ShareTokenParseRequest,
+        request: SharedEntryTokenParseRequest,
         access_info: Dict = Depends(jwt_decode),
         db: AsyncSession = Depends(database),
 ):
@@ -319,7 +323,7 @@ async def shared_entry_delete(
     return ok()
 
 
-class EntryMoveRequest(BaseModel):
+class SharedEntryMoveRequest(BaseModel):
     """
     参数:
     - src_entry_path: 源文件或目录相对共享根目录的路径
@@ -331,7 +335,7 @@ class EntryMoveRequest(BaseModel):
 
 @api.put("/move")
 async def shared_entry_move(
-        request: EntryMoveRequest,
+        request: SharedEntryMoveRequest,
         shared_entry_id: int,
         db: AsyncSession = Depends(database),
         access_info: Dict = Depends(jwt_decode),
