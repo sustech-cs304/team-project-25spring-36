@@ -17,8 +17,14 @@ async def startup():
         # 连接 Docker 服务
         client = docker.DockerClient(base_url=DOCKER_URL)
         # 拉取 Redis 和 PostgreSQL 镜像
-        client.images.pull('postgres:latest')
-        client.images.pull('redis:latest')
+        try:
+            client.images.get('postgres:latest')
+        except docker.errors.ImageNotFound:
+            client.images.pull('postgres:latest')
+        try:
+            client.images.get('redis:latest')
+        except docker.errors.ImageNotFound:
+            client.images.pull('redis:latest')
         # 启动 PostgreSQL 容器
         try:
             postgres = client.containers.get(DOCKER_CONTAINER_POSTGRESQL_NAME)
