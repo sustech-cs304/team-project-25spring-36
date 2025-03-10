@@ -3,7 +3,6 @@
 ```text
 backend
 ├── .gitignore
-├── __pycache__
 ├── deploy
 │   ├── backend.bat
 │   ├── backend.sh
@@ -14,47 +13,31 @@ backend
 │       └── docker-option.png
 ├── intellide
 │   ├── __init__.py
-│   ├── __pycache__
 │   ├── cache
 │   │   ├── __init__.py
-│   │   ├── __pycache__
 │   │   ├── cache.py
 │   │   └── startup.py
 │   ├── config.py
 │   ├── database
 │   │   ├── __init__.py
-│   │   ├── __pycache__
 │   │   ├── database.py
 │   │   ├── model.py
 │   │   └── startup.py
 │   ├── docker
 │   │   ├── __init__.py
-│   │   ├── __pycache__
 │   │   └── startup.py
 │   ├── main.py
 │   ├── routers
 │   │   ├── __init__.py
-│   │   ├── __pycache__
 │   │   ├── entry.py
 │   │   ├── share.py
 │   │   └── user.py
 │   ├── storage
 │   │   ├── __init__.py
-│   │   ├── __pycache__
 │   │   ├── startup.py
 │   │   └── storage.py
 │   ├── tests
-│   │   ├── .pytest_cache
-│   │   │   ├── .gitignore
-│   │   │   ├── CACHEDIR.TAG
-│   │   │   ├── README.md
-│   │   │   └── v
-│   │   │       └── cache
-│   │   │           ├── lastfailed
-│   │   │           ├── nodeids
-│   │   │           └── stepwise
 │   │   ├── __init__.py
-│   │   ├── __pycache__
 │   │   ├── conftest.py
 │   │   ├── pytest.ini
 │   │   ├── test_entry.py
@@ -63,12 +46,10 @@ backend
 │   │   └── utils.py
 │   └── utils
 │       ├── __init__.py
-│       ├── __pycache__
+│       ├── email.py
 │       ├── encrypt.py
 │       ├── path.py
 │       └── response.py
-├── logs
-│   └── test.log
 └── tools
     └── tree.py
 ```
