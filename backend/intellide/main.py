@@ -11,6 +11,7 @@ from intellide.docker.startup import startup as docker_startup
 from intellide.routers.entry import api as api_entry
 from intellide.routers.share import api as api_share, ws as ws_share
 from intellide.routers.user import api as api_user
+from intellide.routers.surprise import api as api_surprise
 from intellide.storage.startup import startup as storage_startup
 from intellide.utils.response import APIError, internal_server_error
 
@@ -46,6 +47,7 @@ api = APIRouter(prefix="/api")
 api.include_router(api_user)
 api.include_router(api_entry)
 api.include_router(api_share)
+api.include_router(api_surprise)
 
 # 创建websocket路由
 ws = APIRouter(prefix="/ws")

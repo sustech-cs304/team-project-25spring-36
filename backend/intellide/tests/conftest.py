@@ -101,7 +101,7 @@ def server(clean):
         # 等待服务器启动
         while True:
             try:
-                requests.get(f"{SERVER_BASE_URL}/redoc")
+                requests.get(f"{SERVER_BASE_URL}/api/surprise/status")
                 break
             except:
                 pass
