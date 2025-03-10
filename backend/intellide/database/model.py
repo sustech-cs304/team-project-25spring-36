@@ -53,6 +53,7 @@ class User(SQLAlchemyBaseModel, Mixin):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     username = Column(String, nullable=False, unique=True, index=True)
     password = Column(String, nullable=False)
+    email = Column(String, nullable=False, unique=True)
     role = Column(Enum(UserRole), nullable=False, default=UserRole.STUDENT, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)

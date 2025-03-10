@@ -1,7 +1,10 @@
+import secrets
+import string
 from typing import Dict
 from typing import Optional
 
 from fastapi import APIRouter, Depends
+from passlib.hash import bcrypt
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +12,7 @@ from sqlalchemy.future import select
 
 from intellide.database.engine import database
 from intellide.database.model import UserRole, User
+from intellide.utils.cache import cache
 from intellide.utils.encrypt import jwt_encode, jwt_decode
 from intellide.utils.response import ok, bad_request, internal_server_error
 
@@ -18,7 +22,28 @@ api = APIRouter(prefix="/user")
 class UserRegisterRequest(BaseModel):
     username: str
     password: str
+    email: str
+    code: str
     role: UserRole
+
+
+@api.get("/register/code")
+async def user_register_code(
+        email: str,
+):
+    """
+    发送邮箱验证码
+
+    参数:
+    - email: 邮箱地址
+
+    返回:
+    - 成功时返回验证码
+    """
+    code = secrets.choice(string.ascii_uppercase + string.digits)
+    await cache.set(f"register:code:{email}", code, ttl=300)
+    # TODO: 发送邮件
+    return ok()
 
 
 @api.post("/register")
@@ -37,14 +62,22 @@ async def user_register(
     - 成功时返回包含用户的JWT
     """
     try:
-        user = User(username=request.username, password=request.password, role=request.role)
+        code = await cache.get(f"register:code:{request.email}")
+        if not code:
+            return bad_request("Invalid code")
+        user = User(
+            username=request.username,
+            password=bcrypt.hash(request.password),
+            email=request.email,
+            role=request.role,
+        )
         db.add(user)
         await db.commit()
         await db.refresh(user)
         return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
     except IntegrityError:
         await db.rollback()
-        return bad_request("Username already exists")
+        return bad_request("Username or email already exists")
 
 
 class UserLoginRequest(BaseModel):
@@ -70,8 +103,10 @@ async def user_login(
     """
     result = await db.execute(select(User).where(User.username == request.username))
     user: User = result.scalar()
-    if not user or user.password != request.password:
-        return bad_request(message="Invalid username or password")
+    if not user:
+        return bad_request(message="Invalid username")
+    if not bcrypt.verify(request.password, user.password):
+        return bad_request(message="Invalid password")
     return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
 
 

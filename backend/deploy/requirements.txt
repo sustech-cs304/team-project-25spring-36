@@ -11,3 +11,5 @@ asyncpg
 pytest
 pytest-dependency
 python-multipart
+passlib
+aiocache
