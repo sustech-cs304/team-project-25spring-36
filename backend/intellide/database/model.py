@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum as PyEnum
 from typing import Dict
 
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey, text
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey, text, Sequence
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.event import listen
 from sqlalchemy.ext.declarative import declarative_base
@@ -44,6 +44,9 @@ class UserRole(EnumClass):
     ADMIN = "admin"
 
 
+users_uid_sequence = Sequence("users_uid_sequence")
+
+
 class User(SQLAlchemyBaseModel, Mixin):
     """
     用户模型类
@@ -51,12 +54,18 @@ class User(SQLAlchemyBaseModel, Mixin):
 
     __tablename__ = "users"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    username = Column(String, nullable=False, unique=True, index=True)
+    username = Column(String, nullable=False)
     password = Column(String, nullable=False)
     email = Column(String, nullable=False, unique=True)
     role = Column(Enum(UserRole), nullable=False, default=UserRole.STUDENT, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+    uid = Column(BigInteger,
+                 users_uid_sequence,
+                 server_default=users_uid_sequence.next_value(),
+                 unique=True,
+                 nullable=False,
+                 )
 
 
 class EntryType(EnumClass):
@@ -85,8 +94,12 @@ class Entry(SQLAlchemyBaseModel, Mixin):
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
     __table_args__ = (
         Index("idx_entry_path", entry_path),  # B-TREE 主索引
-        Index("idx_entry_path_prefix", entry_path, postgresql_using="gin",
-              postgresql_ops={"entry_path": "gin_trgm_ops"}),  # 适用于 LIKE 查询
+        Index(
+            "idx_entry_path_prefix",
+            entry_path,
+            postgresql_using="gin",
+            postgresql_ops={"entry_path": "gin_trgm_ops"},
+        ),  # 适用于 LIKE 查询
     )
 
     @staticmethod

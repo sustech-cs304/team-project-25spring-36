@@ -6,7 +6,6 @@ pydantic
 pathvalidate
 aiofiles
 aiohttp
-pyjwt
 asyncpg
 pytest
 pytest-dependency
@@ -16,3 +15,4 @@ aiocache[redis]
 redis
 docker
 email-validator
+jwcrypto

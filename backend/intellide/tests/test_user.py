@@ -1,6 +1,4 @@
 import random
-import secrets
-import string
 from typing import Callable
 
 import pytest
@@ -10,6 +8,7 @@ from fastapi import status
 from intellide.database.model import UserRole
 from intellide.tests.conftest import SERVER_BASE_URL
 from intellide.tests.utils import *
+from intellide.utils.auth import verification_code
 
 
 def user_register_success(
@@ -29,7 +28,7 @@ def user_login_success(
     response = requests.post(
         url=f"{SERVER_BASE_URL}/api/user/login",
         json={
-            "username": user_login_dict["username"],
+            "email": user_login_dict["email"],
             "password": user_login_dict["password"],
         },
     ).json()
@@ -56,7 +55,7 @@ def unique_user_dict_generator(
 ) -> Callable:
     def _unique_user_generator():
         email = f"{unique_string_generator()}@{unique_string_generator()}.com"
-        code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+        code = verification_code(length=6)
         cache_set(f"register:code:{email}", code, ttl=300)
         return {
             "username": unique_string_generator(),
@@ -131,7 +130,7 @@ def test_user_login_failure_username_not_exists(
     response = requests.post(
         url=f"{SERVER_BASE_URL}/api/user/login",
         json={
-            "username": unique_string_generator(),
+            "email": f"{unique_string_generator()}@{unique_string_generator()}.com",
             "password": user_dict_default["password"],
         },
     ).json()
@@ -147,7 +146,7 @@ def test_user_login_failure_password_incorrect(
     response = requests.post(
         url=f"{SERVER_BASE_URL}/api/user/login",
         json={
-            "username": user_dict_default["username"],
+            "email": user_dict_default["email"],
             "password": unique_string_generator(),
         },
     ).json()
@@ -201,26 +200,3 @@ def test_user_put_success(
     # 获取更新后的用户信息
     after_update_user_dict = user_get_success(new_user_token)
     assert_dict(after_update_user_dict, update_user_dict, ("username", "role",))
-
-
-@pytest.mark.dependency(depends=["test_user_get_success"])
-def test_user_update_failure_username_occupied(
-        store: Dict,
-        unique_user_dict_generator: Callable,
-):
-    user_dict_default = store["user_dict_default"]
-    # 先注册用户
-    new_user_dict = unique_user_dict_generator()
-    new_user_token = user_register_success(new_user_dict)
-    # 更新用户名为已存在
-    update_user_dict = {
-        "username": user_dict_default["username"],
-    }
-    response = requests.put(
-        url=f"{SERVER_BASE_URL}/api/user",
-        json=update_user_dict,
-        headers={
-            "Access-Token": new_user_token,
-        },
-    ).json()
-    assert_code(response, status.HTTP_400_BAD_REQUEST)

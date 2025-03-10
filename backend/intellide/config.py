@@ -35,8 +35,8 @@ DOCKER_CONTAINER_POSTGRESQL_NAME = "software-engineering-project-postgres"
 DOCKER_CONTAINER_REDIS_NAME = "software-engineering-project-redis"
 
 # 加密配置
-ENCRYPT_KEY = "smlwyhwxhfstwzx"  # 秘钥
-ENCRYPT_JWT_ALGO = "HS256"  # 算法
+AUTH_JWE_ALG = "A256KW"
+AUTH_JWE_ENC = "A256CBC-HS512"
 
 # 邮箱配置
 SMTP_SERVER = 'smtp.qq.com'

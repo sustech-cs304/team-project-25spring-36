@@ -17,7 +17,7 @@ from intellide.database.model import (
     EntryType,
 )
 from intellide.storage.storage import async_write_file, get_file_response
-from intellide.utils.encrypt import jwt_decode
+from intellide.utils.auth import jwe_decode
 from intellide.utils.path import path_normalize, path_dir_base_name
 from intellide.utils.response import ok, bad_request, internal_server_error, APIError
 
@@ -29,7 +29,7 @@ async def entry_get(
         entry_path: str,
         entry_depth: Optional[int] = None,
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
 ):
     """
     获取文件或目录信息
@@ -60,7 +60,7 @@ async def entry_post(
         is_collaborative: bool = Form(False),
         file: Optional[UploadFile] = File(None),
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
 ):
     """
     上传文件或创建目录
@@ -89,7 +89,7 @@ async def entry_post(
 async def entry_delete(
         entry_path: str,
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
 ):
     """
     删除文件或目录
@@ -121,7 +121,7 @@ class EntryMoveRequest(BaseModel):
 async def entry_move(
         request: EntryMoveRequest,
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
 ):
     """
     移动文件或目录
@@ -148,7 +148,7 @@ async def entry_move(
 async def entry_download(
         entry_path: str,
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
 ):
     """
     下载文件

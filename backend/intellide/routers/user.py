@@ -1,5 +1,3 @@
-import secrets
-import string
 from typing import Dict
 from typing import Optional
 
@@ -14,19 +12,11 @@ from sqlalchemy.future import select
 from intellide.cache.cache import cache
 from intellide.database.database import database
 from intellide.database.model import UserRole, User
+from intellide.utils.auth import jwe_encode, verification_code, jwe_decode
 from intellide.utils.email import email_send_register_code
-from intellide.utils.encrypt import jwt_encode, jwt_decode
 from intellide.utils.response import ok, bad_request, internal_server_error
 
 api = APIRouter(prefix="/user")
-
-
-class UserRegisterRequest(BaseModel):
-    username: str
-    password: str
-    email: str
-    code: str
-    role: UserRole
 
 
 @api.get("/register/code")
@@ -46,11 +36,19 @@ async def user_register_code(
         email_validator.validate_email(email)
     except:
         return bad_request("Email format is incorrect")
-    code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+    code = verification_code(length=6)
     await cache.set(f"register:code:{email}", code, ttl=300)
     if not await email_send_register_code(email, code):
         return bad_request("Send email failed. Please try again later.")
     return ok()
+
+
+class UserRegisterRequest(BaseModel):
+    username: str
+    password: str
+    email: str
+    code: str
+    role: UserRole
 
 
 @api.post("/register")
@@ -83,14 +81,14 @@ async def user_register(
         db.add(user)
         await db.commit()
         await db.refresh(user)
-        return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
+        return ok(data=jwe_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
     except IntegrityError:
         await db.rollback()
         return bad_request("Username or email already exists")
 
 
 class UserLoginRequest(BaseModel):
-    username: str
+    email: str
     password: str
 
 
@@ -110,13 +108,13 @@ async def user_login(
     - 成功时返回包含用户的JWT
     - 失败时返回错误信息
     """
-    result = await db.execute(select(User).where(User.username == request.username))
+    result = await db.execute(select(User).where(User.email == request.email))
     user: User = result.scalar()
     if not user:
         return bad_request(message="Invalid username")
     if not bcrypt.verify(request.password, user.password):
         return bad_request(message="Invalid password")
-    return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
+    return ok(data=jwe_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
 
 
 class UserPutRequest(BaseModel):
@@ -127,7 +125,7 @@ class UserPutRequest(BaseModel):
 
 @api.get("")
 async def user_get(
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
         db: AsyncSession = Depends(database),
 ):
     """
@@ -151,7 +149,7 @@ async def user_get(
 @api.put("")
 async def user_put(
         request: UserPutRequest,
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
         db: AsyncSession = Depends(database),
 ):
     """
@@ -175,7 +173,7 @@ async def user_put(
         user.update(request)
         await db.commit()
         await db.refresh(user)
-        return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
+        return ok(data=jwe_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
     except IntegrityError:
         await db.rollback()
         return bad_request("Username already exists")

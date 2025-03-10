@@ -8,7 +8,6 @@ from intellide.tests.conftest import SERVER_BASE_URL, unique_path_generator
 from intellide.tests.test_entry import entry_post_success
 from intellide.tests.test_user import user_register_success, unique_user_dict_generator
 from intellide.tests.utils import *
-from intellide.utils.encrypt import jwt_decode
 from intellide.utils.path import path_first_n, path_iterate_parents
 
 
@@ -106,7 +105,7 @@ def shared_entry_token_create_success(
         user_token: str,
         entry_path: str,
         permissions: Dict,
-) -> str:
+) -> Dict:
     response = requests.post(
         url=f"{SERVER_BASE_URL}/api/share/token/create",
         headers={
@@ -167,13 +166,13 @@ def test_shared_entry_token_create_success(
     user_token_inviter = store["user_token_inviter"]
     shared_entry_base_path = store["shared_entry_base_path"]
     shared_entry_base_permissions = store["shared_entry_base_permissions"]
-    token = shared_entry_token_create_success(
+    data = shared_entry_token_create_success(
         user_token_inviter,
         shared_entry_base_path,
         shared_entry_base_permissions
     )
-    store["shared_entry_base_token"] = token
-    store["shared_entry_base_id"] = jwt_decode(token)["shared_entry_id"]
+    store["shared_entry_base_token"] = data["token"]
+    store["shared_entry_base_id"] = data["id"]
 
 
 @pytest.mark.dependency(depends=["test_shared_entry_token_create_success"])
@@ -274,7 +273,6 @@ def test_shared_entry_move_success(
             "shared_entry_id": shared_entry_base_id,
         }
     ).json()
-
     assert_code(response, status.HTTP_200_OK)
     shared_entry_paths = {
         entry["entry_path"] for entry in shared_entry_get_success(
@@ -335,18 +333,20 @@ def test_shared_entry_basic_permission_success(
     user_token_receiver = store["user_token_receiver"]
     entry_path_inviter = store["entry_path_inviter"]
     shared_entry_path = path_first_n(entry_path_inviter, 2)
-    read_token = shared_entry_token_create_success(
+    data = shared_entry_token_create_success(
         user_token_inviter,
         shared_entry_path,
         {"": "read"}
     )
-    read_token_shared_entry_id = jwt_decode(read_token)["shared_entry_id"]
-    read_write_token = shared_entry_token_create_success(
+    read_token = data["token"]
+    read_token_shared_entry_id = data["id"]
+    data = shared_entry_token_create_success(
         user_token_inviter,
         shared_entry_path,
         {"": "read_write"}
     )
-    read_write_token_shared_entry_id = jwt_decode(read_write_token)["shared_entry_id"]
+    read_write_token = data["token"]
+    read_write_token_shared_entry_id = data["id"]
     shared_entry_token_parse_success(user_token_receiver, read_token)
     shared_entry_token_parse_success(user_token_receiver, read_write_token)
     assert_code(

@@ -20,7 +20,7 @@ from intellide.database.model import (
     EntryType,
 )
 from intellide.routers.entry import download_entry, delete_entry, post_entry, move_entry
-from intellide.utils.encrypt import jwt_encode, jwt_decode
+from intellide.utils.auth import jwe_encode, jwe_decode
 from intellide.utils.path import path_normalize, path_prefix
 from intellide.utils.response import ok, bad_request, forbidden, APIError
 
@@ -37,7 +37,7 @@ class SharedEntryTokenCreateRequest(BaseModel):
 async def shared_entry_token_create(
         request: SharedEntryTokenCreateRequest,
         exp_hours: Optional[int] = None,
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
         db: AsyncSession = Depends(database),
 ):
     """
@@ -80,12 +80,15 @@ async def shared_entry_token_create(
 
     # 生成共享令牌
     return ok(
-        jwt_encode(
-            data={
-                "shared_entry_id": shared_entry.id,
-            },
-            exp_hours=exp_hours,
-        )
+        {
+            "id": shared_entry.id,
+            "token": jwe_encode(
+                data={
+                    "shared_entry_id": shared_entry.id,
+                },
+                exp_hours=exp_hours,
+            )
+        }
     )
 
 
@@ -96,7 +99,7 @@ class SharedEntryTokenParseRequest(BaseModel):
 @api.post("/token/parse")
 async def shared_entry_token_parse(
         request: SharedEntryTokenParseRequest,
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
         db: AsyncSession = Depends(database),
 ):
     """
@@ -112,7 +115,7 @@ async def shared_entry_token_parse(
     """
     # 解析共享令牌的 JWT
     try:
-        share_info = jwt_decode(token=request.token)
+        share_info = jwe_decode(token=request.token)
     except:
         return bad_request(message="Invalid share token")
     # 验证共享令牌字段
@@ -132,7 +135,7 @@ async def shared_entry_token_parse(
 @api.get("/info")
 async def shared_entry_info_get(
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
 ):
     """
     获取共享记录列表
@@ -171,7 +174,7 @@ async def shared_entry_get(
         entry_path: str,
         entry_depth: Optional[int] = None,
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
 ):
     """
     获取共享条目信息
@@ -240,7 +243,7 @@ async def shared_entry_post(
         is_collaborative: bool = Form(False),
         file: Optional[UploadFile] = File(None),
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
 ):
     """
     在共享目录中上传文件或创建目录
@@ -288,7 +291,7 @@ async def shared_entry_delete(
         shared_entry_id: int,
         entry_path: str,
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
 ):
     """
     删除共享条目中的文件或目录
@@ -338,7 +341,7 @@ async def shared_entry_move(
         request: SharedEntryMoveRequest,
         shared_entry_id: int,
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
 ):
     """
     移动文件或目录
@@ -386,7 +389,7 @@ async def shared_entry_download(
         shared_entry_id: int,
         entry_path: str,
         db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwt_decode),
+        access_info: Dict = Depends(jwe_decode),
 ):
     """
     下载文件
@@ -484,7 +487,7 @@ async def shared_entry_collaborative_subscribe(
         entry_id: int,
         shared_entry_id: Optional[int] = None,
         db: AsyncSession = Depends(database),
-        access_info=Depends(jwt_decode),
+        access_info=Depends(jwe_decode),
 ):
     """
     订阅共享条目协作
