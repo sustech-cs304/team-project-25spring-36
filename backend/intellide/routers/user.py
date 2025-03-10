@@ -13,6 +13,7 @@ from sqlalchemy.future import select
 from intellide.cache.cache import cache
 from intellide.database.database import database
 from intellide.database.model import UserRole, User
+from intellide.utils.email import email_send_register_code
 from intellide.utils.encrypt import jwt_encode, jwt_decode
 from intellide.utils.response import ok, bad_request, internal_server_error
 
@@ -42,7 +43,10 @@ async def user_register_code(
     """
     code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
     await cache.set(f"register:code:{email}", code, ttl=300)
-    # TODO: 发送邮件
+    try:
+        await email_send_register_code(email, code)
+    except Exception as e:
+        return bad_request(f"send email failed: {str(e)}")
     return ok()
 
 
@@ -64,9 +68,9 @@ async def user_register(
     try:
         code = await cache.get(f"register:code:{request.email}")
         if not code:
-            return bad_request("Email code not found or expired")
+            return bad_request("Register code expired or not found")
         if code != request.code:
-            return bad_request("Email code incorrect")
+            return bad_request("Register code is incorrect")
         user = User(
             username=request.username,
             password=bcrypt.hash(request.password),
@@ -112,6 +116,12 @@ async def user_login(
     return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
 
 
+class UserPutRequest(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[UserRole] = None
+
+
 @api.get("")
 async def user_get(
         access_info: Dict = Depends(jwt_decode),
@@ -133,12 +143,6 @@ async def user_get(
         return internal_server_error()
     user.password = None
     return ok(data=user.dict())
-
-
-class UserPutRequest(BaseModel):
-    username: Optional[str] = None
-    password: Optional[str] = None
-    role: Optional[UserRole] = None
 
 
 @api.put("")
