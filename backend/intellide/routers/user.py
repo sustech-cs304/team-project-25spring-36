@@ -3,14 +3,13 @@ import string
 from typing import Dict
 from typing import Optional
 
+import email_validator
 from fastapi import APIRouter, Depends
 from passlib.hash import bcrypt
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
-import email_validator
 
 from intellide.cache.cache import cache
 from intellide.database.database import database
@@ -43,9 +42,10 @@ async def user_register_code(
     返回:
     - 成功时返回空数据
     """
-    if not email_validator.validate_email(email):
+    try:
+        email_validator.validate_email(email)
+    except:
         return bad_request("Email format is incorrect")
-    
     code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
     await cache.set(f"register:code:{email}", code, ttl=300)
     if not await email_send_register_code(email, code):

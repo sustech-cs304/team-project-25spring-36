@@ -1,4 +1,5 @@
 import os
+import random
 import shutil
 import socket
 import subprocess
@@ -121,22 +122,20 @@ def store(server):
 
 @pytest.fixture(scope="session")
 def unique_counter():
-    return count(start=1000)
+    return count(start=random.randint(10000, 99999))
 
 
 @pytest.fixture(scope="session")
 def unique_string_generator(
         unique_counter: count,
 ):
-    unique_counter = count(start=1000)
-    return lambda: f"str_{hex(next(unique_counter))}"
+    return lambda: f"str_{hex(next(unique_counter))}_str"
 
 
 @pytest.fixture(scope="session")
 def unique_integer_generator(
         unique_counter: count,
 ):
-    unique_counter = count(start=1000)
     return lambda: next(unique_counter)
 
 

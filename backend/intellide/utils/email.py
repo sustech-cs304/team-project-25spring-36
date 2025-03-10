@@ -6,7 +6,10 @@ import aiosmtplib
 from intellide.config import SMTP_USER, SMTP_SERVER, SMTP_PORT, SMTP_PASSWORD
 
 
-async def email_send_register_code(recipient: str, code: str) -> bool:
+async def email_send_register_code(
+        recipient: str,
+        code: str,
+) -> bool:
     """
     异步发送验证码邮件
 
@@ -23,7 +26,6 @@ async def email_send_register_code(recipient: str, code: str) -> bool:
         message['From'] = SMTP_USER
         message['To'] = recipient
         message['Subject'] = 'Intellide验证码'
-
         # 邮件正文
         body = f"""
         <html>
@@ -35,15 +37,12 @@ async def email_send_register_code(recipient: str, code: str) -> bool:
         </body>
         </html>
         """
-
         # 添加HTML内容
         message.attach(MIMEText(body, 'html'))
-
         # 使用async with自动处理连接的关闭
         async with aiosmtplib.SMTP(hostname=SMTP_SERVER, port=SMTP_PORT, use_tls=True) as smtp:
             await smtp.login(SMTP_USER, SMTP_PASSWORD)
             await smtp.send_message(message)
-
         return True
-    except Exception as e:
+    except:
         return False

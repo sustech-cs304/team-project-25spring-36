@@ -78,6 +78,23 @@ def init(
 
 
 @pytest.mark.dependency
+def test_user_register_code_success(
+        store: Dict,
+        unique_string_generator: Callable,
+):
+    email = f"{unique_string_generator()}@ethereal.email"
+    response = requests.get(
+        url=f"{SERVER_BASE_URL}/api/user/register/code",
+        params={
+            "email": email,
+        },
+    ).json()
+    assert_code(response, status.HTTP_200_OK)
+    code = cache_get(f"register:code:{email}")
+    assert code is not None
+
+
+@pytest.mark.dependency(depends=["test_user_register_code_success"])
 def test_user_register_success(
         store: Dict,
 ):
