@@ -89,7 +89,7 @@ async def user_register(
         return ok(data=jwe_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
     except IntegrityError:
         await db.rollback()
-        return bad_request("Username or email already exists")
+        return bad_request("Email already exists")
 
 
 class UserLoginRequest(BaseModel):
