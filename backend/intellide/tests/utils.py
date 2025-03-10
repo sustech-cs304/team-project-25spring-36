@@ -1,6 +1,31 @@
-from typing import Dict, List, TypeVar, Generic
+import json
+from typing import Dict, TypeVar, Generic, Tuple, Any
 
-T = TypeVar('T')
+import redis
+
+from intellide.config import CACHE_URL
+
+T = TypeVar("T")
+
+_cache = redis.from_url(CACHE_URL)
+
+
+def cache_set(
+        key: str,
+        value: Any,
+        ttl: int,
+):
+    _cache.set(key, json.dumps(value), ex=ttl)
+
+
+def cache_get(
+        key: str,
+) -> Any:
+    value = _cache.get(key)
+    if value:
+        return json.loads(value)
+    else:
+        return None
 
 
 # 统一断言 HTTP 响应码
@@ -14,7 +39,7 @@ def assert_code(
 def assert_dict(
         src: Dict,
         dst: Dict,
-        keys: List[str],
+        keys: Tuple[str, ...],
 ):
     for key in keys:
         assert src[key] == dst[key]

@@ -12,4 +12,6 @@ pytest
 pytest-dependency
 python-multipart
 passlib
-aiocache
+aiocache[redis]
+redis
+docker

@@ -10,9 +10,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from intellide.database.engine import database
+from intellide.cache.cache import cache
+from intellide.database.database import database
 from intellide.database.model import UserRole, User
-from intellide.utils.cache import cache
 from intellide.utils.encrypt import jwt_encode, jwt_decode
 from intellide.utils.response import ok, bad_request, internal_server_error
 
@@ -40,7 +40,7 @@ async def user_register_code(
     返回:
     - 成功时返回验证码
     """
-    code = secrets.choice(string.ascii_uppercase + string.digits)
+    code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
     await cache.set(f"register:code:{email}", code, ttl=300)
     # TODO: 发送邮件
     return ok()
@@ -64,7 +64,9 @@ async def user_register(
     try:
         code = await cache.get(f"register:code:{request.email}")
         if not code:
-            return bad_request("Invalid code")
+            return bad_request("Email code not found or expired")
+        if code != request.code:
+            return bad_request("Email code incorrect")
         user = User(
             username=request.username,
             password=bcrypt.hash(request.password),
@@ -110,12 +112,6 @@ async def user_login(
     return ok(data=jwt_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
 
 
-class UserUpdateRequest(BaseModel):
-    username: Optional[str] = None
-    password: Optional[str] = None
-    role: Optional[UserRole] = None
-
-
 @api.get("")
 async def user_get(
         access_info: Dict = Depends(jwt_decode),
@@ -135,12 +131,19 @@ async def user_get(
     user: User = result.scalar()
     if not user:
         return internal_server_error()
+    user.password = None
     return ok(data=user.dict())
 
 
+class UserPutRequest(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[UserRole] = None
+
+
 @api.put("")
-async def user_update(
-        request: UserUpdateRequest,
+async def user_put(
+        request: UserPutRequest,
         access_info: Dict = Depends(jwt_decode),
         db: AsyncSession = Depends(database),
 ):
@@ -156,6 +159,8 @@ async def user_update(
     - 成功时返回包含用户的JWT
     """
     try:
+        if request.password:
+            request.password = bcrypt.hash(request.password)
         result = await db.execute(select(User).where(User.id == access_info["user_id"]))
         user: User = result.scalar()
         if not user:

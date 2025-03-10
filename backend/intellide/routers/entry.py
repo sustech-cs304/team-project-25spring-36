@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from intellide.config import STORAGE_PATH
-from intellide.database.engine import database
+from intellide.database.database import database
 from intellide.database.model import (
     Entry,
     EntryType,

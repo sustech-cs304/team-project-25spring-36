@@ -3,41 +3,72 @@
 ```text
 backend
 ├── .gitignore
+├── __pycache__
 ├── deploy
 │   ├── backend.bat
 │   ├── backend.sh
-│   ├── docker-compose.yaml
 │   └── requirements.txt
 ├── docs
-│   └── README.md
+│   ├── README.md
+│   └── imgs
+│       └── docker-option.png
 ├── intellide
 │   ├── __init__.py
+│   ├── __pycache__
+│   ├── cache
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   ├── cache.py
+│   │   └── startup.py
 │   ├── config.py
 │   ├── database
 │   │   ├── __init__.py
-│   │   ├── engine.py
+│   │   ├── __pycache__
+│   │   ├── database.py
 │   │   ├── model.py
+│   │   └── startup.py
+│   ├── docker
+│   │   ├── __init__.py
+│   │   ├── __pycache__
 │   │   └── startup.py
 │   ├── main.py
 │   ├── routers
 │   │   ├── __init__.py
+│   │   ├── __pycache__
 │   │   ├── entry.py
 │   │   ├── share.py
 │   │   └── user.py
 │   ├── storage
 │   │   ├── __init__.py
+│   │   ├── __pycache__
 │   │   ├── startup.py
 │   │   └── storage.py
 │   ├── tests
+│   │   ├── .pytest_cache
+│   │   │   ├── .gitignore
+│   │   │   ├── CACHEDIR.TAG
+│   │   │   ├── README.md
+│   │   │   └── v
+│   │   │       └── cache
+│   │   │           ├── lastfailed
+│   │   │           ├── nodeids
+│   │   │           └── stepwise
 │   │   ├── __init__.py
+│   │   ├── __pycache__
 │   │   ├── conftest.py
 │   │   ├── pytest.ini
-│   │   └── test_user.py
+│   │   ├── test_entry.py
+│   │   ├── test_share.py
+│   │   ├── test_user.py
+│   │   └── utils.py
 │   └── utils
 │       ├── __init__.py
+│       ├── __pycache__
 │       ├── encrypt.py
 │       ├── path.py
 │       └── response.py
+├── logs
+│   └── test.log
 └── tools
     └── tree.py
 ```
@@ -63,14 +94,11 @@ cd deploy
 pip install -r requirements.txt
 ```
 
-### 2. 启动依赖服务
+### 2. 开启Docker远程监听功能
 
-在 `deploy` 目录下运行以下命令以启动数据库等服务：
+启动Docker的`Expose daemon on tcp://localhost:2375 without TLS`选项
 
-```sh
-cd deploy
-docker-compose up -d
-```
+![docker-option](./imgs/docker-option.png)
 
 ### 3. 启动后端服务器
 

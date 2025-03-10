@@ -6,11 +6,21 @@ from itertools import count
 from typing import Callable, Optional
 
 import pytest
+import requests
 import urllib3
 from sqlalchemy import create_engine, text
 
-from intellide.config import DATABASE_ENGINE, DATABASE_USER, DATABASE_PASSWORD, DATABASE_HOST, DATABASE_PORT, \
-    DATABASE_NAME, SERVER_HOST, SERVER_PORT, STORAGE_PATH
+from intellide.config import (
+    DATABASE_ENGINE,
+    DATABASE_USER,
+    DATABASE_PASSWORD,
+    DATABASE_HOST,
+    DATABASE_PORT,
+    DATABASE_NAME,
+    SERVER_HOST,
+    SERVER_PORT,
+    STORAGE_PATH,
+)
 
 WORK_DIRECTORY = os.path.join(os.path.dirname(__file__), "..", "..")
 
@@ -87,6 +97,13 @@ def server(clean):
             stdout=log,
             stderr=log,
         )
+        # 等待服务器启动
+        while True:
+            try:
+                requests.get(f"{SERVER_BASE_URL}/redoc")
+                break
+            except:
+                pass
         # 返回进程对象，方便测试用例使用
         yield process
         # **关闭服务器**
@@ -95,6 +112,11 @@ def server(clean):
             process.wait(timeout=5)
         except subprocess.TimeoutExpired:
             process.kill()
+
+
+@pytest.fixture(scope="session")
+def store(server):
+    return {}
 
 
 @pytest.fixture(scope="session")

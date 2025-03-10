@@ -137,64 +137,60 @@ def shared_entry_token_parse_success(
     assert_code(response, status.HTTP_200_OK)
 
 
-@pytest.fixture(scope="session")
-def cache(
+@pytest.fixture(scope="session", autouse=True)
+def init(
+        store: Dict,
         unique_user_dict_generator: Callable,
         unique_path_generator: Callable,
         temp_file_path: str,
-) -> Dict:
-    cache = {
-        "user_dict_inviter": unique_user_dict_generator(),
-        "user_dict_receiver": unique_user_dict_generator(),
-        "entry_path_inviter": unique_path_generator(depth=4, suffix="txt"),
-        "shared_entry_base_permissions": {
-            "": "read_write",
-        }
-    }
-    cache["user_token_inviter"] = user_register_success(cache["user_dict_inviter"])
-    cache["user_token_receiver"] = user_register_success(cache["user_dict_receiver"])
-    cache["shared_entry_base_path"] = path_first_n(cache["entry_path_inviter"], 2)
+):
+    store["user_dict_inviter"] = unique_user_dict_generator()
+    store["user_dict_receiver"] = unique_user_dict_generator()
+    store["entry_path_inviter"] = unique_path_generator(depth=4, suffix="txt")
+    store["shared_entry_base_permissions"] = {"": "read_write"}
+    store["user_token_inviter"] = user_register_success(store["user_dict_inviter"])
+    store["user_token_receiver"] = user_register_success(store["user_dict_receiver"])
+    store["shared_entry_base_path"] = path_first_n(store["entry_path_inviter"], 2)
     entry_post_success(
-        cache["user_token_inviter"],
-        cache["entry_path_inviter"],
+        store["user_token_inviter"],
+        store["entry_path_inviter"],
         "file",
         "false",
         temp_file_path
     )
-    return cache
 
 
 @pytest.mark.dependency
 def test_shared_entry_token_create_success(
-        cache: Dict,
+        store: Dict,
 ):
-    user_token_inviter = cache["user_token_inviter"]
-    shared_entry_base_path = cache["shared_entry_base_path"]
-    shared_entry_base_permissions = cache["shared_entry_base_permissions"]
+    user_token_inviter = store["user_token_inviter"]
+    shared_entry_base_path = store["shared_entry_base_path"]
+    shared_entry_base_permissions = store["shared_entry_base_permissions"]
     token = shared_entry_token_create_success(
         user_token_inviter,
         shared_entry_base_path,
         shared_entry_base_permissions
     )
-    cache["shared_entry_base_token"] = token
-    cache["shared_entry_base_id"] = jwt_decode(token)["shared_entry_id"]
+    store["shared_entry_base_token"] = token
+    store["shared_entry_base_id"] = jwt_decode(token)["shared_entry_id"]
 
 
 @pytest.mark.dependency(depends=["test_shared_entry_token_create_success"])
 def test_shared_entry_token_parse_success(
-        cache: Dict,
+        store: Dict,
 ):
-    user_token_receiver = cache["user_token_receiver"]
-    shared_entry_base_token = cache["shared_entry_base_token"]
+    user_token_receiver = store["user_token_receiver"]
+    shared_entry_base_token = store["shared_entry_base_token"]
     shared_entry_token_parse_success(user_token_receiver, shared_entry_base_token)
 
 
 @pytest.mark.dependency(depends=["test_shared_entry_token_parse_success"])
 def test_shared_entry_info_get_success(
-        cache: Dict,
+        store: Dict,
 ):
-    user_token_receiver = cache["user_token_receiver"]
-    shared_entry_base_id = cache["shared_entry_base_id"]
+    user_token_receiver = store["user_token_receiver"]
+    shared_entry_base_id = store["shared_entry_base_id"]
     shared_entry_infos = shared_entry_info_get_success(user_token_receiver)
     assert shared_entry_infos
     shared_entry_ids = {info["shared_entry_id"] for info in shared_entry_infos}
@@ -203,10 +199,10 @@ def test_shared_entry_info_get_success(
 
 @pytest.mark.dependency(depends=["test_shared_entry_token_parse_success"])
 def test_shared_entry_get_success(
-        cache: Dict,
+        store: Dict,
 ):
-    user_token_receiver = cache["user_token_receiver"]
-    shared_entry_base_id = cache["shared_entry_base_id"]
+    user_token_receiver = store["user_token_receiver"]
+    shared_entry_base_id = store["shared_entry_base_id"]
     shared_entry_get_success(
         user_token_receiver,
         shared_entry_base_id,
@@ -216,12 +212,12 @@ def test_shared_entry_get_success(
 
 @pytest.mark.dependency(depends=["test_shared_entry_get_success"])
 def test_shared_entry_post_success(
-        cache: Dict,
+        store: Dict,
         unique_path_generator: Callable,
         temp_file_path: str,
 ):
-    user_token_receiver = cache["user_token_receiver"]
-    shared_entry_base_id = cache["shared_entry_base_id"]
+    user_token_receiver = store["user_token_receiver"]
+    shared_entry_base_id = store["shared_entry_base_id"]
     shared_entry_path_post_directory = unique_path_generator(depth=2)
     shared_entry_post_success(
         user_token_receiver,
@@ -252,11 +248,11 @@ def test_shared_entry_post_success(
 
 @pytest.mark.dependency(depends=["test_shared_entry_post_success"])
 def test_shared_entry_move_success(
-        cache: Dict,
+        store: Dict,
         unique_path_generator: Callable,
 ):
-    user_token_receiver = cache["user_token_receiver"]
-    shared_entry_base_id = cache["shared_entry_base_id"]
+    user_token_receiver = store["user_token_receiver"]
+    shared_entry_base_id = store["shared_entry_base_id"]
     shared_entry_src_path = unique_path_generator(depth=4)
     shared_entry_dst_path = unique_path_generator(depth=4)
     shared_entry_post_success(
@@ -293,12 +289,12 @@ def test_shared_entry_move_success(
 
 @pytest.mark.dependency(depends=["test_shared_entry_post_success"])
 def test_shared_entry_delete_success(
-        cache: Dict,
+        store: Dict,
         unique_path_generator: Callable,
         temp_file_path: str,
 ):
-    user_token_receiver = cache["user_token_receiver"]
-    shared_entry_base_id = cache["shared_entry_base_id"]
+    user_token_receiver = store["user_token_receiver"]
+    shared_entry_base_id = store["shared_entry_base_id"]
     shared_entry_path_post = unique_path_generator(depth=4, suffix="txt")
     shared_entry_post_success(
         user_token_receiver,
@@ -330,14 +326,14 @@ def test_shared_entry_delete_success(
 
 @pytest.mark.dependency(depends=["test_shared_entry_post_success"])
 def test_shared_entry_basic_permission_success(
-        cache: Dict,
+        store: Dict,
         unique_path_generator: Callable,
         unique_user_dict_generator: Callable,
         temp_file_path: str,
 ):
-    user_token_inviter = cache["user_token_inviter"]
-    user_token_receiver = cache["user_token_receiver"]
-    entry_path_inviter = cache["entry_path_inviter"]
+    user_token_inviter = store["user_token_inviter"]
+    user_token_receiver = store["user_token_receiver"]
+    entry_path_inviter = store["entry_path_inviter"]
     shared_entry_path = path_first_n(entry_path_inviter, 2)
     read_token = shared_entry_token_create_success(
         user_token_inviter,

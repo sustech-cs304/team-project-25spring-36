@@ -1,4 +1,6 @@
 import random
+import secrets
+import string
 from typing import Callable
 
 import pytest
@@ -35,7 +37,7 @@ def user_login_success(
     return response["data"]
 
 
-def user_select_success(
+def user_get_success(
         token: str
 ) -> Dict:
     response = requests.get(
@@ -53,37 +55,41 @@ def unique_user_dict_generator(
         unique_string_generator: Callable,
 ) -> Callable:
     def _unique_user_generator():
+        email = f"{unique_string_generator()}@{unique_string_generator()}.com"
+        code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+        cache_set(f"register:code:{email}", code, ttl=300)
         return {
             "username": unique_string_generator(),
             "password": unique_string_generator(),
             "role": random.choice([str(v) for v in UserRole]),
+            "email": email,
+            "code": code,
         }
 
     return _unique_user_generator
 
 
-@pytest.fixture(scope="session")
-def cache(
+@pytest.fixture(scope="session", autouse=True)
+def init(
+        store: Dict,
         unique_user_dict_generator: Callable,
-) -> Dict:
-    return {
-        "user_dict_default": unique_user_dict_generator(),
-    }
+):
+    store["user_dict_default"] = unique_user_dict_generator()
 
 
 @pytest.mark.dependency
 def test_user_register_success(
-        cache: Dict,
+        store: Dict,
 ):
-    user_dict_default = cache["user_dict_default"]
+    user_dict_default = store["user_dict_default"]
     user_register_success(user_dict_default)
 
 
 @pytest.mark.dependency(depends=["test_user_register_success"])
 def test_user_register_failure_username_occupied(
-        cache: Dict,
+        store: Dict,
 ):
-    user_dict_default = cache["user_dict_default"]
+    user_dict_default = store["user_dict_default"]
     response = requests.post(
         url=f"{SERVER_BASE_URL}/api/user/register",
         json=user_dict_default,
@@ -93,18 +99,18 @@ def test_user_register_failure_username_occupied(
 
 @pytest.mark.dependency(depends=["test_user_register_success"])
 def test_user_login_success(
-        cache: Dict,
+        store: Dict,
 ):
-    user_dict_default = cache["user_dict_default"]
+    user_dict_default = store["user_dict_default"]
     user_login_success(user_dict_default)
 
 
 @pytest.mark.dependency(depends=["test_user_login_success"])
 def test_user_login_failure_username_not_exists(
-        cache: Dict,
+        store: Dict,
         unique_string_generator: Callable,
 ):
-    user_dict_default = cache["user_dict_default"]
+    user_dict_default = store["user_dict_default"]
     response = requests.post(
         url=f"{SERVER_BASE_URL}/api/user/login",
         json={
@@ -117,10 +123,10 @@ def test_user_login_failure_username_not_exists(
 
 @pytest.mark.dependency(depends=["test_user_login_success"])
 def test_user_login_failure_password_incorrect(
-        cache: Dict,
+        store: Dict,
         unique_string_generator: Callable,
 ):
-    user_dict_default = cache["user_dict_default"]
+    user_dict_default = store["user_dict_default"]
     response = requests.post(
         url=f"{SERVER_BASE_URL}/api/user/login",
         json={
@@ -132,17 +138,17 @@ def test_user_login_failure_password_incorrect(
 
 
 @pytest.mark.dependency(depends=["test_user_login_success"])
-def test_user_select_success(
-        cache: Dict,
+def test_user_get_success(
+        store: Dict,
 ):
-    user_dict_default = cache["user_dict_default"]
+    user_dict_default = store["user_dict_default"]
     user_token = user_login_success(user_dict_default)
-    user_select_dict = user_select_success(user_token)
-    assert_dict(user_select_dict, user_dict_default, ["username", "password", "role"])
+    user_select_dict = user_get_success(user_token)
+    assert_dict(user_select_dict, user_dict_default, ("username", "role", "email",))
 
 
-@pytest.mark.dependency(depends=["test_user_select_success"])
-def test_user_select_failure_token_incorrect(
+@pytest.mark.dependency(depends=["test_user_get_success"])
+def test_user_get_failure_token_incorrect(
         unique_string_generator: Callable,
 ):
     response = requests.get(
@@ -154,8 +160,8 @@ def test_user_select_failure_token_incorrect(
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-@pytest.mark.dependency(depends=["test_user_select_success"])
-def test_user_update_success(
+@pytest.mark.dependency(depends=["test_user_get_success"])
+def test_user_put_success(
         unique_user_dict_generator: Callable,
 ):
     # 先注册新用户
@@ -165,24 +171,27 @@ def test_user_update_success(
     update_user_dict = unique_user_dict_generator()
     response = requests.put(
         url=f"{SERVER_BASE_URL}/api/user",
-        json=update_user_dict,
+        json={
+            "username": update_user_dict["username"],
+            "email": update_user_dict["email"],
+            "role": update_user_dict["role"]
+        },
         headers={
             "Access-Token": new_user_token,
         },
     ).json()
     assert_code(response, status.HTTP_200_OK)
     # 获取更新后的用户信息
-    after_update_user_dict = user_select_success(new_user_token)
-    assert_dict(after_update_user_dict, update_user_dict, ["username", "password", "role"])
+    after_update_user_dict = user_get_success(new_user_token)
+    assert_dict(after_update_user_dict, update_user_dict, ("username", "role",))
 
 
-@pytest.mark.anyio
-@pytest.mark.dependency(depends=["test_user_select_success"])
+@pytest.mark.dependency(depends=["test_user_get_success"])
 def test_user_update_failure_username_occupied(
-        cache: Dict,
+        store: Dict,
         unique_user_dict_generator: Callable,
 ):
-    user_dict_default = cache["user_dict_default"]
+    user_dict_default = store["user_dict_default"]
     # 先注册用户
     new_user_dict = unique_user_dict_generator()
     new_user_token = user_register_success(new_user_dict)

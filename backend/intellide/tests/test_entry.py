@@ -1,5 +1,5 @@
 import os.path
-from typing import Callable, Optional
+from typing import Callable, Optional, List
 
 import pytest
 import requests
@@ -81,26 +81,25 @@ def entry_post_success(
     return response["data"]
 
 
-@pytest.fixture(scope="session")
-def cache(
+@pytest.fixture(scope="session", autouse=True)
+def init(
+        store: Dict,
         unique_path_generator: Callable,
         unique_user_dict_generator: Callable,
-) -> Dict:
-    return {
-        "entry_path_file": unique_path_generator(depth=3, suffix="txt"),
-        "entry_path_directory": unique_path_generator(depth=3),
-        "user_token_default": user_register_success(unique_user_dict_generator())
-    }
+):
+    store["entry_path_file"] = unique_path_generator(depth=3, suffix="txt")
+    store["entry_path_directory"] = unique_path_generator(depth=3)
+    store["user_token_default"] = user_register_success(unique_user_dict_generator())
 
 
 @pytest.mark.dependency
 def test_entry_post_success(
-        cache: Dict,
+        store: Dict,
         temp_file_path: str,
 ):
-    entry_path_file = cache["entry_path_file"]
-    entry_path_directory = cache["entry_path_directory"]
-    user_token_default = cache["user_token_default"]
+    entry_path_file = store["entry_path_file"]
+    entry_path_directory = store["entry_path_directory"]
+    user_token_default = store["user_token_default"]
     entry_post_success(
         user_token_default,
         entry_path_file,
@@ -120,12 +119,12 @@ def test_entry_post_success(
 
 @pytest.mark.dependency(depends=["test_entry_post_success"])
 def test_entry_post_failure_entry_path_occupied(
-        cache: Dict,
+        store: Dict,
         temp_file_path: str,
 ):
-    entry_path_file = cache["entry_path_file"]
-    entry_path_directory = cache["entry_path_directory"]
-    user_token_default = cache["user_token_default"]
+    entry_path_file = store["entry_path_file"]
+    entry_path_directory = store["entry_path_directory"]
+    user_token_default = store["user_token_default"]
     assert_code(
         entry_post(
             user_token_default,
@@ -149,11 +148,11 @@ def test_entry_post_failure_entry_path_occupied(
 
 @pytest.mark.dependency(depends=["test_entry_post_success"])
 def test_entry_get_success(
-        cache: Dict,
+        store: Dict,
 ):
-    entry_path_file = cache["entry_path_file"]
-    entry_path_directory = cache["entry_path_directory"]
-    user_token_default = cache["user_token_default"]
+    entry_path_file = store["entry_path_file"]
+    entry_path_directory = store["entry_path_directory"]
+    user_token_default = store["user_token_default"]
     response = entry_get_success(user_token_default, "/")
     entry_paths = {d["entry_path"] for d in response}
     for path in path_iterate_parents(entry_path_file):
@@ -164,11 +163,11 @@ def test_entry_get_success(
 
 @pytest.mark.dependency(depends=["test_entry_post_success"])
 def test_entry_download_success(
-        cache: Dict,
+        store: Dict,
         temp_file_content: bytes,
 ):
-    entry_path_file = cache["entry_path_file"]
-    user_token_default = cache["user_token_default"]
+    entry_path_file = store["entry_path_file"]
+    user_token_default = store["user_token_default"]
     response = requests.get(
         url=f"{SERVER_BASE_URL}/api/entry/download",
         headers={
@@ -184,9 +183,9 @@ def test_entry_download_success(
 
 @pytest.mark.dependency(depends=["test_entry_post_success"])
 def test_entry_download_failure_entry_path_not_exists(
-        cache: Dict,
+        store: Dict,
 ):
-    user_token_default = cache["user_token_default"]
+    user_token_default = store["user_token_default"]
     response = requests.get(
         url=f"{SERVER_BASE_URL}/api/entry/download",
         headers={
@@ -201,10 +200,10 @@ def test_entry_download_failure_entry_path_not_exists(
 
 @pytest.mark.dependency(depends=["test_entry_post_success"])
 def test_entry_download_failure_target_not_file(
-        cache: Dict,
+        store: Dict,
 ):
-    entry_path_directory = cache["entry_path_directory"]
-    user_token_default = cache["user_token_default"]
+    entry_path_directory = store["entry_path_directory"]
+    user_token_default = store["user_token_default"]
     response = requests.get(
         url=f"{SERVER_BASE_URL}/api/entry/download",
         headers={
@@ -219,11 +218,11 @@ def test_entry_download_failure_target_not_file(
 
 @pytest.mark.dependency(depends=["test_entry_get_success"])
 def test_entry_move_success_file(
-        cache: Dict,
+        store: Dict,
         temp_file_path: str,
         unique_path_generator: Callable,
 ):
-    user_token_default = cache["user_token_default"]
+    user_token_default = store["user_token_default"]
     src_entry_file_path = unique_path_generator(depth=3, suffix="txt")
     dst_entry_file_path = unique_path_generator(depth=1, suffix="txt")
     entry_post_success(
@@ -253,11 +252,11 @@ def test_entry_move_success_file(
 
 @pytest.mark.dependency(depends=["test_entry_get_success"])
 def test_entry_move_success_directory(
-        cache: Dict,
+        store: Dict,
         temp_file_path: str,
         unique_path_generator: Callable,
 ):
-    user_token_default = cache["user_token_default"]
+    user_token_default = store["user_token_default"]
     src_entry_directory_path = unique_path_generator(depth=4)
     dst_entry_directory_path = unique_path_generator(depth=3)
     src_entry_directory_move_path = path_first_n(src_entry_directory_path, 3)
@@ -290,11 +289,11 @@ def test_entry_move_success_directory(
 
 @pytest.mark.dependency(depends=["test_entry_move_success_file", "test_entry_move_success_directory"])
 def test_entry_move_failure_entry_path_same(
-        cache: Dict,
+        store: Dict,
         temp_file_path: str,
         unique_path_generator: Callable,
 ):
-    user_token_default = cache["user_token_default"]
+    user_token_default = store["user_token_default"]
     entry_path = unique_path_generator(depth=3)
     assert_code(
         requests.put(
@@ -313,11 +312,11 @@ def test_entry_move_failure_entry_path_same(
 
 @pytest.mark.dependency(depends=["test_entry_move_success_file", "test_entry_move_success_directory"])
 def test_entry_move_failure_entry_path_occupied(
-        cache: Dict,
+        store: Dict,
         temp_file_path: str,
         unique_path_generator: Callable,
 ):
-    user_token_default = cache["user_token_default"]
+    user_token_default = store["user_token_default"]
     src_entry_path = unique_path_generator(depth=3)
     dst_entry_path = unique_path_generator(depth=3)
     entry_post_success(
@@ -351,11 +350,11 @@ def test_entry_move_failure_entry_path_occupied(
 
 @pytest.mark.dependency(depends=["test_entry_get_success"])
 def test_entry_delete_success_file(
-        cache: Dict,
+        store: Dict,
         temp_file_path: str,
         unique_path_generator: Callable,
 ):
-    user_token_default = cache["user_token_default"]
+    user_token_default = store["user_token_default"]
     entry_path = unique_path_generator(depth=3, suffix="txt")
     entry_post_success(
         user_token_default,
@@ -386,11 +385,11 @@ def test_entry_delete_success_file(
 
 @pytest.mark.dependency(depends=["test_entry_get_success"])
 def test_entry_delete_success_directory(
-        cache: Dict,
+        store: Dict,
         temp_file_path: str,
         unique_path_generator: Callable,
 ):
-    user_token_default = cache["user_token_default"]
+    user_token_default = store["user_token_default"]
     entry_path = unique_path_generator(depth=4)
     entry_post_success(
         user_token_default,
@@ -419,10 +418,10 @@ def test_entry_delete_success_directory(
 
 @pytest.mark.dependency(depends=["test_entry_delete_success_file", "test_entry_delete_success_directory"])
 def test_entry_delete_failure_entry_path_not_exists(
-        cache: Dict,
+        store: Dict,
         unique_path_generator: Callable,
 ):
-    user_token_default = cache["user_token_default"]
+    user_token_default = store["user_token_default"]
     assert_code(
         requests.delete(
             url=f"{SERVER_BASE_URL}/api/entry",
