@@ -22,6 +22,7 @@ api = APIRouter(prefix="/user")
 @api.get("/register/code")
 async def user_register_code(
         email: str,
+        db: AsyncSession = Depends(database),
 ):
     """
     发送邮箱验证码
@@ -32,6 +33,10 @@ async def user_register_code(
     返回:
     - 成功时返回空数据
     """
+    result = await db.execute(select(User).where(User.email == email))
+    user: User = result.scalar()
+    if user:
+        return bad_request("Email has been registered")
     try:
         email_validator.validate_email(email)
     except:
