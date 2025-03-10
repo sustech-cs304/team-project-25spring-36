@@ -10,6 +10,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+import email_validator
+
 from intellide.cache.cache import cache
 from intellide.database.database import database
 from intellide.database.model import UserRole, User
@@ -39,14 +41,15 @@ async def user_register_code(
     - email: 邮箱地址
 
     返回:
-    - 成功时返回验证码
+    - 成功时返回空数据
     """
+    if not email_validator.validate_email(email):
+        return bad_request("Email format is incorrect")
+    
     code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
     await cache.set(f"register:code:{email}", code, ttl=300)
-    try:
-        await email_send_register_code(email, code)
-    except Exception as e:
-        return bad_request(f"send email failed: {str(e)}")
+    if not await email_send_register_code(email, code):
+        return bad_request("Send email failed. Please try again later.")
     return ok()
 
 
