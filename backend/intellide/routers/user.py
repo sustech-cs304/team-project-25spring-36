@@ -74,7 +74,7 @@ async def user_register(
     try:
         code = await cache.get(f"register:code:{request.email}")
         if not code:
-            return bad_request("Register code expired or not found")
+            return bad_request("Register code expired or not exist")
         if code != request.code:
             return bad_request("Register code is incorrect")
         user = User(
@@ -168,17 +168,13 @@ async def user_put(
     返回:
     - 成功时返回包含用户的JWT
     """
-    try:
-        if request.password:
-            request.password = bcrypt.hash(request.password)
-        result = await db.execute(select(User).where(User.id == access_info["user_id"]))
-        user: User = result.scalar()
-        if not user:
-            return bad_request(message="User not found")
-        user.update(request)
-        await db.commit()
-        await db.refresh(user)
-        return ok(data=jwe_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
-    except IntegrityError:
-        await db.rollback()
-        return bad_request("Username already exists")
+    if request.password:
+        request.password = bcrypt.hash(request.password)
+    result = await db.execute(select(User).where(User.id == access_info["user_id"]))
+    user: User = result.scalar()
+    if not user:
+        return bad_request(message="User not found")
+    user.update(request)
+    await db.commit()
+    await db.refresh(user)
+    return ok(data=jwe_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
