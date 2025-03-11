@@ -11,7 +11,7 @@ from intellide.utils.auth import verification_code
 
 def user_register_success(
         user_register_dict: Dict,
-) -> str:
+) -> Dict:
     response = requests.post(
         url=f"{SERVER_BASE_URL}/api/user/register",
         json=user_register_dict,
@@ -22,7 +22,7 @@ def user_register_success(
 
 def user_login_success(
         user_login_dict: Dict,
-) -> str:
+) -> Dict:
     response = requests.post(
         url=f"{SERVER_BASE_URL}/api/user/login",
         json={
@@ -155,7 +155,8 @@ def test_user_get_success(
         store: Dict,
 ):
     user_dict_default = store["user_dict_default"]
-    user_token = user_login_success(user_dict_default)
+    data = user_login_success(user_dict_default)
+    user_token = data["token"]
     user_select_dict = user_get_success(user_token)
     assert_dict(user_select_dict, user_dict_default, ("username", "email",))
 
@@ -179,7 +180,8 @@ def test_user_put_success(
 ):
     # 先注册新用户
     new_user_dict = unique_user_dict_generator()
-    new_user_token = user_register_success(new_user_dict)
+    data = user_register_success(new_user_dict)
+    new_user_token = data["token"]
     # 更新用户信息
     update_user_dict = unique_user_dict_generator()
     response = requests.put(

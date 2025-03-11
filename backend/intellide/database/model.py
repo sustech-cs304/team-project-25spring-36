@@ -5,12 +5,8 @@ from typing import Dict
 from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey, Sequence
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.event import listen
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.future import select
 from sqlalchemy.orm import class_mapper
-
-from intellide.storage.storage import async_remove_file
 
 
 class Mixin:
@@ -164,33 +160,11 @@ class Course(SQLAlchemyBaseModel, Mixin):
 
     __tablename__ = "courses"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    owner_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
+    teacher_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String, nullable=False)
     description = Column(String, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
-
-    @staticmethod
-    async def event_before_delete(mapper, connection, course: "Entry"):
-        async with AsyncSession(connection) as db:
-            result = await db.execute(
-                select(CourseDirectory).where(
-                    CourseDirectory.course_id == course.id,
-                )
-            )
-            for course_directory in result.scalars().all():
-                await db.delete(course_directory)
-            result = await db.execute(
-                select(CourseStudent).where(
-                    CourseStudent.course_id == course.id,
-                )
-            )
-            for course_student in result.scalars().all():
-                await db.delete(course_student)
-            await db.commit()
-
-
-listen(Course, "before_delete", Course.event_before_delete)
 
 
 class CourseDirectory(SQLAlchemyBaseModel, Mixin):
@@ -205,21 +179,6 @@ class CourseDirectory(SQLAlchemyBaseModel, Mixin):
     permission = Column(JSONB)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
-
-    @staticmethod
-    async def event_before_delete(mapper, connection, course_directory: "Entry"):
-        async with AsyncSession(connection) as db:
-            result = await db.execute(
-                select(CourseDirectoryEntry).where(
-                    CourseDirectoryEntry.course_directory_id == course_directory.id,
-                )
-            )
-            for course_directory_entry in result.scalars().all():
-                await db.delete(course_directory_entry)
-            await db.commit()
-
-
-listen(CourseDirectory, "before_delete", CourseDirectory.event_before_delete)
 
 
 class CourseDirectoryEntry(SQLAlchemyBaseModel, Mixin):
@@ -249,18 +208,12 @@ class CourseDirectoryEntry(SQLAlchemyBaseModel, Mixin):
     )
 
     @staticmethod
-    async def event_before_insert_or_update(mapper, connection, course_directory_entry: "CourseDirectoryEntry"):
+    def event_before_insert_or_update(mapper, connection, course_directory_entry: "CourseDirectoryEntry"):
         course_directory_entry.depth = course_directory_entry.path.count("/")
-
-    @staticmethod
-    async def event_before_delete(mapper, connection, course_directory_entry: "CourseDirectoryEntry"):
-        if course_directory_entry.storage_name is not None:
-            await async_remove_file(course_directory_entry.storage_name)
 
 
 listen(CourseDirectoryEntry, "before_insert", CourseDirectoryEntry.event_before_insert_or_update)
 listen(CourseDirectoryEntry, "before_update", CourseDirectoryEntry.event_before_insert_or_update)
-listen(CourseDirectoryEntry, "before_delete", CourseDirectoryEntry.event_before_delete)
 
 
 class CourseStudent(SQLAlchemyBaseModel, Mixin):

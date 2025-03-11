@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from intellide.config import STORAGE_PATH
 
 
-def generate_storage_name() -> str:
+def storage_name_create() -> str:
     """
     生成存储名称
 
@@ -19,7 +19,7 @@ def generate_storage_name() -> str:
     return uuid.uuid4().hex
 
 
-def get_storage_path(storage_name: str) -> str:
+def storage_path(storage_name: str) -> str:
     """
     获取存储路径
 
@@ -32,7 +32,7 @@ def get_storage_path(storage_name: str) -> str:
     return os.path.join(STORAGE_PATH, storage_name)
 
 
-async def async_remove_file(
+async def storage_remove_file(
         storage_name: str,
 ) -> None:
     """
@@ -41,10 +41,10 @@ async def async_remove_file(
     参数:
     - storage_name: 存储名称
     """
-    await aiofiles.os.remove(get_storage_path(storage_name))
+    await aiofiles.os.remove(storage_path(storage_name))
 
 
-async def async_write_file(
+async def storage_write_file(
         storage_name: str,
         content: bytes,
 ) -> None:
@@ -55,11 +55,11 @@ async def async_write_file(
     - storage_name: 存储名称
     - content: 文件内容
     """
-    async with aiofiles.open(get_storage_path(storage_name), "wb") as fp:
+    async with aiofiles.open(storage_path(storage_name), "wb") as fp:
         await fp.write(content)
 
 
-def get_file_response(
+def storage_get_file_response(
         storage_name: str,
         file_name: str,
 ) -> FileResponse:
@@ -79,7 +79,7 @@ def get_file_response(
         media_type = "application/octet-stream"
     # 返回文件
     return FileResponse(
-        get_storage_path(storage_name),
+        storage_path(storage_name),
         media_type=media_type,
         headers={"Content-Disposition": f"attachment; filename={file_name}"}
     )

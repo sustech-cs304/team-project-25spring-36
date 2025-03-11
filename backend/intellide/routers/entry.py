@@ -16,7 +16,7 @@ from intellide.database.model import (
     Entry,
     EntryType,
 )
-from intellide.storage.storage import async_write_file, get_file_response
+from intellide.storage.storage import storage_write_file, storage_get_file_response
 from intellide.utils.auth import jwe_decode
 from intellide.utils.path import path_normalize, path_dir_base_name
 from intellide.utils.response import ok, bad_request, internal_server_error, APIError
@@ -258,7 +258,7 @@ async def download_entry(
     # 获取文件名
     _, file_name = path_dir_base_name(entry_path)
     # 返回文件内容
-    return get_file_response(entry.storage_name, file_name)
+    return storage_get_file_response(entry.storage_name, file_name)
 
 
 async def delete_entry(
@@ -309,7 +309,7 @@ async def post_entry(
         # 生成文件别名
         storage_name = uuid.uuid4().hex
         # 异步保存文件到指定目录
-        await async_write_file(storage_name, await file.read())
+        await storage_write_file(storage_name, await file.read())
         # 创建新的 Entry 记录
         db.add(
             Entry(

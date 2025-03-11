@@ -1,5 +1,5 @@
 import posixpath
-from typing import Tuple, Iterator
+from typing import Tuple, Iterator, cast
 
 from pathvalidate import is_valid_filepath
 
@@ -22,7 +22,10 @@ def path_normalize(
     if not is_valid_filepath(path, platform="linux"):
         raise APIError(bad_request, "Invalid file path")
     # 规范化文件路径
-    return posixpath.normpath(path)
+    normpath = posixpath.normpath(path)
+    if normpath == "/":
+        normpath = ""
+    return normpath
 
 
 def path_prefix(
@@ -37,12 +40,7 @@ def path_prefix(
     返回:
     - 父目录路径，如果父目录是根目录则返回空字符串
     """
-    path = path_normalize(path)
-    dirname = posixpath.dirname(path)
-    if dirname == "/":
-        return ""
-    else:
-        return dirname
+    return path_normalize(posixpath.dirname(path_normalize(path)))
 
 
 def path_dir_base_name(
@@ -151,3 +149,19 @@ def path_first_n(
     if not (0 < n < len(parts)):
         raise RuntimeError(f"Index {n} is out of range for path '{path}'")
     return "/" + "/".join(parts[:n])
+
+
+def path_join(
+        path: str,
+        *paths: str,
+) -> str:
+    """
+    连接多个路径
+
+    参数:
+    - paths: 要连接的路径
+
+    返回:
+    - 连接后的路径
+    """
+    return cast(str, posixpath.join(path, *paths))

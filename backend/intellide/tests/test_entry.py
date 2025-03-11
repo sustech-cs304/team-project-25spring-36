@@ -5,7 +5,7 @@ import pytest
 import requests
 from fastapi import status
 
-from intellide.storage.storage import get_storage_path
+from intellide.storage.storage import storage_path
 from intellide.tests.conftest import SERVER_BASE_URL
 from intellide.tests.test_user import user_register_success, unique_user_dict_generator
 from intellide.tests.utils import *
@@ -89,7 +89,8 @@ def init(
 ):
     store["entry_path_file"] = unique_path_generator(depth=3, suffix="txt")
     store["entry_path_directory"] = unique_path_generator(depth=3)
-    store["user_token_default"] = user_register_success(unique_user_dict_generator())
+    data = user_register_success(unique_user_dict_generator())
+    store["user_token_default"] = data["token"]
 
 
 @pytest.mark.dependency
@@ -108,7 +109,7 @@ def test_entry_post_success(
         temp_file_path
     )
     storage_name = entry_get_success(user_token_default, entry_path_file)[0]["storage_name"]
-    assert os.path.exists(get_storage_path(storage_name))
+    assert os.path.exists(storage_path(storage_name))
     entry_post_success(
         user_token_default,
         entry_path_directory,
@@ -380,7 +381,7 @@ def test_entry_delete_success_file(
     assert entry_path not in entry_paths
     assert path_first_n(entry_path, 2) in entry_paths
     assert path_first_n(entry_path, 1) in entry_paths
-    assert not os.path.exists(get_storage_path(storage_name))
+    assert not os.path.exists(storage_path(storage_name))
 
 
 @pytest.mark.dependency(depends=["test_entry_get_success"])

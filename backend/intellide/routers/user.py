@@ -84,7 +84,12 @@ async def user_register(
         db.add(user)
         await db.commit()
         await db.refresh(user)
-        return ok(data=jwe_encode(data={"user_id": user.id}, exp_hours=24))
+        return ok(
+            data={
+                "user_id": user.id,
+                "token": jwe_encode(data={"user_id": user.id}, exp_hours=24)
+            }
+        )
     except IntegrityError:
         await db.rollback()
         return bad_request("Email already exists")
@@ -117,7 +122,12 @@ async def user_login(
         return bad_request(message="Invalid username")
     if not bcrypt.verify(request.password, user.password):
         return bad_request(message="Invalid password")
-    return ok(data=jwe_encode(data={"user_id": user.id}, exp_hours=24))
+    return ok(
+        data={
+            "user_id": user.id,
+            "token": jwe_encode(data={"user_id": user.id}, exp_hours=24)
+        }
+    )
 
 
 class UserPutRequest(BaseModel):
@@ -174,4 +184,9 @@ async def user_put(
     user.update(request)
     await db.commit()
     await db.refresh(user)
-    return ok(data=jwe_encode(data={"user_id": user.id}, exp_hours=24))
+    return ok(
+        data={
+            "user_id": user.id,
+            "token": jwe_encode(data={"user_id": user.id}, exp_hours=24)
+        }
+    )
