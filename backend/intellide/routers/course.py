@@ -84,15 +84,38 @@ async def course_delete(
         db: AsyncSession = Depends(database),
 ):
     user_id = access_info["user_id"]
-    course, __, _ = await select_course_recursively(
+    role, course = await course_user_info(
+        course_id=course_id,
+        user_id=user_id,
         db=db,
-        course_id=course_id
     )
-    if course.owner_id != user_id:
+    if role != UserRole.TEACHER:
         return forbidden("Permission denied")
     await db.delete(course)
     await db.commit()
     return ok()
+
+
+@api.get("/student")
+async def course_student_get(
+        course_id: int,
+        access_info: Dict = Depends(jwe_decode),
+        db: AsyncSession = Depends(database),
+):
+    user_id = access_info["user_id"]
+    role, _ = course_user_info(course_id, user_id, db)
+    if role is None:
+        return forbidden("Permission denied")
+    result = await db.execute(
+        select(CourseStudent).where(
+            CourseStudent.course_id == course_id
+        )
+    )
+    return ok(
+        data=[
+            course_student.dict() for course_student in result.scalars().all()
+        ]
+    )
 
 
 class CourseStudentJoinRequest(BaseModel):
@@ -106,18 +129,12 @@ async def course_student_join(
         db: AsyncSession = Depends(database),
 ):
     user_id = access_info["user_id"]
-    result = await db.execute(select(Course).where(Course.id == request.course_id))
-    course: Course = result.scalar()
-    if not course:
-        return bad_request("Course not found")
-    result = await db.execute(
-        select(CourseStudent).where(
-            CourseStudent.student_id == user_id,
-            CourseStudent.course_id == course.id
-        )
+    role, course = await course_user_info(
+        course_id=request.course_id,
+        user_id=user_id,
+        db=db,
     )
-    course_student: CourseStudent = result.scalar()
-    if course_student:
+    if role is not None:
         return bad_request("Already joined")
     course_student = CourseStudent(
         course_id=course.id,
@@ -172,18 +189,12 @@ async def course_directory_get(
         db: AsyncSession = Depends(database),
 ):
     user_id = access_info["user_id"]
-    result = await db.execute(select(Course).where(Course.id == course_id))
-    course: Course = result.scalar()
-    if not course:
-        return bad_request("Course not found")
-    result = await db.execute(
-        select(CourseStudent).where(
-            CourseStudent.student_id == user_id,
-            CourseStudent.course_id == course_id,
-        )
+    role, course = await course_user_info(
+        course_id=course_id,
+        user_id=user_id,
+        db=db,
     )
-    course_student: CourseStudent = result.scalar()
-    if not course_student and course.owner_id != user_id:
+    if role is None:
         return forbidden("Permission denied")
     result = await db.execute(select(CourseDirectory).where(CourseDirectory.course_id == course_id))
     course_directories: Sequence[CourseDirectory] = result.scalars().all()
@@ -207,11 +218,12 @@ async def course_directory_post(
         db: AsyncSession = Depends(database),
 ):
     user_id = access_info["user_id"]
-    result = await db.execute(select(Course).where(Course.id == request.course_id))
-    course: Course = result.scalar()
-    if not course:
-        return bad_request("Course not found")
-    if course.owner_id != user_id:
+    role, course = await course_user_info(
+        course_id=request.course_id,
+        user_id=user_id,
+        db=db,
+    )
+    if role != UserRole.TEACHER:
         return forbidden("Permission denied")
     course_directory = CourseDirectory(
         course_id=course.id,
@@ -230,11 +242,16 @@ async def course_directory_delete(
         db: AsyncSession = Depends(database),
 ):
     user_id = access_info["user_id"]
-    course, course_directory, _ = await select_course_recursively(
+    course, course_directory, _ = await course_entry_info(
         db=db,
         course_directory_id=course_directory_id,
     )
-    if course.owner_id != user_id:
+    role, _ = await course_user_info(
+        course_id=course.id,
+        user_id=user_id,
+        db=db,
+    )
+    if role != UserRole.TEACHER:
         return forbidden("Permission denied")
     await db.delete(course_directory)
     await db.commit()
@@ -255,11 +272,16 @@ async def course_directory_entry_post(
         access_info: Dict = Depends(jwe_decode),
         db: AsyncSession = Depends(database),
 ):
-    course, course_directory, _ = await select_course_recursively(
+    user_id = access_info["user_id"]
+    user_role, course, course_directory, __ = await course_info(
         db=db,
         course_directory_id=course_directory_id,
+        user_id=user_id
     )
-    # TODO: check permission
+    if user_role is None:
+        return forbidden("Permission denied")
+    if user_role == UserRole.STUDENT:
+        ...  # TODO: check permission
     path = path_normalize(path)
     result = await db.execute(
         select(CourseDirectoryEntry).where(
@@ -306,11 +328,16 @@ async def course_directory_entry_delete(
         access_info: Dict = Depends(jwe_decode),
         db: AsyncSession = Depends(database),
 ):
-    course, course_directory, course_directory_entry = await select_course_recursively(
+    user_id = access_info["user_id"]
+    role, course, course_directory, course_directory_entry = await course_info(
         db=db,
         course_directory_entry_id=course_directory_entry_id,
+        user_id=user_id
     )
-    # TODO: check permission
+    if role is None:
+        return forbidden("Permission denied")
+    if role == UserRole.STUDENT:
+        ...  # TODO: check permission
     path = course_directory_entry.path
     result = await db.execute(
         select(CourseDirectoryEntry).where(
@@ -330,11 +357,16 @@ async def course_directory_entry_download(
         access_info: Dict = Depends(jwe_decode),
         db: AsyncSession = Depends(database),
 ):
-    course, course_directory, course_directory_entry = await select_course_recursively(
+    user_id = access_info["user_id"]
+    role, course, course_directory, course_directory_entry = await course_info(
         db=db,
-        course_directory_entry_id=course_directory_entry_id
+        course_directory_entry_id=course_directory_entry_id,
+        user_id=user_id
     )
-    # TODO: check permission
+    if role is None:
+        return forbidden("Permission denied")
+    if role == UserRole.STUDENT:
+        ...  # TODO: check permission
     if course_directory_entry.type != EntryType.FILE:
         raise HTTPException(status_code=400, detail="Course directory entry is not a file")
     _, file_name = path_dir_base_name(course_directory_entry.path)
@@ -352,12 +384,17 @@ async def course_directory_entry_move(
         access_info: Dict = Depends(jwe_decode),
         db: AsyncSession = Depends(database),
 ):
+    user_id = access_info["user_id"]
     request.dst_path = path_normalize(request.dst_path)
-    course, course_directory, course_directory_entry = await select_course_recursively(
+    role, course, course_directory, course_directory_entry = await course_info(
         db=db,
-        course_directory_entry_id=request.course_directory_entry_id
+        course_directory_entry_id=request.course_directory_entry_id,
+        user_id=user_id
     )
-    # TODO: check permission
+    if role is None:
+        return forbidden("Permission denied")
+    elif role == UserRole.STUDENT:
+        ...  # TODO: check permission
     src_path = course_directory_entry.path
     await insert_course_directory_entry_parent_recursively(
         course_directory_id=course_directory.id,
@@ -394,7 +431,34 @@ async def select_course_student(
     return course_student
 
 
-async def select_course_recursively(
+async def course_user_info(
+        course_id: int,
+        user_id: int,
+        db: AsyncSession,
+) -> Tuple[Optional[UserRole], Course]:
+    result = await db.execute(
+        select(Course).where(
+            Course.id == course_id,
+        )
+    )
+    course: Course = result.scalar()
+    if not course:
+        raise APIError(bad_request, "Course not found")
+    if course.owner_id == user_id:
+        return UserRole.TEACHER, course
+    result = await db.execute(
+        select(CourseStudent).where(
+            CourseStudent.student_id == user_id,
+            CourseStudent.course_id == course_id,
+        )
+    )
+    course_student: CourseStudent = result.scalar()
+    if course_student:
+        return UserRole.STUDENT, course
+    return None, course
+
+
+async def course_entry_info(
         db: AsyncSession,
         course_directory_entry_id: Optional[int] = None,
         course_directory_id: Optional[int] = None,
@@ -436,6 +500,28 @@ async def select_course_recursively(
     else:
         course = None
     return course, course_directory, course_directory_entry
+
+
+async def course_info(
+        db: AsyncSession,
+        user_id: int,
+        course_id: Optional[int] = None,
+        course_directory_id: Optional[int] = None,
+        course_directory_entry_id: Optional[int] = None,
+) -> Tuple[
+    Optional[UserRole], Course, Optional[CourseDirectory], Optional[CourseDirectoryEntry]]:
+    course, course_directory, course_directory_entry = await course_entry_info(
+        db=db,
+        course_id=course_id,
+        course_directory_id=course_directory_id,
+        course_directory_entry_id=course_directory_entry_id,
+    )
+    user_role, course = await course_user_info(
+        course_id=course.id,
+        user_id=user_id,
+        db=db,
+    )
+    return user_role, course, course_directory, course_directory_entry,
 
 
 async def insert_course_directory_entry_parent_recursively(

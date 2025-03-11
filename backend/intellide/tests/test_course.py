@@ -46,16 +46,7 @@ def test_course_student_join_success(
 ):
     user_token_student = store["user_token_student"]
     course_id_base = store["course_id_base"]
-    response = requests.post(
-        url=f"{SERVER_BASE_URL}/api/course/student/join",
-        headers={
-            "Access-Token": user_token_student,
-        },
-        json={
-            "course_id": course_id_base,
-        },
-    ).json()
-    assert_code(response, status.HTTP_200_OK)
+    student_join_success(user_token_student,course_id_base)
 
 
 @pytest.mark.dependency(depends=["test_course_post_success"])
@@ -94,3 +85,38 @@ def test_course_get_success_student(
     ).json()
     assert_code(response, status.HTTP_200_OK)
     assert course_id_base in {course["id"] for course in response["data"]}
+
+
+@pytest.mark.dependency(depends=["test_course_student_join_success"])
+def test_course_student_quit_success(
+        store:Dict,
+):
+    user_token_student = store["user_token_student"]
+    course_id_base = store["course_id_base"]
+    response = requests.post(
+        url=f"{SERVER_BASE_URL}/api/course/student/quit",
+        headers={
+            "Access-Token": user_token_student,
+        },
+        json={
+            "course_id": course_id_base,
+        },
+    ).json()
+    assert_code(response, status.HTTP_200_OK)
+
+
+
+def student_join_success(
+        student_token:str,
+        course_id:int,
+):
+    response = requests.post(
+        url=f"{SERVER_BASE_URL}/api/course/student/join",
+        headers={
+            "Access-Token": student_token,
+        },
+        json={
+            "course_id": course_id,
+        },
+    ).json()
+    assert_code(response, status.HTTP_200_OK)
