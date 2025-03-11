@@ -1,11 +1,9 @@
-import random
 from typing import Callable
 
 import pytest
 import requests
 from fastapi import status
 
-from intellide.database.model import UserRole
 from intellide.tests.conftest import SERVER_BASE_URL
 from intellide.tests.utils import *
 from intellide.utils.auth import verification_code
@@ -60,7 +58,6 @@ def unique_user_dict_generator(
         return {
             "username": unique_string_generator(),
             "password": unique_string_generator(),
-            "role": random.choice([str(v) for v in UserRole]),
             "email": email,
             "code": code,
         }
@@ -160,7 +157,7 @@ def test_user_get_success(
     user_dict_default = store["user_dict_default"]
     user_token = user_login_success(user_dict_default)
     user_select_dict = user_get_success(user_token)
-    assert_dict(user_select_dict, user_dict_default, ("username", "role", "email",))
+    assert_dict(user_select_dict, user_dict_default, ("username", "email",))
 
 
 @pytest.mark.dependency(depends=["test_user_get_success"])
@@ -190,7 +187,6 @@ def test_user_put_success(
         json={
             "username": update_user_dict["username"],
             "email": update_user_dict["email"],
-            "role": update_user_dict["role"]
         },
         headers={
             "Access-Token": new_user_token,
@@ -199,4 +195,4 @@ def test_user_put_success(
     assert_code(response, status.HTTP_200_OK)
     # 获取更新后的用户信息
     after_update_user_dict = user_get_success(new_user_token)
-    assert_dict(after_update_user_dict, update_user_dict, ("username", "role",))
+    assert_dict(after_update_user_dict, update_user_dict, ("username",))

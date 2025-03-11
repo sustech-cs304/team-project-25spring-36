@@ -7,7 +7,7 @@ from intellide.config import DATABASE_URL
 _async_engine = create_async_engine(DATABASE_URL, echo=True, future=True)
 
 # 创建数据库会话生成器
-_async_session_maker = sessionmaker(_async_engine, class_=AsyncSession, expire_on_commit=False)  # type: ignore
+async_session_maker = sessionmaker(_async_engine, class_=AsyncSession, expire_on_commit=False)  # type: ignore
 
 
 async def database():
@@ -17,5 +17,5 @@ async def database():
     返回:
     - 数据库会话对象
     """
-    async with _async_session_maker() as db:
+    async with async_session_maker() as db:
         yield db

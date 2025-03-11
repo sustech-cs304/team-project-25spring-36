@@ -2,11 +2,15 @@ from datetime import datetime
 from enum import Enum as PyEnum
 from typing import Dict
 
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey, text, Sequence
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey, Sequence
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.event import listen
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.future import select
 from sqlalchemy.orm import class_mapper
+
+from intellide.storage.storage import async_remove_file
 
 
 class Mixin:
@@ -44,7 +48,7 @@ class UserRole(EnumClass):
     ADMIN = "admin"
 
 
-users_uid_sequence = Sequence("users_uid_sequence")
+users_uid_sequence = Sequence("seq__users__uid", start=100000000)
 
 
 class User(SQLAlchemyBaseModel, Mixin):
@@ -57,7 +61,6 @@ class User(SQLAlchemyBaseModel, Mixin):
     username = Column(String, nullable=False)
     password = Column(String, nullable=False)
     email = Column(String, nullable=False, unique=True)
-    role = Column(Enum(UserRole), nullable=False, default=UserRole.STUDENT, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
     uid = Column(BigInteger,
@@ -103,14 +106,14 @@ class Entry(SQLAlchemyBaseModel, Mixin):
     )
 
     @staticmethod
-    def event_entry_depth(_, __, target: "Entry"):
+    def event_before_insert_or_update(mapper, connection, entry: "Entry"):
         """在插入或更新时计算 entry_depth"""
-        target.entry_depth = target.entry_path.count("/")
+        entry.entry_depth = entry.entry_path.count("/")
 
 
 # 监听 Entry 类的插入和更新事件
-listen(Entry, "before_insert", Entry.event_entry_depth)
-listen(Entry, "before_update", Entry.event_entry_depth)
+listen(Entry, "before_insert", Entry.event_before_insert_or_update)
+listen(Entry, "before_update", Entry.event_before_insert_or_update)
 
 
 class SharedEntryPermissionType(EnumClass):
@@ -125,7 +128,7 @@ class SharedEntryPermissionType(EnumClass):
 
 SharedEntryPermissionPath = str
 
-SharedEntryPermission = Dict[SharedEntryPermissionPath, SharedEntryPermissionType]
+CourseDirectoryPermission = Dict[SharedEntryPermissionPath, SharedEntryPermissionType]
 
 
 class SharedEntry(SQLAlchemyBaseModel, Mixin):
@@ -140,19 +143,6 @@ class SharedEntry(SQLAlchemyBaseModel, Mixin):
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
-    @staticmethod
-    def event_delete(mapper, connection, target: "SharedEntry"):
-        """在删除时删除对应的共享条目用户"""
-        # 在SQLAlchemy事件中，我们使用同步连接执行删除操作
-        # 这是因为事件处理程序在事务提交之前同步执行
-        connection.execute(
-            text("DELETE FROM shared_entry_users WHERE shared_entry_id = :shared_entry_id"),
-            {"shared_entry_id": target.id}
-        )
-
-
-listen(SharedEntry, "before_delete", SharedEntry.event_delete)
-
 
 class SharedEntryUser(SQLAlchemyBaseModel, Mixin):
     """
@@ -163,5 +153,124 @@ class SharedEntryUser(SQLAlchemyBaseModel, Mixin):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     shared_entry_id = Column(BigInteger, ForeignKey("shared_entries.id"), nullable=False, index=True)  # 关联共享条目
     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)  # 关联用户
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+
+
+class Course(SQLAlchemyBaseModel, Mixin):
+    """
+    课程模型类
+    """
+
+    __tablename__ = "courses"
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    owner_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+
+    @staticmethod
+    async def event_before_delete(mapper, connection, course: "Entry"):
+        async with AsyncSession(connection) as db:
+            result = await db.execute(
+                select(CourseDirectory).where(
+                    CourseDirectory.course_id == course.id,
+                )
+            )
+            for course_directory in result.scalars().all():
+                await db.delete(course_directory)
+            result = await db.execute(
+                select(CourseStudent).where(
+                    CourseStudent.course_id == course.id,
+                )
+            )
+            for course_student in result.scalars().all():
+                await db.delete(course_student)
+            await db.commit()
+
+
+listen(Course, "before_delete", Course.event_before_delete)
+
+
+class CourseDirectory(SQLAlchemyBaseModel, Mixin):
+    """
+    课程共享条目模型类
+    """
+
+    __tablename__ = "course_directories"
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    course_id = Column(BigInteger, ForeignKey("courses.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    permission = Column(JSONB)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+
+    @staticmethod
+    async def event_before_delete(mapper, connection, course_directory: "Entry"):
+        async with AsyncSession(connection) as db:
+            result = await db.execute(
+                select(CourseDirectoryEntry).where(
+                    CourseDirectoryEntry.course_directory_id == course_directory.id,
+                )
+            )
+            for course_directory_entry in result.scalars().all():
+                await db.delete(course_directory_entry)
+            await db.commit()
+
+
+listen(CourseDirectory, "before_delete", CourseDirectory.event_before_delete)
+
+
+class CourseDirectoryEntry(SQLAlchemyBaseModel, Mixin):
+    """
+    课程共享条目具体类
+    """
+    __tablename__ = "course_directory_entries"
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    course_directory_id = Column(BigInteger, ForeignKey("course_directories.id"), nullable=False, index=True)
+    path = Column(String, nullable=False, index=True)
+    depth = Column(Integer, nullable=False)
+    type = Column(Enum(EntryType), nullable=False)
+    storage_name = Column(String, unique=True, default=None)
+    is_collaborative = Column(Boolean, default=None)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+    __table_args__ = (
+        Index("idx__course_directory_entries__path", path),  # B-TREE 主索引
+        Index(
+            "idx__course_directory_entires__path__prefix",
+            path,
+            postgresql_using="gin",
+            postgresql_ops={
+                "path": "gin_trgm_ops",
+            },
+        ),  # 适用于 LIKE 查询
+    )
+
+    @staticmethod
+    async def event_before_insert_or_update(mapper, connection, course_directory_entry: "CourseDirectoryEntry"):
+        course_directory_entry.depth = course_directory_entry.path.count("/")
+
+    @staticmethod
+    async def event_before_delete(mapper, connection, course_directory_entry: "CourseDirectoryEntry"):
+        if course_directory_entry.storage_name is not None:
+            await async_remove_file(course_directory_entry.storage_name)
+
+
+listen(CourseDirectoryEntry, "before_insert", CourseDirectoryEntry.event_before_insert_or_update)
+listen(CourseDirectoryEntry, "before_update", CourseDirectoryEntry.event_before_insert_or_update)
+listen(CourseDirectoryEntry, "before_delete", CourseDirectoryEntry.event_before_delete)
+
+
+class CourseStudent(SQLAlchemyBaseModel, Mixin):
+    """
+    课程用户模型类
+    """
+
+    __tablename__ = "course_students"
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    course_id = Column(BigInteger, ForeignKey("courses.id"), nullable=False, index=True)
+    student_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)

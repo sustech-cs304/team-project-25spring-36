@@ -33,6 +33,7 @@ DOCKER_PORT = "2375"
 DOCKER_URL = f"tcp://{DOCKER_HOST}:{DOCKER_PORT}"
 DOCKER_CONTAINER_POSTGRESQL_NAME = "software-engineering-project-postgres"
 DOCKER_CONTAINER_REDIS_NAME = "software-engineering-project-redis"
+DOCKER_ENABLE = True
 
 # 加密配置
 AUTH_JWE_ALG = "A256KW"

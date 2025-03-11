@@ -8,10 +8,11 @@ from intellide.cache.startup import startup as cache_startup
 from intellide.config import SERVER_HOST, SERVER_PORT
 from intellide.database.startup import startup as database_startup
 from intellide.docker.startup import startup as docker_startup
+from intellide.routers.course import api as api_course
 from intellide.routers.entry import api as api_entry
 from intellide.routers.share import api as api_share, ws as ws_share
-from intellide.routers.user import api as api_user
 from intellide.routers.surprise import api as api_surprise
+from intellide.routers.user import api as api_user
 from intellide.storage.startup import startup as storage_startup
 from intellide.utils.response import APIError, internal_server_error
 
@@ -47,6 +48,7 @@ api = APIRouter(prefix="/api")
 api.include_router(api_user)
 api.include_router(api_entry)
 api.include_router(api_share)
+api.include_router(api_course)
 api.include_router(api_surprise)
 
 # 创建websocket路由

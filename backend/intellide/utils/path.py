@@ -83,7 +83,14 @@ def path_base_name(
 
 def path_iterate_parents(
         path: str,
+        include_self: bool = True,
 ) -> Iterator[str]:
+    def parent(_path):
+        idx = _path.rfind("/")
+        if idx == -1:
+            return None
+        return _path[:idx]
+
     """
     迭代文件路径的所有父目录
 
@@ -94,12 +101,11 @@ def path_iterate_parents(
     - 父目录路径的迭代器
     """
     path = path_normalize(path)
+    if not include_self:
+        path = parent(path)
     while path:
         yield path
-        idx = path.rfind("/")
-        if idx == -1:
-            return
-        path = path[:idx]
+        path = parent(path)
 
 
 def path_parts(

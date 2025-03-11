@@ -17,7 +17,7 @@ async def echo(
     return body.decode("utf-8")[::-1]
 
 
-@api.api_route("/teapot",response_class=PlainTextResponse)
+@api.api_route("/teapot", response_class=PlainTextResponse)
 async def teapot():
     raise HTTPException(status_code=status.HTTP_418_IM_A_TEAPOT, detail="I'm a teapot")
 

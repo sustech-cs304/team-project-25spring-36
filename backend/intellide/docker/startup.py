@@ -4,7 +4,7 @@ import docker
 from docker.errors import DockerException, NotFound
 from docker.models.containers import Container
 
-from intellide.config import DOCKER_URL, DOCKER_CONTAINER_POSTGRESQL_NAME, DOCKER_CONTAINER_REDIS_NAME
+from intellide.config import DOCKER_URL, DOCKER_CONTAINER_POSTGRESQL_NAME, DOCKER_CONTAINER_REDIS_NAME, DOCKER_ENABLE
 
 
 async def startup():
@@ -12,6 +12,9 @@ async def startup():
         while container.status != "running":
             time.sleep(0.5)
             container.reload()
+
+    if not DOCKER_ENABLE:
+        return
 
     try:
         # 连接 Docker 服务

@@ -14,7 +14,7 @@ from intellide.database.model import (
     User,
     Entry,
     SharedEntry,
-    SharedEntryPermission,
+    CourseDirectoryPermission,
     SharedEntryUser,
     SharedEntryPermissionType,
     EntryType,
@@ -30,7 +30,7 @@ ws = APIRouter(prefix="/share")
 
 class SharedEntryTokenCreateRequest(BaseModel):
     entry_path: str
-    permissions: Optional[SharedEntryPermission] = None
+    permissions: Optional[CourseDirectoryPermission] = None
 
 
 @api.post("/token/create")
@@ -550,7 +550,7 @@ async def shared_entry_collaborative_subscribe(
 
 def verify_permissions(
         entry_path: str,
-        permissions: SharedEntryPermission,
+        permissions: CourseDirectoryPermission,
         allowed_permission_types: Tuple[SharedEntryPermissionType, ...]
 ) -> bool:
     """

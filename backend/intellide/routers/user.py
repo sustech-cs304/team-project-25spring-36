@@ -11,7 +11,7 @@ from sqlalchemy.future import select
 
 from intellide.cache.cache import cache
 from intellide.database.database import database
-from intellide.database.model import UserRole, User
+from intellide.database.model import User
 from intellide.utils.auth import jwe_encode, verification_code, jwe_decode
 from intellide.utils.email import email_send_register_code
 from intellide.utils.response import ok, bad_request, internal_server_error
@@ -53,7 +53,6 @@ class UserRegisterRequest(BaseModel):
     password: str
     email: str
     code: str
-    role: UserRole
 
 
 @api.post("/register")
@@ -81,12 +80,11 @@ async def user_register(
             username=request.username,
             password=bcrypt.hash(request.password),
             email=request.email,
-            role=request.role,
         )
         db.add(user)
         await db.commit()
         await db.refresh(user)
-        return ok(data=jwe_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
+        return ok(data=jwe_encode(data={"user_id": user.id}, exp_hours=24))
     except IntegrityError:
         await db.rollback()
         return bad_request("Email already exists")
@@ -119,13 +117,12 @@ async def user_login(
         return bad_request(message="Invalid username")
     if not bcrypt.verify(request.password, user.password):
         return bad_request(message="Invalid password")
-    return ok(data=jwe_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
+    return ok(data=jwe_encode(data={"user_id": user.id}, exp_hours=24))
 
 
 class UserPutRequest(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
-    role: Optional[UserRole] = None
 
 
 @api.get("")
@@ -177,4 +174,4 @@ async def user_put(
     user.update(request)
     await db.commit()
     await db.refresh(user)
-    return ok(data=jwe_encode(data={"user_id": user.id, "user_role": str(user.role)}, exp_hours=24))
+    return ok(data=jwe_encode(data={"user_id": user.id}, exp_hours=24))

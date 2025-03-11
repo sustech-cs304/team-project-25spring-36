@@ -1,11 +1,22 @@
 import mimetypes
 import os
+import uuid
 
 import aiofiles
 import aiofiles.os
 from fastapi.responses import FileResponse
 
 from intellide.config import STORAGE_PATH
+
+
+def generate_storage_name() -> str:
+    """
+    生成存储名称
+
+    返回:
+    - 存储名称
+    """
+    return uuid.uuid4().hex
 
 
 def get_storage_path(storage_name: str) -> str:
@@ -19,6 +30,18 @@ def get_storage_path(storage_name: str) -> str:
     - 完整的存储路径
     """
     return os.path.join(STORAGE_PATH, storage_name)
+
+
+async def async_remove_file(
+        storage_name: str,
+) -> None:
+    """
+    异步删除文件
+
+    参数:
+    - storage_name: 存储名称
+    """
+    await aiofiles.os.remove(get_storage_path(storage_name))
 
 
 async def async_write_file(
