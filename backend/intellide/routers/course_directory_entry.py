@@ -18,10 +18,11 @@ from intellide.storage import (
     storage_name_create,
     storage_write_file,
     storage_get_file_response,
+    storage_remove_file,
 )
 from intellide.utils.auth import jwe_decode
 from intellide.utils.path import path_normalize, path_dir_base_name, path_iterate_parents
-from intellide.utils.response import ok, bad_request
+from intellide.utils.response import ok, bad_request, not_implemented, APIError
 
 # 创建课程路由前缀
 api = APIRouter(prefix="/course/directory/entry")
@@ -44,11 +45,11 @@ class CourseDirectoryEntryPostRequest(BaseModel):
 
 @api.post("")
 async def course_directory_entry_post(
-        course_directory_id: int = Form(...),
-        path: str = Form(...),
-        file: Optional[UploadFile] = File(None),
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_directory_id: int = Form(...),
+    path: str = Form(...),
+    file: Optional[UploadFile] = File(None),
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     创建课程目录条目
@@ -70,9 +71,7 @@ async def course_directory_entry_post(
     user_id = access_info["user_id"]
 
     # 获取用户角色、课程、目录和条目信息
-    user_role, course, course_directory, __ = await course_user_entry_info(db=db,
-                                                                           course_directory_id=course_directory_id,
-                                                                           user_id=user_id)
+    user_role, course, course_directory, __ = await course_user_entry_info(db=db, course_directory_id=course_directory_id, user_id=user_id)
 
     # 如果用户是学生，检查权限（待实现）
     if user_role == UserRole.STUDENT:
@@ -136,11 +135,11 @@ async def course_directory_entry_post(
 
 @api.get("")
 async def course_directory_entry_get(
-        course_directory_id: int,
-        path: str,
-        fuzzy: bool = True,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_directory_id: int,
+    path: str,
+    fuzzy: bool = True,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     获取课程目录条目
@@ -163,8 +162,7 @@ async def course_directory_entry_get(
     user_id = access_info["user_id"]
 
     # 获取用户角色、课程、目录和条目信息
-    role, course, course_directory, _ = await course_user_entry_info(db=db, course_directory_id=course_directory_id,
-                                                                     user_id=user_id)
+    role, course, course_directory, _ = await course_user_entry_info(db=db, course_directory_id=course_directory_id, user_id=user_id)
 
     # 如果用户是学生，检查权限（待实现）
     if role == UserRole.STUDENT:
@@ -203,9 +201,9 @@ async def course_directory_entry_get(
 
 @api.delete("")
 async def course_directory_entry_delete(
-        course_directory_entry_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_directory_entry_id: int,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     删除课程目录条目
@@ -245,9 +243,9 @@ async def course_directory_entry_delete(
 
 @api.get("/download")
 async def course_directory_entry_download(
-        course_directory_entry_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_directory_entry_id: int,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     下载课程目录条目文件
@@ -301,9 +299,9 @@ class CourseDirectoryEntryMoveRequest(BaseModel):
 
 @api.put("/move")
 async def course_directory_entry_move(
-        request: CourseDirectoryEntryMoveRequest,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    request: CourseDirectoryEntryMoveRequest,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """移动课程目录条目
 
@@ -348,15 +346,14 @@ async def course_directory_entry_move(
     # 查询所有以根路径开头的条目
     result = await db.execute(
         select(CourseDirectoryEntry).where(
-            CourseDirectoryEntry.course_directory_id == course_directory.id,
-            CourseDirectoryEntry.path.like(f"{root_path}%")
+            CourseDirectoryEntry.course_directory_id == course_directory.id, CourseDirectoryEntry.path.like(f"{root_path}%")
         )
     )
     course_directory_entries: Sequence[CourseDirectoryEntry] = result.scalars().all()
 
     # 更新每个条目的路径
     for course_directory_entry in course_directory_entries:
-        course_directory_entry.path = request.dst_path + course_directory_entry.path[len(root_path):]
+        course_directory_entry.path = request.dst_path + course_directory_entry.path[len(root_path) :]
 
     # 提交数据库更改
     await db.commit()
@@ -364,10 +361,10 @@ async def course_directory_entry_move(
 
 
 async def insert_course_directory_entry_parent_recursively(
-        course_directory_id: int,
-        child: str,
-        db: AsyncSession,
-        commit: bool = False,
+    course_directory_id: int,
+    child: str,
+    db: AsyncSession,
+    commit: bool = False,
 ) -> None:
     """
     递归插入课程目录的父目录
@@ -402,9 +399,9 @@ async def insert_course_directory_entry_parent_recursively(
 
 
 async def delete_course_directory_entry(
-        course_directory_entry_id: int,
-        db: AsyncSession,
-        commit: bool = False,
+    course_directory_entry_id: int,
+    db: AsyncSession,
+    commit: bool = False,
 ):
     """
     删除课程目录条目
@@ -435,8 +432,7 @@ async def delete_course_directory_entry(
         path = course_directory_entry.path
         result = await db.execute(
             select(CourseDirectoryEntry).where(
-                CourseDirectoryEntry.course_directory_id == course_directory_entry.course_directory_id,
-                CourseDirectoryEntry.path.like(f"{path}%")
+                CourseDirectoryEntry.course_directory_id == course_directory_entry.course_directory_id, CourseDirectoryEntry.path.like(f"{path}%")
             )
         )
         # 删除所有匹配的子条目
