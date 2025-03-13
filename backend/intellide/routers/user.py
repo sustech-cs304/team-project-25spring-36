@@ -9,8 +9,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from intellide.cache.cache import cache
-from intellide.database.database import database
+from intellide.cache import cache
+from intellide.database import database
 from intellide.database.model import User
 from intellide.utils.auth import jwe_encode, verification_code, jwe_decode
 from intellide.utils.email import email_send_register_code
@@ -87,6 +87,7 @@ async def user_register(
         return ok(
             data={
                 "user_id": user.id,
+                "user_username": user.username,
                 "token": jwe_encode(data={"user_id": user.id}, exp_hours=24)
             }
         )
@@ -125,6 +126,7 @@ async def user_login(
     return ok(
         data={
             "user_id": user.id,
+            "user_username": user.username,
             "token": jwe_encode(data={"user_id": user.id}, exp_hours=24)
         }
     )
@@ -187,6 +189,7 @@ async def user_put(
     return ok(
         data={
             "user_id": user.id,
+            "user_username": user.username,
             "token": jwe_encode(data={"user_id": user.id}, exp_hours=24)
         }
     )

@@ -1,31 +1,27 @@
 from typing import Dict, Sequence, List, Optional, Tuple
 
-from fastapi import APIRouter, Depends, UploadFile, Form, File, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from intellide.database.database import database
+from intellide.database import database
 from intellide.database.model import (
     Course,
     CourseStudent,
     UserRole,
-    CourseDirectoryPermission,
     CourseDirectory,
     CourseDirectoryEntry,
     EntryType,
-    User,
 )
-from intellide.storage.storage import (
-    storage_name_create,
-    storage_write_file,
-    storage_get_file_response,
+from intellide.storage import (
     storage_remove_file,
 )
 from intellide.utils.auth import jwe_decode
-from intellide.utils.path import path_normalize, path_iterate_parents, path_dir_base_name
+from intellide.utils.path import path_iterate_parents
 from intellide.utils.response import ok, bad_request, forbidden, not_implemented, APIError
 
+# 创建课程路由前缀
 api = APIRouter(prefix="/course")
 
 
@@ -35,36 +31,62 @@ async def course_get(
         access_info: Dict = Depends(jwe_decode),
         db: AsyncSession = Depends(database),
 ):
+    """获取课程列表
+
+    参数：
+        role: 用户角色(教师/学生)
+        access_info: 包含用户ID等信息的字典
+        db: 数据库会话对象
+
+    返回：
+        教师: 返回创建的所有课程
+        学生: 返回加入的所有课程
+
+    异常：
+        APIError: 当用户没有权限访问该课程时抛出
+    """
+    # 如果是教师角色
     if role == UserRole.TEACHER:
+        # 获取教师ID
         user_id = access_info["user_id"]
+        # 查询该教师创建的所有课程
         result = await db.execute(select(Course).where(Course.teacher_id == user_id))
         courses: Sequence[Course] = result.scalars().all()
-        return ok(
-            data=[
-                course.dict() for course in courses
-            ]
-        )
+        # 返回教师创建的所有课程
+        return ok(data=[course.dict() for course in courses])
+
+    # 如果是学生角色
     elif role == UserRole.STUDENT:
         user_id = access_info["user_id"]
+        # 查询该学生的所有选课记录
         result = await db.execute(select(CourseStudent).where(CourseStudent.student_id == user_id))
         course_students: Sequence[CourseStudent] = result.scalars().all()
         courses: List[Course] = []
+        # 获取每个选课记录对应的课程信息
         for course_student in course_students:
             result = await db.execute(select(Course).where(Course.id == course_student.course_id))
             course: Course = result.scalar()
             courses.append(course)
-        return ok(
-            data=[
-                course.dict() for course in courses
-            ]
-        )
+        # 返回学生加入的所有课程
+        return ok(data=[course.dict() for course in courses])
+
+    # 如果角色未实现，返回未实现错误
     else:
         return not_implemented("Not implemented")
 
 
+# 课程创建请求的数据模型
 class CoursePostRequest(BaseModel):
-    name: str
-    description: str
+    """
+    课程创建请求
+
+    属性：
+        name: 课程名称
+        description: 课程描述
+    """
+
+    name: str  # 课程名称
+    description: str  # 课程描述
 
 
 @api.post("")
@@ -73,7 +95,20 @@ async def course_post(
         access_info: Dict = Depends(jwe_decode),
         db: AsyncSession = Depends(database),
 ):
+    """
+    创建新课程
+
+    参数：
+        request: 包含课程名称和描述的请求对象
+        access_info: 包含用户ID等信息的字典
+        db: 数据库会话对象
+
+    异常：
+        新创建的课程ID
+    """
+    # 获取创建者ID
     user_id = access_info["user_id"]
+    # 创建新课程记录
     course = Course(
         teacher_id=user_id,
         name=request.name,
@@ -82,11 +117,7 @@ async def course_post(
     db.add(course)
     await db.commit()
     await db.refresh(course)
-    return ok(
-        data={
-            "course_id": course.id
-        }
-    )
+    return ok(data={"course_id": course.id})
 
 
 @api.delete("")
@@ -95,388 +126,33 @@ async def course_delete(
         access_info: Dict = Depends(jwe_decode),
         db: AsyncSession = Depends(database),
 ):
+    """
+    删除课程
+
+    参数：
+        course_id: 要删除的课程ID
+        access_info: 包含用户ID等信息的字典
+        db: 数据库会话对象
+
+    返回：
+        删除成功返回OK
+
+    异常：
+        APIError: 当用户不是教师或课程不存在时抛出
+    """
+    # 获取用户ID
     user_id = access_info["user_id"]
+    # 检查用户权限和课程是否存在
     role, course = await course_user_info(
         course_id=course_id,
         user_id=user_id,
         db=db,
     )
+    # 只有教师可以删除课程
     if role != UserRole.TEACHER:
         return forbidden("Permission denied")
+    # 删除课程记录
     await db.delete(course)
-    await db.commit()
-    return ok()
-
-
-@api.get("/student")
-async def course_student_get(
-        course_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
-):
-    user_id = access_info["user_id"]
-    role, _ = await course_user_info(course_id, user_id, db)
-    if role is None:
-        return forbidden("Permission denied")
-    result = await db.execute(
-        select(CourseStudent).where(
-            CourseStudent.course_id == course_id
-        )
-    )
-    users = []
-    for course_student in result.scalars().all():
-        result = await db.execute(
-            select(User).where(
-                User.id == course_student.student_id
-            )
-        )
-        user: User = result.scalar()
-        users.append(user)
-    return ok(
-        data=[
-            user.dict() for user in users
-        ]
-    )
-
-
-class CourseStudentJoinRequest(BaseModel):
-    course_id: int
-
-
-@api.post("/student/join")
-async def course_student_join(
-        request: CourseStudentJoinRequest,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
-):
-    user_id = access_info["user_id"]
-    role, course = await course_user_info(
-        course_id=request.course_id,
-        user_id=user_id,
-        db=db,
-    )
-    if role is not None:
-        return bad_request("Already joined")
-    course_student = CourseStudent(
-        course_id=course.id,
-        student_id=user_id,
-    )
-    db.add(course_student)
-    await db.commit()
-    await db.refresh(course_student)
-    return ok(
-        data={
-            "course_student_id": course_student.id
-        }
-    )
-
-
-@api.delete("/student")
-async def course_student_delete(
-        course_id: int,
-        course_student_id: Optional[int] = None,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
-):
-    user_id = access_info["user_id"]
-    role, course = await course_user_info(
-        course_id=course_id,
-        user_id=user_id,
-        db=db,
-    )
-    if role == UserRole.TEACHER:
-        if course_student_id is None:
-            return bad_request("Course student id is required")
-        result = await db.execute(
-            select(CourseStudent).where(
-                CourseStudent.id == course_student_id,
-            )
-        )
-        course_student: CourseStudent = result.scalar()
-    elif role == UserRole.STUDENT:
-        result = await db.execute(
-            select(CourseStudent).where(
-                CourseStudent.course_id == course_id,
-                CourseStudent.student_id == user_id,
-            )
-        )
-        course_student: CourseStudent = result.scalar()
-    else:
-        return forbidden("Permission denied")
-    await db.delete(course_student)
-    await db.commit()
-    return ok()
-
-
-@api.get("/directory")
-async def course_directory_get(
-        course_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
-):
-    user_id = access_info["user_id"]
-    role, course = await course_user_info(
-        course_id=course_id,
-        user_id=user_id,
-        db=db,
-    )
-    if role is None:
-        return forbidden("Permission denied")
-    result = await db.execute(select(CourseDirectory).where(CourseDirectory.course_id == course_id))
-    course_directories: Sequence[CourseDirectory] = result.scalars().all()
-    return ok(
-        data=[
-            course_directory.dict() for course_directory in course_directories
-        ]
-    )
-
-
-class CourseDirectoryPostRequest(BaseModel):
-    course_id: int
-    name: str
-    permission: Optional[CourseDirectoryPermission] = None
-
-
-@api.post("/directory")
-async def course_directory_post(
-        request: CourseDirectoryPostRequest,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
-):
-    user_id = access_info["user_id"]
-    role, course = await course_user_info(
-        course_id=request.course_id,
-        user_id=user_id,
-        db=db,
-    )
-    if role != UserRole.TEACHER:
-        return forbidden("Permission denied")
-    course_directory = CourseDirectory(
-        course_id=course.id,
-        name=request.name,
-        permission=request.permission,
-    )
-    db.add(course_directory)
-    await db.commit()
-    await db.refresh(course_directory)
-    return ok(
-        data={
-            "course_directory_id": course_directory.id
-        }
-    )
-
-
-@api.delete("/directory")
-async def course_directory_delete(
-        course_directory_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
-):
-    user_id = access_info["user_id"]
-    course, course_directory, _ = await course_entry_info(
-        db=db,
-        course_directory_id=course_directory_id,
-    )
-    role, _ = await course_user_info(
-        course_id=course.id,
-        user_id=user_id,
-        db=db,
-    )
-    if role != UserRole.TEACHER:
-        return forbidden("Permission denied")
-    await db.delete(course_directory)
-    await db.commit()
-    return ok()
-
-
-class CourseDirectoryEntryPostRequest(BaseModel):
-    course_id: int
-    course_directory_id: int
-    path: str
-
-
-@api.post("/directory/entry")
-async def course_directory_entry_post(
-        course_directory_id: int = Form(...),
-        path: str = Form(...),
-        file: Optional[UploadFile] = File(None),
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
-):
-    user_id = access_info["user_id"]
-    user_role, course, course_directory, __ = await course_info(
-        db=db,
-        course_directory_id=course_directory_id,
-        user_id=user_id
-    )
-    if user_role == UserRole.STUDENT:
-        ...  # TODO: check permission
-    path = path_normalize(path)
-    if not path:
-        return bad_request("Invalid path")
-    result = await db.execute(
-        select(CourseDirectoryEntry).where(
-            CourseDirectoryEntry.course_directory_id == course_directory.id,
-            CourseDirectoryEntry.path == path,
-        )
-    )
-    course_directory_entry: CourseDirectoryEntry = result.scalar()
-    if course_directory_entry:
-        return bad_request("Entry already exists")
-    await insert_course_directory_entry_parent_recursively(
-        course_directory_id=course_directory.id,
-        child=path,
-        db=db,
-    )
-    if file is not None:
-        storage_name = storage_name_create()
-        await storage_write_file(
-            storage_name=storage_name,
-            content=await file.read(),
-        )
-        course_directory_entry = CourseDirectoryEntry(
-            course_directory_id=course_directory.id,
-            path=path,
-            type=EntryType.FILE,
-            storage_name=storage_name,
-            is_collaborative=False,
-        )
-        db.add(course_directory_entry)
-    else:
-        course_directory_entry = CourseDirectoryEntry(
-            course_directory_id=course_directory.id,
-            path=path,
-            type=EntryType.DIRECTORY,
-        )
-        db.add(course_directory_entry)
-    await db.commit()
-    await db.refresh(course_directory_entry)
-    return ok(
-        data={
-            "course_directory_entry_id": course_directory_entry.id
-        }
-    )
-
-
-@api.get("/directory/entry")
-async def course_directory_entry_get(
-        course_directory_id: int,
-        path: str,
-        fuzzy: bool = True,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
-):
-    user_id = access_info["user_id"]
-    role, course, course_directory, _ = await course_info(
-        db=db,
-        course_directory_id=course_directory_id,
-        user_id=user_id
-    )
-    if role == UserRole.STUDENT:
-        ...  # TODO: check permission
-    path = path_normalize(path)
-    if fuzzy:
-        result = await db.execute(
-            select(CourseDirectoryEntry).where(
-                CourseDirectoryEntry.course_directory_id == course_directory.id,
-                CourseDirectoryEntry.path.like(f"{path}%"),
-            )
-        )
-        course_directory_entries: Sequence[CourseDirectoryEntry] = result.scalars().all()
-        return ok(
-            data=[
-                course_directory_entry.dict() for course_directory_entry in course_directory_entries
-            ]
-        )
-    else:
-        result = await db.execute(select(CourseDirectoryEntry).where(
-            CourseDirectoryEntry.course_directory_id == course_directory.id,
-            CourseDirectoryEntry.path == path,
-        ))
-        course_directory_entry: CourseDirectoryEntry = result.scalar()
-        if not course_directory_entry:
-            return bad_request("Course directory entry not found")
-        return ok(
-            data=course_directory_entry.dict()
-        )
-
-
-@api.delete("/directory/entry")
-async def course_directory_entry_delete(
-        course_directory_entry_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
-):
-    user_id = access_info["user_id"]
-    role, course, course_directory, course_directory_entry = await course_info(
-        db=db,
-        course_directory_entry_id=course_directory_entry_id,
-        user_id=user_id
-    )
-    if role == UserRole.STUDENT:
-        ...  # TODO: check permission
-    await delete_course_directory_entry(course_directory_entry_id, db)
-    await db.commit()
-    return ok()
-
-
-@api.get("/directory/entry/download")
-async def course_directory_entry_download(
-        course_directory_entry_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
-):
-    user_id = access_info["user_id"]
-    role, course, course_directory, course_directory_entry = await course_info(
-        db=db,
-        course_directory_entry_id=course_directory_entry_id,
-        user_id=user_id
-    )
-    if role == UserRole.STUDENT:
-        ...  # TODO: check permission
-    if course_directory_entry.type != EntryType.FILE:
-        raise HTTPException(status_code=400, detail="Course directory entry is not a file")
-    _, file_name = path_dir_base_name(course_directory_entry.path)
-    return storage_get_file_response(course_directory_entry.storage_name, file_name)
-
-
-class CourseDirectoryEntryMoveRequest(BaseModel):
-    course_directory_entry_id: int
-    dst_path: str
-
-
-@api.put("/directory/entry/move")
-async def course_directory_entry_move(
-        request: CourseDirectoryEntryMoveRequest,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
-):
-    user_id = access_info["user_id"]
-    request.dst_path = path_normalize(request.dst_path)
-    if not request.dst_path:
-        return bad_request("Invalid destination path")
-    role, course, course_directory, course_directory_entry = await course_info(
-        db=db,
-        course_directory_entry_id=request.course_directory_entry_id,
-        user_id=user_id
-    )
-    if role == UserRole.STUDENT:
-        ...  # TODO: check permission
-    root_path = course_directory_entry.path
-    await insert_course_directory_entry_parent_recursively(
-        course_directory_id=course_directory.id,
-        child=request.dst_path,
-        db=db,
-    )
-    result = await db.execute(
-        select(CourseDirectoryEntry).where(
-            CourseDirectoryEntry.course_directory_id == course_directory.id,
-            CourseDirectoryEntry.path.like(f"{root_path}%")
-        )
-    )
-    course_directory_entries: Sequence[CourseDirectoryEntry] = result.scalars().all()
-    for course_directory_entry in course_directory_entries:
-        course_directory_entry.path = request.dst_path + course_directory_entry.path[len(root_path):]
     await db.commit()
     return ok()
 
@@ -486,16 +162,36 @@ async def course_user_info(
         user_id: int,
         db: AsyncSession,
 ) -> Tuple[Optional[UserRole], Course]:
+    """
+    获取用户在课程中的角色信息
+
+    参数：
+        course_id: 课程ID
+        user_id: 用户ID
+        db: 数据库会话对象
+
+    返回：
+        元组(用户角色, 课程对象)
+
+    异常：
+        APIError: 当课程不存在时抛出
+    """
+    # 查询课程是否存在
     result = await db.execute(
         select(Course).where(
             Course.id == course_id,
         )
     )
     course: Course = result.scalar()
+    # 如果课程不存在，抛出错误
     if not course:
         raise APIError(bad_request, "Course not found")
+
+    # 检查用户是否是该课程的教师
     if course.teacher_id == user_id:
         return UserRole.TEACHER, course
+
+    # 检查用户是否是该课程的学生
     result = await db.execute(
         select(CourseStudent).where(
             CourseStudent.student_id == user_id,
@@ -503,8 +199,11 @@ async def course_user_info(
         )
     )
     course_student: CourseStudent = result.scalar()
+    # 如果用户是学生，返回学生角色
     if course_student:
         return UserRole.STUDENT, course
+
+    # 如果用户既不是教师也不是学生，返回None
     return None, course
 
 
@@ -514,6 +213,21 @@ async def course_entry_info(
         course_directory_id: Optional[int] = None,
         course_id: Optional[int] = None,
 ) -> Tuple[Optional[Course], Optional[CourseDirectory], Optional[CourseDirectoryEntry]]:
+    """获取课程条目相关信息
+
+    参数：
+        db: 数据库会话对象
+        course_directory_entry_id: 目录条目ID
+        course_directory_id: 目录ID
+        course_id: 课程ID
+
+    返回：
+        元组(课程对象, 目录对象, 条目对象)
+
+    异常：
+        APIError: 当相关对象不存在时抛出
+    """
+    # 如果提供了目录条目ID，则查询该条目信息
     if course_directory_entry_id:
         result = await db.execute(
             select(CourseDirectoryEntry).where(
@@ -521,34 +235,37 @@ async def course_entry_info(
             )
         )
         course_directory_entry: Optional[CourseDirectoryEntry] = result.scalar()
+        # 如果条目不存在，抛出错误
         if not course_directory_entry:
             raise APIError(bad_request, "Course directory entry not found")
+        # 获取目录ID
         course_directory_id = course_directory_entry.course_directory_id
     else:
         course_directory_entry = None
+
+    # 如果提供了目录ID，则查询该目录信息
     if course_directory_id:
-        result = await db.execute(
-            select(CourseDirectory).where(
-                CourseDirectory.id == course_directory_id
-            )
-        )
+        result = await db.execute(select(CourseDirectory).where(CourseDirectory.id == course_directory_id))
         course_directory: Optional[CourseDirectory] = result.scalar()
+        # 如果目录不存在，抛出错误
         if not course_directory:
             raise APIError(bad_request, "Course directory not found")
+        # 获取课程ID
         course_id = course_directory.course_id
     else:
         course_directory = None
+
+    # 如果提供了课程ID，则查询该课程信息
     if course_id:
-        result = await db.execute(
-            select(Course).where(
-                Course.id == course_id
-            )
-        )
+        result = await db.execute(select(Course).where(Course.id == course_id))
         course: Optional[Course] = result.scalar()
+        # 如果课程不存在，抛出错误
         if not course:
             raise APIError(bad_request, "Course not found")
     else:
         course = None
+
+    # 返回课程、目录和条目信息
     return course, course_directory, course_directory_entry
 
 
@@ -558,22 +275,49 @@ async def course_info(
         course_id: Optional[int] = None,
         course_directory_id: Optional[int] = None,
         course_directory_entry_id: Optional[int] = None,
-) -> Tuple[
-    Optional[UserRole], Course, Optional[CourseDirectory], Optional[CourseDirectoryEntry]]:
+) -> Tuple[Optional[UserRole], Course, Optional[CourseDirectory], Optional[CourseDirectoryEntry]]:
+    """
+    获取课程及相关信息
+
+    参数：
+        db: 数据库会话对象
+        user_id: 用户ID
+        course_id: 课程ID(可选)
+        course_directory_id: 目录ID(可选)
+        course_directory_entry_id: 条目ID(可选)
+
+    返回：
+        元组(用户角色, 课程对象, 目录对象, 条目对象)
+
+    异常：
+        APIError: 当用户没有权限时抛出
+    """
+    # 获取课程、目录和条目信息
     course, course_directory, course_directory_entry = await course_entry_info(
         db=db,
         course_id=course_id,
         course_directory_id=course_directory_id,
         course_directory_entry_id=course_directory_entry_id,
     )
+
+    # 检查用户在该课程中的角色
     user_role, course = await course_user_info(
         course_id=course.id,
         user_id=user_id,
         db=db,
     )
+
+    # 如果用户没有任何角色(既不是教师也不是学生)，则拒绝访问
     if user_role is None:
         raise APIError(forbidden, "Permission denied")
-    return user_role, course, course_directory, course_directory_entry,
+
+    # 返回用户角色、课程、目录和条目信息
+    return (
+        user_role,
+        course,
+        course_directory,
+        course_directory_entry,
+    )
 
 
 async def insert_course_directory_entry_parent_recursively(
@@ -583,21 +327,24 @@ async def insert_course_directory_entry_parent_recursively(
         commit: bool = False,
 ) -> None:
     """
-    验证及自动创建父目录
+    递归插入课程目录的父目录
 
-    参数:
-    - course_directory_id: 课程目录 ID
-    - child: 子目录路径
-    - db: 数据库会话
-    - commit: 是否提交事务
+    参数：
+        course_directory_id: 课程目录ID
+        child: 子目录路径
+        db: 数据库会话对象
+        commit: 是否自动提交事务
     """
+    # 遍历子目录路径的所有父目录
     for child in path_iterate_parents(child, include_self=False):
+        # 查询当前父目录是否已存在
         result = await db.execute(
             select(CourseDirectoryEntry).where(
                 CourseDirectoryEntry.course_directory_id == course_directory_id,
                 CourseDirectoryEntry.path == child,
             )
         )
+        # 如果父目录不存在，则创建新的目录条目
         if result.scalar() is None:
             db.add(
                 CourseDirectoryEntry(
@@ -606,6 +353,7 @@ async def insert_course_directory_entry_parent_recursively(
                     type=EntryType.DIRECTORY,
                 )
             )
+    # 如果需要提交事务，则提交数据库更改
     if commit:
         await db.commit()
 
@@ -615,17 +363,31 @@ async def delete_course_directory_entry(
         db: AsyncSession,
         commit: bool = False,
 ):
-    result = await db.execute(
-        select(CourseDirectoryEntry).where(
-            CourseDirectoryEntry.id == course_directory_entry_id
-        )
-    )
+    """
+    删除课程目录条目
+
+    参数：
+        course_directory_entry_id: 目录条目ID
+        db: 数据库会话对象
+        commit: 是否自动提交事务
+
+    异常：
+        APIError: 当条目不存在或类型未实现时抛出
+    """
+    # 查询要删除的目录条目
+    result = await db.execute(select(CourseDirectoryEntry).where(CourseDirectoryEntry.id == course_directory_entry_id))
     course_directory_entry: CourseDirectoryEntry = result.scalar()
+
+    # 如果条目不存在，抛出错误
     if not course_directory_entry:
         raise APIError(bad_request, "Course directory entry not found")
+
+    # 如果条目是文件类型，删除存储中的文件并删除数据库记录
     if course_directory_entry.type == EntryType.FILE:
-        await storage_remove_file(course_directory_entry.storage_name)
-        await db.delete(course_directory_entry)
+        await storage_remove_file(course_directory_entry.storage_name)  # 删除存储中的文件
+        await db.delete(course_directory_entry)  # 删除数据库记录
+
+    # 如果条目是目录类型，删除目录及其所有子条目
     elif course_directory_entry.type == EntryType.DIRECTORY:
         path = course_directory_entry.path
         result = await db.execute(
@@ -634,9 +396,14 @@ async def delete_course_directory_entry(
                 CourseDirectoryEntry.path.like(f"{path}%")
             )
         )
+        # 删除所有匹配的子条目
         for entry in result.scalars().all():
             await db.delete(entry)
+
+    # 如果条目类型未实现，抛出错误
     else:
         raise APIError(not_implemented, "Not implemented")
+
+    # 如果需要提交事务，提交数据库更改
     if commit:
         await db.commit()

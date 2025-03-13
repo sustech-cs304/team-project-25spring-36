@@ -1,4 +1,4 @@
-from intellide.cache.cache import cache
+from intellide.cache import cache
 
 
 async def startup():

@@ -4,27 +4,23 @@ import uvicorn
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
-from intellide.cache.startup import startup as cache_startup
 from intellide.config import SERVER_HOST, SERVER_PORT
-from intellide.database.startup import startup as database_startup
-from intellide.docker.startup import startup as docker_startup
-from intellide.routers.course import api as api_course
-from intellide.routers.entry import api as api_entry
-from intellide.routers.share import api as api_share, ws as ws_share
-from intellide.routers.surprise import api as api_surprise
-from intellide.routers.user import api as api_user
-from intellide.storage.startup import startup as storage_startup
+from intellide.docker import startup_docker
+from intellide.database import startup_database
+from intellide.storage import startup_storage
+from intellide.cache import startup_cache
 from intellide.utils.response import APIError, internal_server_error
+from intellide.routers import router
 
 
 # 定义生命周期函数
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # 程序启动
-    await docker_startup()
-    await cache_startup()
-    await database_startup()
-    await storage_startup()
+    await startup_docker()
+    await startup_cache()
+    await startup_database()
+    await startup_storage()
     # 程序运行
     yield
     # 程序结束
@@ -42,23 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 创建http路由
-api = APIRouter(prefix="/api")
-# 添加http路由
-api.include_router(api_user)
-api.include_router(api_entry)
-api.include_router(api_share)
-api.include_router(api_course)
-api.include_router(api_surprise)
-
-# 创建websocket路由
-ws = APIRouter(prefix="/ws")
-# 添加websocket路由
-ws.include_router(ws_share)
-
-# 添加路由
-app.include_router(api)
-app.include_router(ws)
+app.router(router)
 
 
 @app.exception_handler(APIError)
