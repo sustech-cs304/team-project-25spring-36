@@ -1,14 +1,12 @@
 import os
 import random
 import shutil
-import socket
 import subprocess
 from itertools import count
 from typing import Callable, Optional
 
 import pytest
 import requests
-import urllib3
 from sqlalchemy import create_engine, text
 
 from intellide.config import (
@@ -31,15 +29,8 @@ DATABASE_TEST_BASE_URL = f"{DATABASE_ENGINE}+psycopg2://{DATABASE_USER}:{DATABAS
 DATABASE_TEST_ADMIN_URL = f"{DATABASE_ENGINE}+psycopg2://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/postgres"
 DATABASE_TEST_URL = f"{DATABASE_ENGINE}+psycopg2://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
 
-SERVER_BASE_URL = f"http://{SERVER_HOST if SERVER_HOST != '0.0.0.0' else 'localhost'}:{SERVER_PORT}"
-
-
-@pytest.fixture(scope="session", autouse=True)
-def net():
-    def allowed_gai_family():
-        return socket.AF_INET
-
-    urllib3.util.connection.allowed_gai_family = allowed_gai_family
+SERVER_API_BASE_URL = f"http://{SERVER_HOST if SERVER_HOST != '0.0.0.0' else '127.0.0.1'}:{SERVER_PORT}/api"
+SERVER_WS_BASE_URL = f"ws://{SERVER_HOST if SERVER_HOST != '0.0.0.0' else '127.0.0.1'}:{SERVER_PORT}/ws"
 
 
 # 清理数据库
@@ -101,7 +92,7 @@ def server(clean):
         # 等待服务器启动
         while True:
             try:
-                requests.get(f"{SERVER_BASE_URL}/api/surprise/status")
+                requests.get(f"{SERVER_API_BASE_URL}/api/surprise/status")
                 break
             except:
                 pass

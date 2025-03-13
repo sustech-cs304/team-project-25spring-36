@@ -4,7 +4,7 @@ import pytest
 import requests
 from fastapi import status
 
-from intellide.tests.conftest import SERVER_BASE_URL
+from intellide.tests.conftest import SERVER_API_BASE_URL
 from intellide.tests.utils import *
 from intellide.utils.auth import verification_code
 
@@ -13,7 +13,7 @@ def user_register_success(
         user_register_dict: Dict,
 ) -> Dict:
     response = requests.post(
-        url=f"{SERVER_BASE_URL}/api/user/register",
+        url=f"{SERVER_API_BASE_URL}/user/register",
         json=user_register_dict,
     ).json()
     assert_code(response, status.HTTP_200_OK)
@@ -24,7 +24,7 @@ def user_login_success(
         user_login_dict: Dict,
 ) -> Dict:
     response = requests.post(
-        url=f"{SERVER_BASE_URL}/api/user/login",
+        url=f"{SERVER_API_BASE_URL}/user/login",
         json={
             "email": user_login_dict["email"],
             "password": user_login_dict["password"],
@@ -38,7 +38,7 @@ def user_get_success(
         token: str
 ) -> Dict:
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/user",
+        url=f"{SERVER_API_BASE_URL}/user",
         headers={
             "Access-Token": token,
         },
@@ -80,7 +80,7 @@ def test_user_register_code_success(
 ):
     email = f"{unique_string_generator()}@ethereal.email"
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/user/register/code",
+        url=f"{SERVER_API_BASE_URL}/user/register/code",
         params={
             "email": email,
         },
@@ -104,7 +104,7 @@ def test_user_register_failure_username_occupied(
 ):
     user_dict_default = store["user_dict_default"]
     response = requests.post(
-        url=f"{SERVER_BASE_URL}/api/user/register",
+        url=f"{SERVER_API_BASE_URL}/user/register",
         json=user_dict_default,
     ).json()
     assert_code(response, status.HTTP_400_BAD_REQUEST)
@@ -125,7 +125,7 @@ def test_user_login_failure_username_not_exists(
 ):
     user_dict_default = store["user_dict_default"]
     response = requests.post(
-        url=f"{SERVER_BASE_URL}/api/user/login",
+        url=f"{SERVER_API_BASE_URL}/user/login",
         json={
             "email": f"{unique_string_generator()}@{unique_string_generator()}.com",
             "password": user_dict_default["password"],
@@ -141,7 +141,7 @@ def test_user_login_failure_password_incorrect(
 ):
     user_dict_default = store["user_dict_default"]
     response = requests.post(
-        url=f"{SERVER_BASE_URL}/api/user/login",
+        url=f"{SERVER_API_BASE_URL}/user/login",
         json={
             "email": user_dict_default["email"],
             "password": unique_string_generator(),
@@ -166,7 +166,7 @@ def test_user_get_failure_token_incorrect(
         unique_string_generator: Callable,
 ):
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/user",
+        url=f"{SERVER_API_BASE_URL}/user",
         headers={
             "Access-Token": unique_string_generator(),
         },
@@ -185,7 +185,7 @@ def test_user_put_success(
     # 更新用户信息
     update_user_dict = unique_user_dict_generator()
     response = requests.put(
-        url=f"{SERVER_BASE_URL}/api/user",
+        url=f"{SERVER_API_BASE_URL}/user",
         json={
             "username": update_user_dict["username"],
             "email": update_user_dict["email"],

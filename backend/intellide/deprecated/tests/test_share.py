@@ -5,7 +5,7 @@ import requests
 from fastapi import status
 
 from intellide.deprecated.tests.test_entry import entry_post_success
-from intellide.tests.conftest import SERVER_BASE_URL, unique_path_generator
+from intellide.tests.conftest import SERVER_API_BASE_URL, unique_path_generator
 from intellide.tests.test_user import user_register_success, unique_user_dict_generator
 from intellide.tests.utils import *
 from intellide.utils.path import path_first_n, path_iterate_parents
@@ -15,7 +15,7 @@ def shared_entry_info_get_success(
         user_token: str
 ) -> Dict:
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/share/info",
+        url=f"{SERVER_API_BASE_URL}/api/share/info",
         headers={
             "Access-Token": user_token,
         },
@@ -30,7 +30,7 @@ def shared_entry_get_success(
         entry_path: str,
 ) -> Dict:
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/share",
+        url=f"{SERVER_API_BASE_URL}/api/share",
         headers={
             "Access-Token": user_token,
         },
@@ -50,7 +50,7 @@ def shared_entry_post(
         entry_path: str,
         file_path: Optional[str] = None,
 ) -> Dict:
-    url = f"{SERVER_BASE_URL}/api/share"
+    url = f"{SERVER_API_BASE_URL}/api/share"
     headers = {
         "Access-Token": user_token,
     }
@@ -107,7 +107,7 @@ def shared_entry_token_create_success(
         permissions: Dict,
 ) -> Dict:
     response = requests.post(
-        url=f"{SERVER_BASE_URL}/api/share/token/create",
+        url=f"{SERVER_API_BASE_URL}/api/share/token/create",
         headers={
             "Access-Token": user_token,
         },
@@ -125,7 +125,7 @@ def shared_entry_token_parse_success(
         share_token: str
 ) -> None:
     response = requests.post(
-        url=f"{SERVER_BASE_URL}/api/share/token/parse",
+        url=f"{SERVER_API_BASE_URL}/api/share/token/parse",
         headers={
             "Access-Token": user_token,
         },
@@ -261,7 +261,7 @@ def test_shared_entry_move_success(
         shared_entry_src_path,
     )
     response = requests.put(
-        url=f"{SERVER_BASE_URL}/api/share/move",
+        url=f"{SERVER_API_BASE_URL}/api/share/move",
         headers={
             "Access-Token": user_token_receiver,
         },
@@ -302,7 +302,7 @@ def test_shared_entry_delete_success(
         temp_file_path,
     )
     response = requests.delete(
-        url=f"{SERVER_BASE_URL}/api/share",
+        url=f"{SERVER_API_BASE_URL}/api/share",
         headers={
             "Access-Token": user_token_receiver,
         },

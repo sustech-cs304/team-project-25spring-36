@@ -6,7 +6,7 @@ import requests
 from fastapi import status
 
 from intellide.storage.storage import storage_path
-from intellide.tests.conftest import SERVER_BASE_URL
+from intellide.tests.conftest import SERVER_API_BASE_URL
 from intellide.tests.test_user import user_register_success, unique_user_dict_generator
 from intellide.tests.utils import *
 from intellide.utils.path import path_iterate_parents, path_first_n, path_parts
@@ -17,7 +17,7 @@ def entry_get_success(
         entry_path: str,
 ) -> List:
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/entry",
+        url=f"{SERVER_API_BASE_URL}/api/entry",
         headers={
             "Access-Token": user_token,
         },
@@ -36,7 +36,7 @@ def entry_post(
         is_collaborative: str,
         file_path: Optional[str] = None,
 ) -> Dict:
-    url = f"{SERVER_BASE_URL}/api/entry"
+    url = f"{SERVER_API_BASE_URL}/api/entry"
     headers = {
         "Access-Token": user_token,
     }
@@ -170,7 +170,7 @@ def test_entry_download_success(
     entry_path_file = store["entry_path_file"]
     user_token_default = store["user_token_default"]
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/entry/download",
+        url=f"{SERVER_API_BASE_URL}/api/entry/download",
         headers={
             "Access-Token": user_token_default,
         },
@@ -188,7 +188,7 @@ def test_entry_download_failure_entry_path_not_exists(
 ):
     user_token_default = store["user_token_default"]
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/entry/download",
+        url=f"{SERVER_API_BASE_URL}/api/entry/download",
         headers={
             "Access-Token": user_token_default,
         },
@@ -206,7 +206,7 @@ def test_entry_download_failure_target_not_file(
     entry_path_directory = store["entry_path_directory"]
     user_token_default = store["user_token_default"]
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/entry/download",
+        url=f"{SERVER_API_BASE_URL}/api/entry/download",
         headers={
             "Access-Token": user_token_default,
         },
@@ -235,7 +235,7 @@ def test_entry_move_success_file(
     )
     assert_code(
         requests.put(
-            url=f"{SERVER_BASE_URL}/api/entry/move",
+            url=f"{SERVER_API_BASE_URL}/api/entry/move",
             headers={
                 "Access-Token": user_token_default,
             },
@@ -270,7 +270,7 @@ def test_entry_move_success_directory(
     )
     assert_code(
         requests.put(
-            url=f"{SERVER_BASE_URL}/api/entry/move",
+            url=f"{SERVER_API_BASE_URL}/api/entry/move",
             headers={
                 "Access-Token": user_token_default,
             },
@@ -298,7 +298,7 @@ def test_entry_move_failure_entry_path_same(
     entry_path = unique_path_generator(depth=3)
     assert_code(
         requests.put(
-            url=f"{SERVER_BASE_URL}/api/entry/move",
+            url=f"{SERVER_API_BASE_URL}/api/entry/move",
             headers={
                 "Access-Token": user_token_default,
             },
@@ -336,7 +336,7 @@ def test_entry_move_failure_entry_path_occupied(
     )
     assert_code(
         requests.put(
-            url=f"{SERVER_BASE_URL}/api/entry/move",
+            url=f"{SERVER_API_BASE_URL}/api/entry/move",
             headers={
                 "Access-Token": user_token_default,
             },
@@ -367,7 +367,7 @@ def test_entry_delete_success_file(
     storage_name = entry_get_success(user_token_default, entry_path)[0]["storage_name"]
     assert_code(
         requests.delete(
-            url=f"{SERVER_BASE_URL}/api/entry",
+            url=f"{SERVER_API_BASE_URL}/api/entry",
             headers={
                 "Access-Token": user_token_default,
             },
@@ -400,7 +400,7 @@ def test_entry_delete_success_directory(
     )
     assert_code(
         requests.delete(
-            url=f"{SERVER_BASE_URL}/api/entry",
+            url=f"{SERVER_API_BASE_URL}/api/entry",
             headers={
                 "Access-Token": user_token_default,
             },
@@ -425,7 +425,7 @@ def test_entry_delete_failure_entry_path_not_exists(
     user_token_default = store["user_token_default"]
     assert_code(
         requests.delete(
-            url=f"{SERVER_BASE_URL}/api/entry",
+            url=f"{SERVER_API_BASE_URL}/api/entry",
             headers={
                 "Access-Token": user_token_default,
             },

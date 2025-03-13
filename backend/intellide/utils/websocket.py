@@ -110,7 +110,7 @@ class WebSocketManager:
         """
         current = self.groups
         for key in keys:
-            if not current.has_child(key):
+            if current.has_child(key):
                 current = current.get_child(key)
             else:
                 current.add_child(key, WebSocketManager.WebSocketManagerGroup(key, current))

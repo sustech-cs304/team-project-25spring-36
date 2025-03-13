@@ -87,8 +87,13 @@ async def user_register(
         return ok(
             data={
                 "user_id": user.id,
-                "user_username": user.username,
-                "token": jwe_encode(data={"user_id": user.id}, exp_hours=24)
+                "token": jwe_encode(
+                    data={
+                        "user_id": user.id,
+                        "user_username": user.username,
+                    },
+                    exp_hours=24,
+                )
             }
         )
     except IntegrityError:
@@ -126,8 +131,13 @@ async def user_login(
     return ok(
         data={
             "user_id": user.id,
-            "user_username": user.username,
-            "token": jwe_encode(data={"user_id": user.id}, exp_hours=24)
+            "token": jwe_encode(
+                data={
+                    "user_id": user.id,
+                    "user_username": user.username,
+                },
+                exp_hours=24,
+            )
         }
     )
 
@@ -189,7 +199,12 @@ async def user_put(
     return ok(
         data={
             "user_id": user.id,
-            "user_username": user.username,
-            "token": jwe_encode(data={"user_id": user.id}, exp_hours=24)
+            "token": jwe_encode(
+                data={
+                    "user_id": user.id,
+                    "user_username": user.username,
+                },
+                exp_hours=24,
+            )
         }
     )

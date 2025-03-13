@@ -217,7 +217,8 @@ class CourseDirectoryEntryCollaborative(SQLAlchemyBaseModel, Mixin):
     """
     __tablename__ = "course_directory_entries_collaborative"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    course_directory_entry_id = Column(BigInteger, ForeignKey("course_directory_entries.id"), nullable=False, index=True)
+    course_directory_entry_id = Column(BigInteger, ForeignKey("course_directory_entries.id"), nullable=False,
+                                       index=True)
     ...  # TODO: 课程共享条目具体类
 
 

@@ -1,10 +1,13 @@
+import json
 from typing import Dict, Callable, List, Optional, Union
 
 import pytest
 import requests
+import websocket
 from fastapi import status
 
-from intellide.tests.conftest import SERVER_BASE_URL, unique_string_generator, unique_path_generator
+from intellide.tests.conftest import SERVER_API_BASE_URL, SERVER_WS_BASE_URL, unique_string_generator, \
+    unique_path_generator
 from intellide.tests.test_user import unique_user_dict_generator, user_register_success
 from intellide.tests.utils import assert_code
 from intellide.utils.path import path_first_n, path_iterate_parents, path_parts, path_join
@@ -32,7 +35,7 @@ def test_course_post_success(
 ):
     user_token_teacher = store["user_token_teacher"]
     response = requests.post(
-        url=f"{SERVER_BASE_URL}/api/course",
+        url=f"{SERVER_API_BASE_URL}/course",
         headers={
             "Access-Token": user_token_teacher,
         },
@@ -61,7 +64,7 @@ def test_course_get_success_role_teacher(
     user_token_teacher = store["user_token_teacher"]
     course_id_base = store["course_id_base"]
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/course",
+        url=f"{SERVER_API_BASE_URL}/course",
         headers={
             "Access-Token": user_token_teacher,
         },
@@ -80,7 +83,7 @@ def test_course_get_success_role_student(
     user_token_student = store["user_token_student"]
     course_id_base = store["course_id_base"]
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/course",
+        url=f"{SERVER_API_BASE_URL}/course",
         headers={
             "Access-Token": user_token_student,
         },
@@ -193,7 +196,7 @@ def test_course_directory_delete_success(
         )["course_directory_id"]
     )
     response = requests.delete(
-        url=f"{SERVER_BASE_URL}/api/course/directory",
+        url=f"{SERVER_API_BASE_URL}/course/directory",
         headers={
             "Access-Token": user_token_teacher,
         },
@@ -257,7 +260,7 @@ def test_course_directory_entry_download_success(
     user_token_teacher = store["user_token_teacher"]
     course_directory_entry_id_base = store["course_directory_entry_id_base"]
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/course/directory/entry/download",
+        url=f"{SERVER_API_BASE_URL}/course/directory/entry/download",
         headers={
             "Access-Token": user_token_teacher,
         },
@@ -289,7 +292,7 @@ def test_course_directory_entry_delete_success(
         False,
     )["id"]
     response = requests.delete(
-        url=f"{SERVER_BASE_URL}/api/course/directory/entry",
+        url=f"{SERVER_API_BASE_URL}/course/directory/entry",
         headers={
             "Access-Token": user_token_teacher,
         },
@@ -338,7 +341,7 @@ def test_course_directory_entry_move_success(
     )["id"]
     dst_path = unique_path_generator(depth=2)
     response = requests.put(
-        url=f"{SERVER_BASE_URL}/api/course/directory/entry/move",
+        url=f"{SERVER_API_BASE_URL}/course/directory/entry/move",
         headers={
             "Access-Token": user_token_teacher,
         },
@@ -364,12 +367,50 @@ def test_course_directory_entry_move_success(
     assert path_join(dst_path, path_parts(path, 2), path_parts(path, 3)) in course_directory_entry_paths
 
 
+@pytest.mark.dependecy(depends=["test_course_post_success"])
+def test_course_chat_success(
+        store: Dict,
+        unique_string_generator: Callable,
+):
+    user_token_teacher = store["user_token_teacher"]
+    user_token_student = store["user_token_student"]
+    user_id_student = store["user_id_student"]
+    course_id_base = store["course_id_base"]
+
+    ws_student = websocket.WebSocket()
+    ws_teacher = websocket.WebSocket()
+    try:
+        ws_student.connect(
+            url=f"{SERVER_WS_BASE_URL}/course/chat/{course_id_base}",
+            header={
+                "Access-Token": user_token_student,
+            },
+        )
+        ws_teacher.connect(
+            url=f"{SERVER_WS_BASE_URL}/course/chat/{course_id_base}",
+            header={
+                "Access-Token": user_token_teacher,
+            },
+        )
+        data = {
+            "type": "message",
+            "data": unique_string_generator(),
+        }
+        ws_student.send(json.dumps(data))
+        response = json.loads(ws_teacher.recv())
+        assert user_id_student == response["user_id"]
+        assert data == response["data"]
+    finally:
+        ws_student.close()
+        ws_teacher.close()
+
+
 def course_student_get_success(
         user_token: str,
         course_id: int,
 ) -> List[Dict]:
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/course/student",
+        url=f"{SERVER_API_BASE_URL}/course/student",
         headers={
             "Access-Token": user_token,
         },
@@ -386,7 +427,7 @@ def course_student_join_success(
         course_id: int,
 ) -> Dict:
     response = requests.post(
-        url=f"{SERVER_BASE_URL}/api/course/student/join",
+        url=f"{SERVER_API_BASE_URL}/course/student/join",
         headers={
             "Access-Token": student_token,
         },
@@ -404,7 +445,7 @@ def course_student_delete_success(
         student_id: Optional[int] = None,
 ) -> None:
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/course/directory",
+        url=f"{SERVER_API_BASE_URL}/course/directory",
         headers={
             "Access-Token": user_token,
         },
@@ -422,7 +463,7 @@ def course_directory_post_success(
         directory_name: str,
 ) -> Dict:
     response = requests.post(
-        url=f"{SERVER_BASE_URL}/api/course/directory",
+        url=f"{SERVER_API_BASE_URL}/course/directory",
         headers={
             "Access-Token": user_token,
         },
@@ -440,7 +481,7 @@ def course_directory_get_success(
         course_id: int,
 ) -> List[Dict]:
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/course/directory",
+        url=f"{SERVER_API_BASE_URL}/course/directory",
         headers={
             "Access-Token": user_token,
         },
@@ -468,7 +509,7 @@ def course_directory_entry_post_success(
     if file_path:
         with open(file_path, "rb") as f:
             response = requests.post(
-                url=f"{SERVER_BASE_URL}/api/course/directory/entry",
+                url=f"{SERVER_API_BASE_URL}/course/directory/entry",
                 headers=headers,
                 data=data,
                 files={
@@ -477,7 +518,7 @@ def course_directory_entry_post_success(
             ).json()
     else:
         response = requests.post(
-            url=f"{SERVER_BASE_URL}/api/course/directory/entry",
+            url=f"{SERVER_API_BASE_URL}/course/directory/entry",
             headers=headers,
             data=data,
         ).json()
@@ -492,7 +533,7 @@ def course_directory_entry_get_success(
         fuzzy: bool,
 ) -> Union[Dict, List[Dict]]:
     response = requests.get(
-        url=f"{SERVER_BASE_URL}/api/course/directory/entry",
+        url=f"{SERVER_API_BASE_URL}/course/directory/entry",
         headers={
             "Access-Token": user_token,
         },

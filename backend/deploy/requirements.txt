@@ -16,3 +16,4 @@ redis
 docker
 email-validator
 jwcrypto
+websocket-client
