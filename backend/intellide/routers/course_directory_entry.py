@@ -20,7 +20,7 @@ from intellide.storage import (
     storage_get_file_response,
 )
 from intellide.utils.auth import jwe_decode
-from intellide.utils.path import path_normalize, path_dir_base_name
+from intellide.utils.path import path_normalize, path_dir_base_name, path_iterate_parents
 from intellide.utils.response import ok, bad_request
 
 # 创建课程路由前缀

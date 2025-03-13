@@ -4,12 +4,12 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from intellide.cache import startup_cache
+from intellide.cache import startup as startup_cache
 from intellide.config import SERVER_HOST, SERVER_PORT
-from intellide.database import startup_database
-from intellide.docker import startup_docker
+from intellide.database import startup as startup_database
+from intellide.docker import startup as startup_docker
 from intellide.routers import router
-from intellide.storage import startup_storage
+from intellide.storage import startup as startup_storage
 from intellide.utils.response import APIError, internal_server_error
 
 
@@ -38,7 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.router(router)
+app.include_router(router)
 
 
 @app.exception_handler(APIError)

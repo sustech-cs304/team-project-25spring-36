@@ -8,8 +8,7 @@ from sqlalchemy.future import select
 from intellide.database import database
 from intellide.database.model import (
     UserRole,
-    CourseDirectoryPermission,
-    CourseDirectory,
+    CourseDirectory, CourseDirectoryPermission,
 )
 from intellide.routers.course import (
     course_entry_info,

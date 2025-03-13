@@ -16,7 +16,7 @@ from intellide.database.model import (
     SharedEntry,
     CourseDirectoryPermission,
     SharedEntryUser,
-    SharedEntryPermissionType,
+    CourseDirectoryPermissionType,
     EntryType,
 )
 from intellide.deprecated.router.entry import download_entry, delete_entry, post_entry, move_entry
@@ -71,7 +71,7 @@ async def shared_entry_token_create(
     shared_entry = SharedEntry(
         entry_id=root_entry.id,
         permissions={
-            path: SharedEntryPermissionType(permission).value for path, permission in request.permissions.items()
+            path: CourseDirectoryPermissionType(permission).value for path, permission in request.permissions.items()
         } if request.permissions else {}
     )
 
@@ -212,7 +212,7 @@ async def shared_entry_get(
         if not verify_permissions(
                 relative_path,
                 shared_entry.permissions,
-                (SharedEntryPermissionType.READ, SharedEntryPermissionType.READ_WRITE)
+                (CourseDirectoryPermissionType.READ, CourseDirectoryPermissionType.READ_WRITE)
         ):
             continue
 
@@ -268,7 +268,7 @@ async def shared_entry_post(
     if not verify_permissions(
             entry_path,
             shared_entry.permissions,
-            (SharedEntryPermissionType.READ_WRITE,)
+            (CourseDirectoryPermissionType.READ_WRITE,)
     ):
         return forbidden(message="No permission to post")
     # 规范化文件路径
@@ -313,7 +313,7 @@ async def shared_entry_delete(
     if not verify_permissions(
             entry_path,
             shared_entry.permissions,
-            (SharedEntryPermissionType.READ_WRITE,),
+            (CourseDirectoryPermissionType.READ_WRITE,),
     ):
         return forbidden(message="No permission to delete")
     # 规范化文件路径
@@ -363,13 +363,13 @@ async def shared_entry_move(
     if not verify_permissions(
             request.src_entry_path,
             shared_entry.permissions,
-            (SharedEntryPermissionType.READ_WRITE,),
+            (CourseDirectoryPermissionType.READ_WRITE,),
     ):
         return forbidden(message="No permission to move from source")
     if not verify_permissions(
             request.dst_entry_path,
             shared_entry.permissions,
-            (SharedEntryPermissionType.READ_WRITE,),
+            (CourseDirectoryPermissionType.READ_WRITE,),
     ):
         return forbidden(message="No permission to move to destination")
     # 规范化文件路径
@@ -410,7 +410,7 @@ async def shared_entry_download(
         if not verify_permissions(
                 entry_path,
                 shared_entry.permissions,
-                (SharedEntryPermissionType.READ, SharedEntryPermissionType.READ_WRITE,),
+                (CourseDirectoryPermissionType.READ, CourseDirectoryPermissionType.READ_WRITE,),
         ):
             raise HTTPException(status_code=403, detail="No permission to download")
         # 获取文件路径
@@ -467,7 +467,7 @@ async def shared_entry_collaborative_subscribe(
         if not verify_permissions(
                 entry.entry_path,
                 shared_entry.permissions,
-                (SharedEntryPermissionType.READ_WRITE,),
+                (CourseDirectoryPermissionType.READ_WRITE,),
         ):
             await websocket.close(code=1008)
             return
@@ -498,7 +498,7 @@ async def shared_entry_collaborative_subscribe(
 def verify_permissions(
         entry_path: str,
         permissions: CourseDirectoryPermission,
-        allowed_permission_types: Tuple[SharedEntryPermissionType, ...]
+        allowed_permission_types: Tuple[CourseDirectoryPermissionType, ...]
 ) -> bool:
     """
     检查用户是否对共享目录中的指定条目路径具有某些权限之一。
@@ -514,7 +514,7 @@ def verify_permissions(
     # 检查条目路径本身是否有显式权限
     if entry_path in permissions:
         # 将字符串权限值转换为枚举类型进行比较
-        permission_enum = SharedEntryPermissionType(permissions[entry_path])
+        permission_enum = CourseDirectoryPermissionType(permissions[entry_path])
         if permission_enum not in allowed_permission_types:
             return False
     # 递归检查父路径
@@ -524,7 +524,7 @@ def verify_permissions(
         current_path = path_prefix(current_path)
         if current_path in permissions:
             # 将字符串权限值转换为枚举类型进行比较
-            permission_enum = SharedEntryPermissionType(permissions[current_path])
+            permission_enum = CourseDirectoryPermissionType(permissions[current_path])
             if permission_enum not in allowed_permission_types:
                 return False
             break
