@@ -12,13 +12,8 @@ from intellide.database.model import (
     UserRole,
     CourseDirectory,
     CourseDirectoryEntry,
-    EntryType,
-)
-from intellide.storage import (
-    storage_remove_file,
 )
 from intellide.utils.auth import jwe_decode
-from intellide.utils.path import path_iterate_parents
 from intellide.utils.response import ok, bad_request, forbidden, not_implemented, APIError
 
 # 创建课程路由前缀
@@ -269,7 +264,7 @@ async def course_entry_info(
     return course, course_directory, course_directory_entry
 
 
-async def course_info(
+async def course_user_entry_info(
         db: AsyncSession,
         user_id: int,
         course_id: Optional[int] = None,
@@ -318,92 +313,3 @@ async def course_info(
         course_directory,
         course_directory_entry,
     )
-
-
-async def insert_course_directory_entry_parent_recursively(
-        course_directory_id: int,
-        child: str,
-        db: AsyncSession,
-        commit: bool = False,
-) -> None:
-    """
-    递归插入课程目录的父目录
-
-    参数：
-        course_directory_id: 课程目录ID
-        child: 子目录路径
-        db: 数据库会话对象
-        commit: 是否自动提交事务
-    """
-    # 遍历子目录路径的所有父目录
-    for child in path_iterate_parents(child, include_self=False):
-        # 查询当前父目录是否已存在
-        result = await db.execute(
-            select(CourseDirectoryEntry).where(
-                CourseDirectoryEntry.course_directory_id == course_directory_id,
-                CourseDirectoryEntry.path == child,
-            )
-        )
-        # 如果父目录不存在，则创建新的目录条目
-        if result.scalar() is None:
-            db.add(
-                CourseDirectoryEntry(
-                    course_directory_id=course_directory_id,
-                    path=child,
-                    type=EntryType.DIRECTORY,
-                )
-            )
-    # 如果需要提交事务，则提交数据库更改
-    if commit:
-        await db.commit()
-
-
-async def delete_course_directory_entry(
-        course_directory_entry_id: int,
-        db: AsyncSession,
-        commit: bool = False,
-):
-    """
-    删除课程目录条目
-
-    参数：
-        course_directory_entry_id: 目录条目ID
-        db: 数据库会话对象
-        commit: 是否自动提交事务
-
-    异常：
-        APIError: 当条目不存在或类型未实现时抛出
-    """
-    # 查询要删除的目录条目
-    result = await db.execute(select(CourseDirectoryEntry).where(CourseDirectoryEntry.id == course_directory_entry_id))
-    course_directory_entry: CourseDirectoryEntry = result.scalar()
-
-    # 如果条目不存在，抛出错误
-    if not course_directory_entry:
-        raise APIError(bad_request, "Course directory entry not found")
-
-    # 如果条目是文件类型，删除存储中的文件并删除数据库记录
-    if course_directory_entry.type == EntryType.FILE:
-        await storage_remove_file(course_directory_entry.storage_name)  # 删除存储中的文件
-        await db.delete(course_directory_entry)  # 删除数据库记录
-
-    # 如果条目是目录类型，删除目录及其所有子条目
-    elif course_directory_entry.type == EntryType.DIRECTORY:
-        path = course_directory_entry.path
-        result = await db.execute(
-            select(CourseDirectoryEntry).where(
-                CourseDirectoryEntry.course_directory_id == course_directory_entry.course_directory_id,
-                CourseDirectoryEntry.path.like(f"{path}%")
-            )
-        )
-        # 删除所有匹配的子条目
-        for entry in result.scalars().all():
-            await db.delete(entry)
-
-    # 如果条目类型未实现，抛出错误
-    else:
-        raise APIError(not_implemented, "Not implemented")
-
-    # 如果需要提交事务，提交数据库更改
-    if commit:
-        await db.commit()

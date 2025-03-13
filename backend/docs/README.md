@@ -23,14 +23,28 @@ backend
 │   │   ├── database.py
 │   │   ├── model.py
 │   │   └── startup.py
+│   ├── deprecated
+│   │   ├── __init__.py
+│   │   ├── router
+│   │   │   ├── __init__.py
+│   │   │   ├── entry.py
+│   │   │   └── share.py
+│   │   └── tests
+│   │       ├── __init__.py
+│   │       ├── test_entry.py
+│   │       └── test_share.py
 │   ├── docker
 │   │   ├── __init__.py
 │   │   └── startup.py
 │   ├── main.py
 │   ├── routers
 │   │   ├── __init__.py
-│   │   ├── entry.py
-│   │   ├── share.py
+│   │   ├── course.py
+│   │   ├── course_chat.py
+│   │   ├── course_directory.py
+│   │   ├── course_directory_entry.py
+│   │   ├── course_student.py
+│   │   ├── surprise.py
 │   │   └── user.py
 │   ├── storage
 │   │   ├── __init__.py
@@ -40,18 +54,19 @@ backend
 │   │   ├── __init__.py
 │   │   ├── conftest.py
 │   │   ├── pytest.ini
-│   │   ├── test_entry.py
-│   │   ├── test_share.py
+│   │   ├── test_course.py
 │   │   ├── test_user.py
 │   │   └── utils.py
 │   └── utils
 │       ├── __init__.py
+│       ├── auth.py
 │       ├── email.py
-│       ├── encrypt.py
 │       ├── path.py
-│       └── response.py
+│       ├── response.py
+│       └── websocket.py
 └── tools
     └── tree.py
+
 ```
 
 ## 启动后端服务

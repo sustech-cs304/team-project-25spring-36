@@ -1,16 +1,16 @@
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from intellide.config import SERVER_HOST, SERVER_PORT
-from intellide.docker import startup_docker
-from intellide.database import startup_database
-from intellide.storage import startup_storage
 from intellide.cache import startup_cache
-from intellide.utils.response import APIError, internal_server_error
+from intellide.config import SERVER_HOST, SERVER_PORT
+from intellide.database import startup_database
+from intellide.docker import startup_docker
 from intellide.routers import router
+from intellide.storage import startup_storage
+from intellide.utils.response import APIError, internal_server_error
 
 
 # 定义生命周期函数

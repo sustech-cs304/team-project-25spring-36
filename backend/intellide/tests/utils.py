@@ -1,11 +1,9 @@
 import json
-from typing import Dict, TypeVar, Generic, Tuple, Any
+from typing import Dict, Tuple, Any, Hashable
 
 import redis
 
 from intellide.config import CACHE_URL
-
-T = TypeVar("T")
 
 _cache = redis.from_url(CACHE_URL)
 
@@ -39,20 +37,7 @@ def assert_code(
 def assert_dict(
         src: Dict,
         dst: Dict,
-        keys: Tuple[str, ...],
+        keys: Tuple[Hashable, ...],
 ):
     for key in keys:
         assert src[key] == dst[key]
-
-
-class Ref(Generic[T]):
-    def __init__(self, val: T = None):
-        self.val = val
-
-    def get(self):
-        if self.val is None:
-            raise RuntimeError("Value not set")
-        return self.val
-
-    def set(self, val: T):
-        self.val = val

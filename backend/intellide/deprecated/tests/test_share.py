@@ -4,8 +4,8 @@ import pytest
 import requests
 from fastapi import status
 
+from intellide.deprecated.tests.test_entry import entry_post_success
 from intellide.tests.conftest import SERVER_BASE_URL, unique_path_generator
-from intellide.tests.test_entry import entry_post_success
 from intellide.tests.test_user import user_register_success, unique_user_dict_generator
 from intellide.tests.utils import *
 from intellide.utils.path import path_first_n, path_iterate_parents

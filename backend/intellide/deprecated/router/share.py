@@ -1,5 +1,5 @@
 import os
-from typing import Optional, Set, Dict, Sequence, Tuple
+from typing import Optional, Dict, Sequence, Tuple
 
 import aiofiles
 import aiofiles.os
@@ -19,10 +19,11 @@ from intellide.database.model import (
     SharedEntryPermissionType,
     EntryType,
 )
-from intellide.routers.entry import download_entry, delete_entry, post_entry, move_entry
+from intellide.deprecated.router.entry import download_entry, delete_entry, post_entry, move_entry
 from intellide.utils.auth import jwe_encode, jwe_decode
 from intellide.utils.path import path_normalize, path_prefix
 from intellide.utils.response import ok, bad_request, forbidden, APIError
+from intellide.utils.websocket import WebSocketManager
 
 api = APIRouter(prefix="/share")
 ws = APIRouter(prefix="/share")
@@ -424,61 +425,7 @@ async def shared_entry_download(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-class CollaborativeWebSocketManager:
-    def __init__(self):
-        self.conns: Dict[int, Set[WebSocket]] = {}
-
-    async def connect(
-            self,
-            entry_id: int,
-            websocket: WebSocket,
-    ):
-        """
-        连接 WebSocket 并添加到连接管理器
-
-        参数:
-        - entry_id: 文件条目 ID
-        - websocket: WebSocket 连接对象
-        """
-        await websocket.accept()
-        if entry_id not in self.conns:
-            self.conns[entry_id] = set()
-        self.conns[entry_id].add(websocket)
-
-    def disconnect(
-            self,
-            entry_id: int,
-            websocket: WebSocket,
-    ):
-        """
-        断开 WebSocket 连接并从连接管理器中移除
-
-        参数:
-        - entry_id: 文件条目 ID
-        - websocket: WebSocket 连接对象
-        """
-        self.conns[entry_id].remove(websocket)
-        if not self.conns[entry_id]:
-            del self.conns[entry_id]
-
-    async def broadcast(
-            self,
-            entry_id: int,
-            text: str,
-    ):
-        """
-        广播消息到所有连接的 WebSocket
-
-        参数:
-        - entry_id: 文件条目 ID
-        - text: 要广播的消息
-        """
-        if entry_id in self.conns:
-            for conn in self.conns[entry_id]:
-                await conn.send_text(text)
-
-
-manager = CollaborativeWebSocketManager()
+manager = WebSocketManager()
 
 
 @ws.websocket("/collaborative/subscribe")

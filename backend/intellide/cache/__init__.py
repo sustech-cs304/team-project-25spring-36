@@ -1,2 +1,2 @@
-from intellide.cache.startup import startup
 from intellide.cache.cache import *
+from intellide.cache.startup import startup

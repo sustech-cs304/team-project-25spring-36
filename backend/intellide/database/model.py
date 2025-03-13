@@ -1,8 +1,7 @@
 from datetime import datetime
 from enum import Enum as PyEnum
-from typing import Dict
 
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Boolean, Index, ForeignKey, Sequence
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Index, ForeignKey, Sequence
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.event import listen
 from sqlalchemy.ext.declarative import declarative_base
@@ -76,81 +75,81 @@ class EntryType(EnumClass):
     DIRECTORY = "directory"
 
 
-class Entry(SQLAlchemyBaseModel, Mixin):
-    """
-    文件条目模型类
-    """
+# class Entry(SQLAlchemyBaseModel, Mixin):
+#     """
+#     文件条目模型类
+#     """
 
-    __tablename__ = "entries"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    owner_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
-    entry_type = Column(Enum(EntryType), nullable=False)
-    entry_path = Column(String, nullable=False, index=True)
-    entry_depth = Column(Integer, nullable=False)
-    storage_name = Column(String, unique=True, nullable=True, default=None)
-    is_collaborative = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
-    __table_args__ = (
-        Index("idx_entry_path", entry_path),  # B-TREE 主索引
-        Index(
-            "idx_entry_path_prefix",
-            entry_path,
-            postgresql_using="gin",
-            postgresql_ops={"entry_path": "gin_trgm_ops"},
-        ),  # 适用于 LIKE 查询
-    )
+#     __tablename__ = "entries"
+#     id = Column(BigInteger, primary_key=True, autoincrement=True)
+#     owner_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
+#     entry_type = Column(Enum(EntryType), nullable=False)
+#     entry_path = Column(String, nullable=False, index=True)
+#     entry_depth = Column(Integer, nullable=False)
+#     storage_name = Column(String, unique=True, nullable=True, default=None)
+#     is_collaborative = Column(Boolean, nullable=False, default=False)
+#     created_at = Column(DateTime, nullable=False, default=datetime.now)
+#     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+#     __table_args__ = (
+#         Index("idx_entry_path", entry_path),  # B-TREE 主索引
+#         Index(
+#             "idx_entry_path_prefix",
+#             entry_path,
+#             postgresql_using="gin",
+#             postgresql_ops={"entry_path": "gin_trgm_ops"},
+#         ),  # 适用于 LIKE 查询
+#     )
 
-    @staticmethod
-    def event_before_insert_or_update(mapper, connection, entry: "Entry"):
-        """在插入或更新时计算 entry_depth"""
-        entry.entry_depth = entry.entry_path.count("/")
-
-
-# 监听 Entry 类的插入和更新事件
-listen(Entry, "before_insert", Entry.event_before_insert_or_update)
-listen(Entry, "before_update", Entry.event_before_insert_or_update)
+#     @staticmethod
+#     def event_before_insert_or_update(mapper, connection, entry: "Entry"):
+#         """在插入或更新时计算 entry_depth"""
+#         entry.entry_depth = entry.entry_path.count("/")
 
 
-class SharedEntryPermissionType(EnumClass):
-    """
-    共享条目额外权限类型枚举类
-    """
-    NO: str = "no"  # 没有权限
-    READ: str = "read"  # 默认权限，对纯文件来说可读内容，对目录来说可读里面的文件
-    READ_WRITE: str = "read_write"  # 对纯文件来说可读写内容和删除自身，对目录来说可读写里面的文件（包括创建和删除文件）和删除自身
-    # READ_WRITE_STICKY : str = "read_write_sticky"  # 仅目录有效，有read的所有权限，允许你在里面创建文件，只有你创建的文件有write权限，暂未实现
+# # 监听 Entry 类的插入和更新事件
+# listen(Entry, "before_insert", Entry.event_before_insert_or_update)
+# listen(Entry, "before_update", Entry.event_before_insert_or_update)
 
 
-SharedEntryPermissionPath = str
-
-CourseDirectoryPermission = Dict[SharedEntryPermissionPath, SharedEntryPermissionType]
-
-
-class SharedEntry(SQLAlchemyBaseModel, Mixin):
-    """
-    共享条目模型类
-    """
-
-    __tablename__ = "shared_entries"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    entry_id = Column(BigInteger, ForeignKey("entries.id"), nullable=False, index=True)
-    permissions = Column(JSONB)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+# class SharedEntryPermissionType(EnumClass):
+#     """
+#     共享条目额外权限类型枚举类
+#     """
+#     NO: str = "no"  # 没有权限
+#     READ: str = "read"  # 默认权限，对纯文件来说可读内容，对目录来说可读里面的文件
+#     READ_WRITE: str = "read_write"  # 对纯文件来说可读写内容和删除自身，对目录来说可读写里面的文件（包括创建和删除文件）和删除自身
+#     # READ_WRITE_STICKY : str = "read_write_sticky"  # 仅目录有效，有read的所有权限，允许你在里面创建文件，只有你创建的文件有write权限，暂未实现
 
 
-class SharedEntryUser(SQLAlchemyBaseModel, Mixin):
-    """
-    共享条目用户模型类
-    """
+# SharedEntryPermissionPath = str
 
-    __tablename__ = "shared_entry_users"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    shared_entry_id = Column(BigInteger, ForeignKey("shared_entries.id"), nullable=False, index=True)  # 关联共享条目
-    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)  # 关联用户
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+# CourseDirectoryPermission = Dict[SharedEntryPermissionPath, SharedEntryPermissionType]
+
+
+# class SharedEntry(SQLAlchemyBaseModel, Mixin):
+#     """
+#     共享条目模型类
+#     """
+
+#     __tablename__ = "shared_entries"
+#     id = Column(BigInteger, primary_key=True, autoincrement=True)
+#     entry_id = Column(BigInteger, ForeignKey("entries.id"), nullable=False, index=True)
+#     permissions = Column(JSONB)
+#     created_at = Column(DateTime, nullable=False, default=datetime.now)
+#     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+
+
+# class SharedEntryUser(SQLAlchemyBaseModel, Mixin):
+#     """
+#     共享条目用户模型类
+#     """
+
+#     __tablename__ = "shared_entry_users"
+#     id = Column(BigInteger, primary_key=True, autoincrement=True)
+#     shared_entry_id = Column(BigInteger, ForeignKey("shared_entries.id"), nullable=False, index=True)  # 关联共享条目
+#     user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)  # 关联用户
+#     created_at = Column(DateTime, nullable=False, default=datetime.now)
+#     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
 
 class Course(SQLAlchemyBaseModel, Mixin):
@@ -192,7 +191,6 @@ class CourseDirectoryEntry(SQLAlchemyBaseModel, Mixin):
     depth = Column(Integer, nullable=False)
     type = Column(Enum(EntryType), nullable=False)
     storage_name = Column(String, unique=True, default=None)
-    is_collaborative = Column(Boolean, default=None)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
     __table_args__ = (
@@ -210,6 +208,10 @@ class CourseDirectoryEntry(SQLAlchemyBaseModel, Mixin):
     @staticmethod
     def event_before_insert_or_update(mapper, connection, course_directory_entry: "CourseDirectoryEntry"):
         course_directory_entry.depth = course_directory_entry.path.count("/")
+
+
+class CourseDirectoryEntryCollaborative(SQLAlchemyBaseModel, Mixin):
+    ...  # TODO: 课程共享条目具体类
 
 
 listen(CourseDirectoryEntry, "before_insert", CourseDirectoryEntry.event_before_insert_or_update)
