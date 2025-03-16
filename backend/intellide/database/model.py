@@ -212,15 +212,32 @@ class CourseDirectoryEntry(SQLAlchemyBaseModel, Mixin):
         course_directory_entry.depth = course_directory_entry.path.count("/")
 
 
-class CourseDirectoryEntryCollaborative(SQLAlchemyBaseModel, Mixin):
+class CourseCollaborativeDirectoryEntry(SQLAlchemyBaseModel, Mixin):
     """
-    课程共享条目协作具体类
+    课程共享可协作条目具体类
     """
-    __tablename__ = "course_directory_entries_collaborative"
+    __tablename__ = "course_collaborative_directory_entries"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    course_directory_entry_id = Column(BigInteger, ForeignKey("course_directory_entries.id"), nullable=False,
-                                       index=True)
-    ...  # TODO: 课程共享条目具体类
+    course_id = Column(BigInteger, ForeignKey("courses.id"), nullable=False, index=True)
+    storage_name = Column(String, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+
+
+class CourseCollaborativeDirectoryEntryEditHistory(SQLAlchemyBaseModel, Mixin):
+    """
+    课程共享可协作条目编辑历史具体类
+    """
+    __tablename__ = "course_collaborative_directory_entries_edit_history"
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    course_collaborative_directory_entry_id = Column(BigInteger,
+                                                     ForeignKey("course_collaborative_directory_entries.id"),
+                                                     nullable=False, index=True)
+    operation = Column(String, nullable=False)
+    position = Column(Integer, nullable=False)
+    content = Column(String, nullable=False)
+    editor_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
+    edit_at = Column(DateTime, nullable=False, default=datetime.now)
 
 
 listen(CourseDirectoryEntry, "before_insert", CourseDirectoryEntry.event_before_insert_or_update)

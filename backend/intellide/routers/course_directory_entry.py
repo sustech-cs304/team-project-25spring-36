@@ -30,21 +30,6 @@ from intellide.utils.response import forbidden, ok, bad_request, not_implemented
 api = APIRouter(prefix="/course/directory/entry")
 
 
-class CourseDirectoryEntryPostRequest(BaseModel):
-    """
-    创建课程目录条目请求
-
-    属性：
-        course_id: 课程ID
-        course_directory_id: 课程目录ID
-        path: 条目路径
-    """
-
-    course_id: int  # 课程ID
-    course_directory_id: int  # 课程目录ID
-    path: str  # 条目路径
-
-
 @api.post("")
 async def course_directory_entry_post(
         course_directory_id: int = Form(...),

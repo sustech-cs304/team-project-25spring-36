@@ -59,6 +59,22 @@ async def storage_write_file(
         await fp.write(content)
 
 
+async def storage_read_file(
+        storage_name: str,
+) -> bytes:
+    """
+    异步读取文件
+
+    参数:
+    - storage_name: 存储名称
+
+    返回:
+    - 文件内容
+    """
+    async with aiofiles.open(storage_path(storage_name), "rb") as fp:
+        return await fp.read()
+
+
 def storage_get_file_response(
         storage_name: str,
         file_name: str,
