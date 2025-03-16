@@ -4,7 +4,8 @@ import docker
 from docker.errors import DockerException, NotFound
 from docker.models.containers import Container
 
-from intellide.config import DOCKER_URL, DOCKER_CONTAINER_POSTGRESQL_NAME, DOCKER_CONTAINER_REDIS_NAME, DOCKER_ENABLE
+from intellide.config import DOCKER_URL, DOCKER_CONTAINER_POSTGRESQL_NAME, DOCKER_CONTAINER_REDIS_NAME, DOCKER_ENABLE, \
+    DATABASE_PORT, CACHE_PORT
 
 
 async def startup():
@@ -40,7 +41,7 @@ async def startup():
                 'postgres:latest',
                 name='software-engineering-project-postgres',
                 environment={'POSTGRES_USER': 'postgres', 'POSTGRES_PASSWORD': '123456'},
-                ports={'5432/tcp': 5432},
+                ports={'5432/tcp': DATABASE_PORT},
                 detach=True
             )
         wait(postgres)
@@ -56,7 +57,7 @@ async def startup():
                 'redis:latest',
                 name='software-engineering-project-redis',
                 command="redis-server --requirepass 123456",
-                ports={'6379/tcp': 6379},
+                ports={'6379/tcp': CACHE_PORT},
                 detach=True
             )
         wait(redis)

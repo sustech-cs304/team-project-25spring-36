@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum as PyEnum
-from typing import Dict
+from typing import Dict, List
 
 from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Index, ForeignKey, Sequence
 from sqlalchemy.dialects.postgresql import JSONB
@@ -116,15 +116,15 @@ class CourseDirectoryPermissionType(EnumClass):
     """
     共享条目额外权限类型枚举类
     """
-    NO: str = "no"  # 没有权限
-    READ: str = "read"  # 默认权限，对纯文件来说可读内容，对目录来说可读里面的文件
-    READ_WRITE: str = "read_write"  # 对纯文件来说可读写内容和删除自身，对目录来说可读写里面的文件（包括创建和删除文件）和删除自身
-    # READ_WRITE_STICKY : str = "read_write_sticky"  # 仅目录有效，有read的所有权限，允许你在里面创建文件，只有你创建的文件有write权限，暂未实现
+    READ: str = "read"  # 用户可以读这个文件夹里的所有文件，对文件来说可以读文件内容
+    WRITE: str = "write"  # 用户可以修改这个文件夹里的所有文件，对文件来说可以修改文件内容
+    UPLOAD: str = "upload"  # 用户可以上传文件到这个文件夹
+    DELETE: str = "delete"  # 用户可以删除这个文件夹（如果文件夹内部某个文件没有delete权限，则不能删除）和文件夹里的所有文件/文件夹，对文件来说可以删除文件
 
 
 SharedEntryPermissionPath = str
 
-CourseDirectoryPermission = Dict[SharedEntryPermissionPath, CourseDirectoryPermissionType]
+CourseDirectoryPermission = Dict[SharedEntryPermissionPath, List[CourseDirectoryPermissionType]]
 
 
 # class SharedEntry(SQLAlchemyBaseModel, Mixin):
@@ -188,6 +188,7 @@ class CourseDirectoryEntry(SQLAlchemyBaseModel, Mixin):
     __tablename__ = "course_directory_entries"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     course_directory_id = Column(BigInteger, ForeignKey("course_directories.id"), nullable=False, index=True)
+    author_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
     path = Column(String, nullable=False, index=True)
     depth = Column(Integer, nullable=False)
     type = Column(Enum(EntryType), nullable=False)

@@ -273,11 +273,12 @@ def test_course_directory_entry_download_success(
 
 
 @pytest.mark.dependecy(depends=["test_course_directory_entry_get_success"])
-def test_course_directory_entry_delete_success(
+def test_course_directory_entry_delete_success_and_fail(
         store: Dict,
         unique_path_generator: Callable,
 ):
     user_token_teacher = store["user_token_teacher"]
+    user_token_student = store["user_token_student"]
     course_directory_id_base = store["course_directory_id_base"]
     path = unique_path_generator(depth=4)
     course_directory_entry_id = course_directory_entry_post_success(
@@ -291,7 +292,17 @@ def test_course_directory_entry_delete_success(
         path_first_n(path, 1),
         False,
     )["id"]
-    response = requests.delete(
+    response_student = requests.delete(
+        url=f"{SERVER_API_BASE_URL}/course/directory/entry",
+        headers={
+            "Access-Token": user_token_student,
+        },
+        params={
+            "course_directory_entry_id": root_course_directory_entry_id,
+        },
+    ).json()
+    assert_code(response_student, status.HTTP_403_FORBIDDEN)
+    response_teacher = requests.delete(
         url=f"{SERVER_API_BASE_URL}/course/directory/entry",
         headers={
             "Access-Token": user_token_teacher,
@@ -300,7 +311,7 @@ def test_course_directory_entry_delete_success(
             "course_directory_entry_id": root_course_directory_entry_id,
         },
     ).json()
-    assert_code(response, status.HTTP_200_OK)
+    assert_code(response_teacher, status.HTTP_200_OK)
     course_directory_entries = course_directory_entry_get_success(
         user_token_teacher,
         course_directory_id_base,
@@ -321,11 +332,12 @@ def test_course_directory_entry_delete_success(
 
 
 @pytest.mark.dependecy(depends=["test_course_directory_entry_get_success"])
-def test_course_directory_entry_move_success(
+def test_course_directory_entry_move_success_and_fail(
         store: Dict,
         unique_path_generator: Callable,
 ):
     user_token_teacher = store["user_token_teacher"]
+    user_token_student = store["user_token_student"]
     course_directory_id_base = store["course_directory_id_base"]
     path = unique_path_generator(depth=4)
     course_directory_entry_post_success(
@@ -340,7 +352,18 @@ def test_course_directory_entry_move_success(
         False,
     )["id"]
     dst_path = unique_path_generator(depth=2)
-    response = requests.put(
+    response_student = requests.put(
+        url=f"{SERVER_API_BASE_URL}/course/directory/entry/move",
+        headers={
+            "Access-Token": user_token_student,
+        },
+        json={
+            "course_directory_entry_id": root_course_directory_entry_id,
+            "dst_path": dst_path,
+        }
+    ).json()
+    assert_code(response_student, status.HTTP_403_FORBIDDEN)
+    response_teacher = requests.put(
         url=f"{SERVER_API_BASE_URL}/course/directory/entry/move",
         headers={
             "Access-Token": user_token_teacher,
@@ -350,7 +373,7 @@ def test_course_directory_entry_move_success(
             "dst_path": dst_path,
         }
     ).json()
-    assert_code(response, status.HTTP_200_OK)
+    assert_code(response_teacher, status.HTTP_200_OK)
     course_directory_entries = course_directory_entry_get_success(
         user_token_teacher,
         course_directory_id_base,
@@ -470,6 +493,9 @@ def course_directory_post_success(
         json={
             "course_id": course_id,
             "name": directory_name,
+            "permission": {
+                "": ["read", "upload"],
+            },
         },
     ).json()
     assert_code(response, status.HTTP_200_OK)

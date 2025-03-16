@@ -77,6 +77,9 @@ class CourseDirectoryPostRequest(BaseModel):
     name: str  # 目录名称
     permission: Optional[CourseDirectoryPermission] = None  # 目录权限（可选）
 
+    class Config:
+        use_enum_values = True
+
 
 @api.post("")
 async def course_directory_post(
