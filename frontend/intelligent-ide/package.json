@@ -28,6 +28,11 @@
         "command": "intelligent-ide.update",
         "title": "Intelligent IDE: Update",
         "category": "Intelligent IDE"
+      },
+      {
+        "command": "intelligent-ide.refreshFiles",
+        "title": "刷新文件结构",
+        "category": "Intelligent IDE"
       }
     ],
     "viewsContainers": {
@@ -44,6 +49,10 @@
         {
           "id": "intelligent-ide",
           "name": "Intelligent IDE"
+        },
+        {
+          "id": "intelligent-ide-fileView",
+          "name": "课程文件"
         }
       ]
     }
