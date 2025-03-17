@@ -34,7 +34,7 @@ ws = APIRouter(prefix="/course/collaborative")
 manager = WebSocketManager()
 editors: Dict[int, List[
     int]] = {}  # 跟踪每个文档的编辑者 {collab_id1: [user_id1, user_id2, ...], collab_id2: [user_id3, user_id4, ...], ...}
-
+crdt_docs: Dict[int, y_py.YDoc] = {} # 内存存储每个文档的crdt_doc {collab_id1: crdt_doc1, collab_id2: crdt_doc2, ...}
 
 @api.post("")
 async def course_collaborative_directory_entry_post(
@@ -300,6 +300,18 @@ async def remove_user_from_editors(collab_id: int, user_id: int):
         broadcast_editors(collab_id)
 
 
+async def get_crdt_doc_from_storage_or_memory(course_collaborative_directory_entry_id: int, entry: CourseCollaborativeDirectoryEntry):
+    """
+    获取协作条目CRDT文档
+    """
+    # 如果CRDT文档在内存中，则返回内存中的CRDT文档, 否则从存储中读取CRDT文档
+    if course_collaborative_directory_entry_id not in crdt_docs:
+        crdt_doc: y_py.YDoc = pickle.loads(await storage_read_file(entry.storage_name))
+        crdt_docs[course_collaborative_directory_entry_id] = crdt_doc
+    return crdt_docs[course_collaborative_directory_entry_id]
+
+
+
 @ws.websocket("/join")
 async def collaborative_join(
         websocket: WebSocket,
@@ -349,7 +361,8 @@ async def collaborative_join(
 
     # 将当前用户添加到编辑者列表, 并广播编辑者更新
     add_user_to_editors(course_collaborative_directory_entry_id, user_id)
-    crdt_doc: y_py.YDoc = pickle.loads(await storage_read_file(entry.storage_name))
+    
+    crdt_doc = get_crdt_doc_from_storage_or_memory(course_collaborative_directory_entry_id, entry)
     crdt_text = crdt_doc.get_text("text")
 
     # 获取初始内容
@@ -410,4 +423,9 @@ async def collaborative_join(
             identifier=user_id
         )
         remove_user_from_editors(course_collaborative_directory_entry_id, user_id)
+
+        # 如果发现编辑者列表为空，则从内存中删除CRDT文档
+        if course_collaborative_directory_entry_id not in editors:
+            del crdt_docs[course_collaborative_directory_entry_id]
+
         await websocket.close(code=1008, reason="用户离开协作编辑会话")
