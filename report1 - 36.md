@@ -7,9 +7,9 @@
 #### 1. **Intuitive Course Resource Management**
 
 - **For Students:**
-   Log in and dive into your courses! Instantly access all your enrolled class materials—notes, videos, and more—right at your fingertips, neatly organized and ready to explore.
+   Log in and dive into your courses! Instantly access all your enrolled class materials—notes, and more—right at your fingertips, neatly organized and ready to explore.
 - **For Teachers:**
-   Sign in and take control! Easily assign courses to students, upload fresh materials like slides or videos, and share coding challenges with just a tap—teaching made simple and fun.
+   Sign in and take control! Easily assign courses to students, upload fresh materials like slides and share coding challenges with just a tap—teaching made simple and fun.
 
 #### 2. **In-Text Code Execution**
 
