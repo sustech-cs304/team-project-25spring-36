@@ -28,9 +28,7 @@ CACHE_PORT = "6379"
 CACHE_URL = f"{CACHE_ENGINE}://{CACHE_USER}:{CACHE_PASSWORD}@{CACHE_HOST}:{CACHE_PORT}"
 
 # docker配置
-DOCKER_HOST = "localhost"
-DOCKER_PORT = "2375"
-DOCKER_URL = f"tcp://{DOCKER_HOST}:{DOCKER_PORT}"
+DOCKER_URL = "unix:///var/run/docker.sock"
 DOCKER_CONTAINER_POSTGRESQL_NAME = "software-engineering-project-postgres"
 DOCKER_CONTAINER_REDIS_NAME = "software-engineering-project-redis"
 DOCKER_ENABLE = True

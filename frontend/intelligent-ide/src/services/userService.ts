@@ -1,66 +1,108 @@
-import axios from 'axios';
+import axios, { AxiosError, AxiosResponse } from 'axios';
 import { BACKEND_URL, USER_URL } from '../resources/configs/config';
-import { parseResponse } from '../utils/responseParser';
+import { parseResponse } from '../utils/parseResponse';
 
 export interface IUserInfo {
   username: string;
-  role: string;
-  // add other fields as necessary
+  email: string;
+  id?: string;
+  uid?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export const authenticationService = {
-  async login(username: string, password: string): Promise<string> {
+  async login(email: string, password: string): Promise<string> {
     try {
-      const response = await axios.post(`${BACKEND_URL}${USER_URL}/login`, { username, password });
-      const token = parseResponse(response);
+      const response = await axios.post(`${BACKEND_URL}${USER_URL}/login`, { email, password });
+      const data = parseResponse<{ token: string }>(response);
+      const token = data.token;
+      if (!token) {
+        throw new Error('Login failed: No token received');
+      }
       console.log(`Logged in token: ${token}`);
       return token;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
+      if (error.response?.data?.message) {
+        throw new Error(`Login failed: ${error.response.data.message}`);
+      }
       throw error;
     }
   },
 
-  async register(username: string, password: string, role: string): Promise<string> {
+  async register(username: string, email: string, password: string, code: string): Promise<string> {
     try {
-      const response = await axios.post(`${BACKEND_URL}${USER_URL}/register`, { username, password, role });
-      const token = parseResponse(response);
-      console.log(`Registered ${username} with role ${role} token: ${token}`);
+      const response = await axios.post(`${BACKEND_URL}${USER_URL}/register`, { username, password, email, code });
+      const data = parseResponse<{ token: string }>(response);
+      const token = data.token;
+      if (!token) {
+        throw new Error('Registration failed: No token received');
+      }
+      console.log(`Registered ${username} with email ${email} token: ${token}`);
       return token;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
+      if (error.response?.data?.message) {
+        throw new Error(`Registration failed: ${error.response.data.message}`);
+      }
       throw error;
     }
   },
 
-  async update(username: string, password: string, role: string, token: string): Promise<string> {
+  async getVerificationCode(email: string): Promise<void> {
     try {
-      // Include the JWT token in the header (note: remove any space in header names)
+      const response =  await axios.get(`${BACKEND_URL}${USER_URL}/register/code`, { params: { email } });
+      parseResponse(response);
+      console.log(`Verification code sent to ${email}`);
+    } catch (error: any) {
+      console.error('Verification code error:', error);
+      if (error.response?.data?.message) {
+        throw new Error(`Verification code failed: ${error.response.data.message}`);
+      }
+      throw error;
+    }
+  },
+
+  async update(username: string, password: string, token: string): Promise<string> {
+    try {
       const response = await axios.put(
         `${BACKEND_URL}${USER_URL}`,
-        { username, password, role },
+        { username, password },
         { headers: { "Access-Token": token } }
       );
-      const newToken = parseResponse(response);
+      const data = parseResponse<{ token: string }>(response);
+      const newToken = data.token;
+      if (!newToken) {
+        throw new Error('Update failed: No token received');
+      }
       console.log(`Updated ${username} token: ${newToken}`);
       return newToken;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Update error:', error);
+      if (error.response?.data?.message) {
+        throw new Error(`Update failed: ${error.response.data.message}`);
+      }
       throw error;
     }
   },
 
   async getUserInfo(token: string): Promise<IUserInfo> {
     try {
-      // Make a GET request to fetch user info. Adjust endpoint below if needed.
       const response = await axios.get(`${BACKEND_URL}${USER_URL}`, {
         headers: { "Access-Token": token }
       });
-      const userInfo: IUserInfo = parseResponse(response);
+      const userInfo = parseResponse<IUserInfo>(response);
+      if (!userInfo.username || !userInfo.email) {
+        throw new Error('Fetch user info failed: No user info received');
+      }
       console.log(`Fetched user info: ${JSON.stringify(userInfo)}`);
       return userInfo;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Fetch user info error:', error);
+      if (error.response?.data?.message) {
+        throw new Error(`Fetch user info failed: ${error.response.data.message}`);
+      }
       throw error;
     }
   }

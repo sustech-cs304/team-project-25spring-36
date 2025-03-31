@@ -10,7 +10,9 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -27,6 +29,11 @@
       {
         "command": "intelligent-ide.update",
         "title": "Intelligent IDE: Update",
+        "category": "Intelligent IDE"
+      },
+      {
+        "command": "intelligent-ide.logout",
+        "title": "Intelligent IDE: Logout",
         "category": "Intelligent IDE"
       },
       {

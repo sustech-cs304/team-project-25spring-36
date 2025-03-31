@@ -1,8 +1,26 @@
 import * as vscode from 'vscode';
 import { authenticationService } from '../services/userService';
+import { displayUserView } from '../views/userView';
 
 export function registerUpdateCommand(context: vscode.ExtensionContext) {
   const disposable = vscode.commands.registerCommand('intelligent-ide.update', async () => {
+    // Load the login info from global state
+    const loginInfo = context.globalState.get('loginInfo');
+    if (!loginInfo) {
+      const continueUpdate = await vscode.window.showWarningMessage(
+        'You are not logged in. Do you want to log in before updating?',
+        'Yes',
+        'No'
+      );
+
+      if (continueUpdate === 'Yes') {
+        vscode.commands.executeCommand('intelligent-ide.login'); // Redirect to login command
+        return;
+      } else {
+        return; // User doesn't want to log in, so exit update command
+      }
+    }
+
     // Retrieve stored token from VS Code secret storage
     const storedToken = await context.secrets.get('authToken');
     if (!storedToken) {
@@ -18,19 +36,21 @@ export function registerUpdateCommand(context: vscode.ExtensionContext) {
       return;
     }
 
-    const role = await vscode.window.showQuickPick(['student', 'teacher'], {
-      placeHolder: 'Select a role'
-    });
-
-    if (!role) {
-      vscode.window.showErrorMessage('Role selection is required.');
-      return;
-    }
-
     // Call the update method with the stored token included
     try {
-      const token = await authenticationService.update(username, password, role, storedToken);
+      const token = await authenticationService.update(username, password, storedToken);
       await context.secrets.store('authToken', token);
+      const userInfo = await authenticationService.getUserInfo(token);
+
+      // Store login info in global state
+      const newLoginInfo = {
+        token: token,
+        username: userInfo.username,
+        email: userInfo.email
+      };
+      await context.globalState.update('loginInfo', newLoginInfo);
+
+      displayUserView(context); 
       vscode.window.showInformationMessage(`Updated ${username} successfully!`);
     } catch (error: any) {
       const detailedError = error.response?.data?.message || error.message;
