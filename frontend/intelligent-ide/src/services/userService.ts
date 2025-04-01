@@ -1,14 +1,10 @@
-import axios, { AxiosError, AxiosResponse } from 'axios';
-import { BACKEND_URL, USER_URL } from '../resources/configs/config';
+import axios from 'axios';
 import { parseResponse } from '../utils/parseResponse';
-
+import {BACKEND_URL, USER_URL} from '../resources/configs/config';
 export interface IUserInfo {
+  id: number;
   username: string;
   email: string;
-  id?: string;
-  uid?: string;
-  created_at?: string;
-  updated_at?: string;
 }
 
 export const authenticationService = {
@@ -50,15 +46,28 @@ export const authenticationService = {
     }
   },
 
-  async getVerificationCode(email: string): Promise<void> {
+  async getUserInfo(token: string, context: vscode.ExtensionContext): Promise<IUserInfo> {
     try {
-      const response =  await axios.get(`${BACKEND_URL}${USER_URL}/register/code`, { params: { email } });
-      parseResponse(response);
-      console.log(`Verification code sent to ${email}`);
+      const response = await axios.get(`${BACKEND_URL}${USER_URL}/info`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const userInfo = parseResponse<IUserInfo>(response);
+
+      // Store login info in global state
+      const newLoginInfo = {
+        token: token,
+        username: userInfo.username,
+        email: userInfo.email
+      };
+      await context.globalState.update('loginInfo', newLoginInfo);
+
+      return userInfo;
     } catch (error: any) {
-      console.error('Verification code error:', error);
+      console.error('Get user info error:', error);
       if (error.response?.data?.message) {
-        throw new Error(`Verification code failed: ${error.response.data.message}`);
+        throw new Error(`Get user info failed: ${error.response.data.message}`);
       }
       throw error;
     }
@@ -67,16 +76,20 @@ export const authenticationService = {
   async update(username: string, password: string, token: string): Promise<string> {
     try {
       const response = await axios.put(
-        `${BACKEND_URL}${USER_URL}`,
+        `${BACKEND_URL}${USER_URL}/update`,
         { username, password },
-        { headers: { "Access-Token": token } }
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
       const data = parseResponse<{ token: string }>(response);
       const newToken = data.token;
       if (!newToken) {
         throw new Error('Update failed: No token received');
       }
-      console.log(`Updated ${username} token: ${newToken}`);
+      console.log(`Updated username/password, new token: ${newToken}`);
       return newToken;
     } catch (error: any) {
       console.error('Update error:', error);
@@ -87,23 +100,18 @@ export const authenticationService = {
     }
   },
 
-  async getUserInfo(token: string): Promise<IUserInfo> {
+  async getVerificationCode(email: string): Promise<string> {
     try {
-      const response = await axios.get(`${BACKEND_URL}${USER_URL}`, {
-        headers: { "Access-Token": token }
-      });
-      const userInfo = parseResponse<IUserInfo>(response);
-      if (!userInfo.username || !userInfo.email) {
-        throw new Error('Fetch user info failed: No user info received');
-      }
-      console.log(`Fetched user info: ${JSON.stringify(userInfo)}`);
-      return userInfo;
+      const response = await axios.post(`${BACKEND_URL}${USER_URL}/verification`, { email });
+      const data = parseResponse<string>(response);
+      console.log(`Verification code sent to ${email}`);
+      return data;
     } catch (error: any) {
-      console.error('Fetch user info error:', error);
+      console.error('Get verification code error:', error);
       if (error.response?.data?.message) {
-        throw new Error(`Fetch user info failed: ${error.response.data.message}`);
+        throw new Error(`Failed to send verification code: ${error.response.data.message}`);
       }
       throw error;
     }
-  }
+  },
 };

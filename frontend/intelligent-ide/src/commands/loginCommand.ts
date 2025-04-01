@@ -16,7 +16,7 @@ export function registerLoginCommand(context: vscode.ExtensionContext) {
         );
 
         if (changeAccount !== 'Yes') {
-          return; // User doesn't want to change accounts
+          return;
         }
       }
 
@@ -25,21 +25,14 @@ export function registerLoginCommand(context: vscode.ExtensionContext) {
 
       if (email && password) {
         const token = await authenticationService.login(email, password);
-        const userInfo = await authenticationService.getUserInfo(token);
-
-        // Store login info in global state
-        const newLoginInfo = {
-          token: token,
-          username: userInfo.username,
-          email: userInfo.email
-        };
-        await context.globalState.update('loginInfo', newLoginInfo);
+        await authenticationService.getUserInfo(token, context);
+        vscode.commands.executeCommand('intelligent-ide.logout');
 
         // Store token securely as login certificate
         await context.secrets.store('authToken', token);
         vscode.window.showInformationMessage('Login successful!');
 
-        // Update the login view
+        // Uplogin the login view
         displayUserView(context);
       } else {
         vscode.window.showErrorMessage('Username and password are required.');

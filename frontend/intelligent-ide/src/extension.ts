@@ -31,7 +31,6 @@ export function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  // Use the console to output diagnostic information (console.log) and errors (console.error)
   console.log('Congratulations, your extension "intelligent-ide" is now active!');
 }
 

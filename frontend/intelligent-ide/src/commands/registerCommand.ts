@@ -58,15 +58,7 @@ export function registerRegisterCommand(context: vscode.ExtensionContext) {
     // Call your service to register the new user.
     try {
       const token = await authenticationService.register(username, email, password, verificationCode.toUpperCase());
-      const userInfo = await authenticationService.getUserInfo(token);
-
-      // Store login info in global state
-      const newLoginInfo = {
-        token: token,
-        username: userInfo.username,
-        email: userInfo.email
-      };
-      await context.globalState.update('loginInfo', newLoginInfo);
+      await authenticationService.getUserInfo(token, context);
 
       // Store token securely as login certificate
       await context.secrets.store("authToken", token);

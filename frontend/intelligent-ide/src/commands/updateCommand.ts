@@ -32,26 +32,17 @@ export function registerUpdateCommand(context: vscode.ExtensionContext) {
     const password = await vscode.window.showInputBox({ prompt: 'Enter new password', password: true });
 
     if (!username || !password) {
-      vscode.window.showErrorMessage('Username and password are required.');
+      vscode.window.showErrorMessage('At least one field must be provided to update.');
       return;
     }
 
     // Call the update method with the stored token included
     try {
       const token = await authenticationService.update(username, password, storedToken);
+      await authenticationService.getUserInfo(token, context);
       await context.secrets.store('authToken', token);
-      const userInfo = await authenticationService.getUserInfo(token);
-
-      // Store login info in global state
-      const newLoginInfo = {
-        token: token,
-        username: userInfo.username,
-        email: userInfo.email
-      };
-      await context.globalState.update('loginInfo', newLoginInfo);
-
-      displayUserView(context); 
-      vscode.window.showInformationMessage(`Updated ${username} successfully!`);
+      displayUserView(context);
+      vscode.window.showInformationMessage(`Updated successfully!`);
     } catch (error: any) {
       const detailedError = error.response?.data?.message || error.message;
       vscode.window.showErrorMessage(`Update failed: ${detailedError}`);
