@@ -11,7 +11,7 @@ import { registerLogoutCommand } from './commands/logoutCommand';
 // This method is called when your extension is activated
 // Your extension is activated along the vscode
 export function activate(context: vscode.ExtensionContext) {
-  // Display the user view
+    // Display the user view
   displayUserView(context);
 
   //register all commands
@@ -19,17 +19,6 @@ export function activate(context: vscode.ExtensionContext) {
   registerRegisterCommand(context);
   registerUpdateCommand(context);
   registerLogoutCommand(context);
-
-  const fileExplorer = new FileExplorer(context);
-  context.subscriptions.push(
-    vscode.window.registerTreeDataProvider('intelligent-ide-fileView', fileExplorer)
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('intelligent-ide.refreshFiles',
-      () => fileExplorer.refresh()
-    )
-  );
 
   console.log('Congratulations, your extension "intelligent-ide" is now active!');
 }
