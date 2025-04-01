@@ -104,7 +104,9 @@ export const authenticationService = {
 
   async getVerificationCode(email: string): Promise<string> {
     try {
-      const response = await axios.post(`${BACKEND_URL}${USER_URL}/verification`, { email });
+      const response = await axios.get(`${BACKEND_URL}${USER_URL}/register/code`, {
+        params: { email },
+      });
       const data = parseResponse<string>(response);
       console.log(`Verification code sent to ${email}`);
       return data;

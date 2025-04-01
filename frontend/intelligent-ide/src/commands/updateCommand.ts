@@ -29,10 +29,10 @@ export function registerUpdateCommand(context: vscode.ExtensionContext) {
     }
 
     const username = await vscode.window.showInputBox({ prompt: 'Enter new username' });
-    const password = await vscode.window.showInputBox({ prompt: 'Enter new password', password: true });
+    const password = await vscode.window.showInputBox({ prompt: 'Enter your password', password: true });
 
     if (!username || !password) {
-      vscode.window.showErrorMessage('At least one field must be provided to update.');
+      vscode.window.showErrorMessage('Two fileds must be provided to update.');
       return;
     }
 
