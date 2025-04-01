@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { parseResponse } from '../utils/parseResponse';
 import {BACKEND_URL, USER_URL} from '../resources/configs/config';
+import * as vscode from 'vscode';
+
 export interface IUserInfo {
   id: number;
   username: string;
@@ -48,9 +50,9 @@ export const authenticationService = {
 
   async getUserInfo(token: string, context: vscode.ExtensionContext): Promise<IUserInfo> {
     try {
-      const response = await axios.get(`${BACKEND_URL}${USER_URL}/info`, {
+      const response = await axios.get(`${BACKEND_URL}${USER_URL}`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          'Access-Token': token,
         },
       });
       const userInfo = parseResponse<IUserInfo>(response);
@@ -76,11 +78,11 @@ export const authenticationService = {
   async update(username: string, password: string, token: string): Promise<string> {
     try {
       const response = await axios.put(
-        `${BACKEND_URL}${USER_URL}/update`,
+        `${BACKEND_URL}${USER_URL}`,
         { username, password },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+           'Access-Token': token,
           },
         }
       );

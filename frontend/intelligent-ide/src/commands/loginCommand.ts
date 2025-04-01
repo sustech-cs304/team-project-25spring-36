@@ -18,6 +18,7 @@ export function registerLoginCommand(context: vscode.ExtensionContext) {
         if (changeAccount !== 'Yes') {
           return;
         }
+        vscode.commands.executeCommand('intelligent-ide.logout');
       }
 
       const email = await vscode.window.showInputBox({ prompt: 'Enter email' });
@@ -26,7 +27,6 @@ export function registerLoginCommand(context: vscode.ExtensionContext) {
       if (email && password) {
         const token = await authenticationService.login(email, password);
         await authenticationService.getUserInfo(token, context);
-        vscode.commands.executeCommand('intelligent-ide.logout');
 
         // Store token securely as login certificate
         await context.secrets.store('authToken', token);

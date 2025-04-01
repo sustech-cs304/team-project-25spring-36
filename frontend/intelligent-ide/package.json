@@ -18,27 +18,22 @@
     "commands": [
       {
         "command": "intelligent-ide.login",
-        "title": "Intelligent IDE: Login",
+        "title": "Login",
         "category": "Intelligent IDE"
       },
       {
         "command": "intelligent-ide.register",
-        "title": "Intelligent IDE: Register",
+        "title": "Register",
         "category": "Intelligent IDE"
       },
       {
         "command": "intelligent-ide.update",
-        "title": "Intelligent IDE: Update",
+        "title": "Update",
         "category": "Intelligent IDE"
       },
       {
         "command": "intelligent-ide.logout",
-        "title": "Intelligent IDE: Logout",
-        "category": "Intelligent IDE"
-      },
-      {
-        "command": "intelligent-ide.refreshFiles",
-        "title": "刷新文件结构",
+        "title": "Logout",
         "category": "Intelligent IDE"
       }
     ],
@@ -54,12 +49,32 @@
     "views": {
       "intelligent-ide": [
         {
-          "id": "intelligent-ide",
-          "name": "Intelligent IDE"
+          "id": "loginView",
+          "name": "Login View"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "intelligent-ide.login",
+          "when": "view == loginView && !globalState.loginInfo",
+          "group": "navigation"
         },
         {
-          "id": "intelligent-ide-fileView",
-          "name": "课程文件"
+          "command": "intelligent-ide.register",
+          "when": "view == loginView && !globalState.loginInfo",
+          "group": "navigation"
+        },
+        {
+          "command": "intelligent-ide.update",
+          "when": "view == loginView && globalState.loginInfo",
+          "group": "navigation"
+        },
+        {
+          "command": "intelligent-ide.logout",
+          "when": "view == loginView && globalState.loginInfo",
+          "group": "navigation"
         }
       ]
     }

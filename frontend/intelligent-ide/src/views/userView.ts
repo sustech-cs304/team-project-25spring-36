@@ -6,6 +6,8 @@ let statusBarItem: vscode.StatusBarItem | undefined; // Declare statusBarItem ou
 export function displayUserView(context: vscode.ExtensionContext) {
   // Load the login info from global state
   const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
+  
+  vscode.commands.executeCommand('setContext', 'globalState.loginInfo', !!context.globalState.get('loginInfo'));
 
   if (loginInfo) {
     try {
@@ -30,4 +32,9 @@ export function displayUserView(context: vscode.ExtensionContext) {
     statusBarItem?.dispose();
     statusBarItem = undefined; // Reset statusBarItem to undefined
   }
+}
+
+export function registerUserView(context: vscode.ExtensionContext) {
+  // No TreeDataProvider registration is needed if we're only using title bar buttons
+  displayUserView(context);
 }

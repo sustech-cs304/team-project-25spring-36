@@ -4,7 +4,6 @@ import * as vscode from 'vscode';
 import { registerLoginCommand } from './commands/loginCommand';
 import { registerRegisterCommand } from './commands/registerCommand';
 import { registerUpdateCommand } from './commands/updateCommand';
-import { FileExplorer } from './views/fileExplorer';
 import { displayUserView } from './views/userView'; // Import the user view logic
 import { registerLogoutCommand } from './commands/logoutCommand';
 
