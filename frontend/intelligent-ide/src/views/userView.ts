@@ -16,8 +16,9 @@ export function displayUserView(context: vscode.ExtensionContext) {
 
       // Create and show a status bar item with login info.
       statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-      statusBarItem.text = `$(account) ${loginInfo.username} `;
+      statusBarItem.text = `$(account) ${loginInfo.username} (${loginInfo.role})`;
       statusBarItem.tooltip = "Logged in user info";
+      statusBarItem.command = 'intelligent-ide.switchRole'; // Add command to switch role when clicked
       statusBarItem.show();
 
       // Optionally, add statusBarItem to context.subscriptions so it is disposed on deactivation.

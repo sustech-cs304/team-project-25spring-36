@@ -61,7 +61,8 @@ export const authenticationService = {
       const newLoginInfo = {
         token: token,
         username: userInfo.username,
-        email: userInfo.email
+        email: userInfo.email,
+        role: "student",
       };
       await context.globalState.update('loginInfo', newLoginInfo);
 

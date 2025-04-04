@@ -39,6 +39,12 @@
         "title": "Logout",
         "category": "Intelligent IDE",
         "icon": "$(sign-out)" 
+      },
+      {
+        "command": "intelligent-ide.switchRole",
+        "title": "Switch Role",
+        "category": "Intelligent IDE",
+        "icon": "$(person)"
       }
     ],
     "viewsContainers": {
