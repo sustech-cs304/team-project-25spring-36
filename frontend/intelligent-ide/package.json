@@ -19,22 +19,26 @@
       {
         "command": "intelligent-ide.login",
         "title": "Login",
-        "category": "Intelligent IDE"
+        "category": "Intelligent IDE",
+        "icon": "$(account)" 
       },
       {
         "command": "intelligent-ide.register",
         "title": "Register",
-        "category": "Intelligent IDE"
+        "category": "Intelligent IDE",
+        "icon": "$(add)" 
       },
       {
         "command": "intelligent-ide.update",
         "title": "Update",
-        "category": "Intelligent IDE"
+        "category": "Intelligent IDE",
+        "icon": "$(edit)" 
       },
       {
         "command": "intelligent-ide.logout",
         "title": "Logout",
-        "category": "Intelligent IDE"
+        "category": "Intelligent IDE",
+        "icon": "$(sign-out)" 
       }
     ],
     "viewsContainers": {
