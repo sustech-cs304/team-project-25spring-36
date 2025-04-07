@@ -40,9 +40,3 @@ export interface ICollaborativeEntry {
     created_by: number;
     created_by_name: string;
 }
-
-export interface CourseListCache {
-    teacher: ICourse[];
-    student: ICourse[];
-    lastUpdated: string;
-}

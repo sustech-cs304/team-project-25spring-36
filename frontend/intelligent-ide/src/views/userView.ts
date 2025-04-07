@@ -3,7 +3,7 @@ import { LoginInfo } from '../models/LoginInfo';
 
 let statusBarItem: vscode.StatusBarItem | undefined; // Declare statusBarItem outside the function
 
-export function displayUserView(context: vscode.ExtensionContext) {
+export function refreshLoginView(context: vscode.ExtensionContext) {
   // Load the login info from global state
   const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
 
@@ -36,5 +36,5 @@ export function displayUserView(context: vscode.ExtensionContext) {
 }
 
 export function registerUserView(context: vscode.ExtensionContext) {
-  displayUserView(context);
+  refreshLoginView(context);
 }
