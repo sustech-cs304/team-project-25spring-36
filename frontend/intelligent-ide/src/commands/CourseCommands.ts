@@ -2,15 +2,17 @@ import * as vscode from 'vscode';
 import { courseService } from '../services/CourseService';
 import { refreshLoginView } from '../views/userView';
 import { LoginInfo } from '../models/LoginInfo';
+import { CourseTreeDataProvider, CourseTreeItem } from '../views/CourseView';
 
 /**
  * Register all course-related commands
  */
-export function registerCourseCommands(context: vscode.ExtensionContext): void {
+export function registerCourseCommands(context: vscode.ExtensionContext, treeDataProvider?: CourseTreeDataProvider): void {
     registerCreateCourseCommand(context);
     registerDeleteCourseCommand(context);
+    registerRefreshCommand(context, treeDataProvider);
+    registerOpenFileCommand(context);
 }
-
 
 /**
  * Register command to create a new course
@@ -162,6 +164,49 @@ function registerDeleteCourseCommand(context: vscode.ExtensionContext): void {
             }
         }
     );
+
+    context.subscriptions.push(disposable);
+}
+
+/**
+ * Register command to refresh the course tree view
+ */
+function registerRefreshCommand(context: vscode.ExtensionContext, treeDataProvider?: CourseTreeDataProvider): void {
+    const disposable = vscode.commands.registerCommand('intelligent-ide.course.refresh', () => {
+        if (treeDataProvider) {
+            treeDataProvider.refresh();
+        }
+    });
+
+    context.subscriptions.push(disposable);
+}
+
+/**
+ * Register command to open a course file
+ */
+function registerOpenFileCommand(context: vscode.ExtensionContext): void {
+    const disposable = vscode.commands.registerCommand('intelligent-ide.course.openFile', async (item: CourseTreeItem) => {
+        if (!item.entry || item.isDirectory) {
+            return;
+        }
+
+        try {
+            const token = await context.secrets.get('authToken');
+            if (!token) {
+                vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
+                return;
+            }
+
+            // Here you would implement file downloading and opening
+            vscode.window.showInformationMessage(`File would be downloaded: ${item.path}`);
+
+            // Example implementation for downloading and opening the file
+            // const fileContent = await courseService.downloadEntry(token, item.entry.id);
+            // ... create a temporary file and open it
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Error opening file: ${error.message}`);
+        }
+    });
 
     context.subscriptions.push(disposable);
 }

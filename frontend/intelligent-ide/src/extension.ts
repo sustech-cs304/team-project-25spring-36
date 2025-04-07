@@ -11,9 +11,9 @@ import { registerCourseView } from './views/CourseView'; // Import the course vi
 export function activate(context: vscode.ExtensionContext) {
   // Display the user view
   registerUserView(context);
-  registerCourseView(context);
   registerUserCommands(context);
-  registerCourseCommands(context);
+  registerCourseView(context);
+
   console.log(`Congratulations, your extension "intelligent-ide" is now active! Activation time: ${new Date().toLocaleTimeString()} `);
 }
 

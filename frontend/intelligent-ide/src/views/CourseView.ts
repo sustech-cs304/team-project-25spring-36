@@ -3,6 +3,7 @@ import { courseService } from '../services/CourseService';
 import { ICourseDirectoryEntry } from '../models/CourseModels';
 import { LoginInfo } from '../models/LoginInfo';
 import * as path from 'path';
+import { registerCourseCommands } from '../commands/CourseCommands';
 
 // Define tree item types
 type TreeItemType = 'course' | 'directory' | 'entry' | 'virtual-directory' | 'file';
@@ -386,36 +387,9 @@ export function registerCourseView(context: vscode.ExtensionContext): vscode.Dis
         showCollapseAll: true
     });
 
-    // Register a refresh command
-    const refreshCommand = vscode.commands.registerCommand('intelligent-ide.course.refresh', () => {
-        treeDataProvider.refresh();
-    });
+    // Pass treeDataProvider to command registration
+    registerCourseCommands(context, treeDataProvider);
 
-    // Register a command to open files
-    const openFileCommand = vscode.commands.registerCommand('intelligent-ide.course.openFile', async (item: CourseTreeItem) => {
-        if (!item.entry || item.isDirectory) {
-            return;
-        }
-
-        try {
-            const token = await context.secrets.get('authToken');
-            if (!token) {
-                vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
-                return;
-            }
-
-            // Here you would implement file downloading and opening
-            vscode.window.showInformationMessage(`File would be downloaded: ${item.path}`);
-
-            // Example implementation for downloading and opening the file
-            // const fileContent = await courseService.downloadEntry(token, item.entry.id);
-            // ... create a temporary file and open it
-        } catch (error: any) {
-            vscode.window.showErrorMessage(`Error opening file: ${error.message}`);
-        }
-    });
-
-    context.subscriptions.push(refreshCommand, openFileCommand, treeView);
-
+    context.subscriptions.push(treeView);
     return treeView;
 }
