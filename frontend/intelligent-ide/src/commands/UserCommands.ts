@@ -5,7 +5,7 @@ import { displayUserView } from '../views/userView';
 /**
  * Register all user-related commands
  */
-export function registerAll(context: vscode.ExtensionContext): void {
+export function registerUserCommands(context: vscode.ExtensionContext): void {
     registerLoginCommand(context);
     registerRegisterCommand(context);
     registerUpdateCommand(context);

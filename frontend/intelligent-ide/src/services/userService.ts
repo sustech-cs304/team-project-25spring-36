@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { parseResponse } from '../utils/parseResponse';
-import {BACKEND_URL, USER_URL} from '../resources/configs/config';
+import { API_CONFIG } from '../resources/configs/config';
 import * as vscode from 'vscode';
 
 export interface IUserInfo {
@@ -12,7 +12,7 @@ export interface IUserInfo {
 export const authenticationService = {
   async login(email: string, password: string): Promise<string> {
     try {
-      const response = await axios.post(`${BACKEND_URL}${USER_URL}/login`, { email, password });
+      const response = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.USER.LOGIN}`, { email, password });
       const data = parseResponse<{ token: string }>(response);
       const token = data.token;
       if (!token) {
@@ -31,7 +31,7 @@ export const authenticationService = {
 
   async register(username: string, email: string, password: string, code: string): Promise<string> {
     try {
-      const response = await axios.post(`${BACKEND_URL}${USER_URL}/register`, { username, password, email, code });
+      const response = await axios.post(`${API_CONFIG.BASE_URL}${API_CONFIG.USER.REGISTER}`, { username, password, email, code });
       const data = parseResponse<{ token: string }>(response);
       const token = data.token;
       if (!token) {
@@ -50,7 +50,7 @@ export const authenticationService = {
 
   async getUserInfo(token: string, context: vscode.ExtensionContext): Promise<IUserInfo> {
     try {
-      const response = await axios.get(`${BACKEND_URL}${USER_URL}`, {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.USER.INFO}`, {
         headers: {
           'Access-Token': token,
         },
@@ -79,11 +79,11 @@ export const authenticationService = {
   async update(username: string, password: string, token: string): Promise<string> {
     try {
       const response = await axios.put(
-        `${BACKEND_URL}${USER_URL}`,
+        `${API_CONFIG.BASE_URL}${API_CONFIG.USER}`,
         { username, password },
         {
           headers: {
-           'Access-Token': token,
+            'Access-Token': token,
           },
         }
       );
@@ -105,7 +105,7 @@ export const authenticationService = {
 
   async getVerificationCode(email: string): Promise<string> {
     try {
-      const response = await axios.get(`${BACKEND_URL}${USER_URL}/register/code`, {
+      const response = await axios.get(`${API_CONFIG.BASE_URL}${API_CONFIG.USER.REGISTER_CODE}`, {
         params: { email },
       });
       const data = parseResponse<string>(response);
