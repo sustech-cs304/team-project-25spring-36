@@ -20,31 +20,55 @@
         "command": "intelligent-ide.login",
         "title": "Login",
         "category": "Intelligent IDE",
-        "icon": "$(account)" 
+        "icon": "$(account)"
       },
       {
         "command": "intelligent-ide.register",
         "title": "Register",
         "category": "Intelligent IDE",
-        "icon": "$(add)" 
+        "icon": "$(add)"
       },
       {
         "command": "intelligent-ide.update",
         "title": "Update",
         "category": "Intelligent IDE",
-        "icon": "$(edit)" 
+        "icon": "$(edit)"
       },
       {
         "command": "intelligent-ide.logout",
         "title": "Logout",
         "category": "Intelligent IDE",
-        "icon": "$(sign-out)" 
+        "icon": "$(sign-out)"
       },
       {
         "command": "intelligent-ide.switchRole",
         "title": "Switch Role",
         "category": "Intelligent IDE",
         "icon": "$(person)"
+      },
+      {
+        "command": "intelligent-ide.course.refresh",
+        "title": "Refresh Courses",
+        "category": "Intelligent IDE: Course",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "intelligent-ide.course.post",
+        "title": "Create Course",
+        "category": "Intelligent IDE: Course",
+        "icon": "$(add)"
+      },
+      {
+        "command": "intelligent-ide.course.delete",
+        "title": "Delete Course",
+        "category": "Intelligent IDE: Course",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "intelligent-ide.course.openFile",
+        "title": "Open Course File",
+        "category": "Intelligent IDE: Course",
+        "icon": "$(file)"
       }
     ],
     "viewsContainers": {
@@ -61,6 +85,10 @@
         {
           "id": "loginView",
           "name": "Login View"
+        },
+        {
+          "id": "courses",
+          "name": "Course Explorer"
         }
       ]
     },
@@ -84,6 +112,28 @@
         {
           "command": "intelligent-ide.logout",
           "when": "view == loginView && globalState.loginInfo",
+          "group": "navigation"
+        },
+        {
+          "command": "intelligent-ide.course.refresh",
+          "when": "view == courses",
+          "group": "navigation"
+        },
+        {
+          "command": "intelligent-ide.course.post",
+          "when": "view == courses && globalState.loginInfo && globalState.loginInfo.role == 'teacher'",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "intelligent-ide.course.delete",
+          "when": "viewItem == course && globalState.loginInfo && globalState.loginInfo.role == 'teacher'",
+          "group": "inline"
+        },
+        {
+          "command": "intelligent-ide.course.openFile",
+          "when": "viewItem == file || viewItem == entry-file",
           "group": "navigation"
         }
       ]
