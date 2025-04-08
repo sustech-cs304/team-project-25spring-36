@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 
 /**
- * Register all course-related commands
+ * Register all course-related command
  */
 export function registerCourseCommands(context: vscode.ExtensionContext, treeDataProvider?: CourseTreeDataProvider): void {
     registerCreateCourseCommand(context);
@@ -18,8 +18,9 @@ export function registerCourseCommands(context: vscode.ExtensionContext, treeDat
     registerOpenFileCommand(context);
     registerDeleteDirectoryCommand(context);
     registerPostDirectoryCommand(context);
-    registerUploadFileCommand(context);     // Add these commands
+    registerUploadFileCommand(context);
     registerDeleteEntryCommand(context);
+    registerMoveEntryCommand(context);
 }
 
 /**
@@ -631,6 +632,96 @@ function registerUploadFileCommand(context: vscode.ExtensionContext): void {
 
             } catch (error: any) {
                 vscode.window.showErrorMessage(`Error uploading file: ${error.message}`);
+            }
+        }
+    );
+
+    context.subscriptions.push(disposable);
+}
+
+/**
+ * Register command to move an entry to a different location
+ */
+function registerMoveEntryCommand(context: vscode.ExtensionContext): void {
+    const disposable = vscode.commands.registerCommand(
+        'intelligent-ide.entry.move',
+        async (entryItem?: CourseTreeItem) => {
+            try {
+                const token = await context.secrets.get('authToken');
+                if (!token) {
+                    vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
+                    return;
+                }
+
+                // Determine entry ID from selection or prompt
+                let entryId: number;
+                let currentPath: string | undefined;
+
+                if (entryItem && entryItem.entry) {
+                    entryId = entryItem.entry.id;
+                    currentPath = entryItem.path;
+                } else {
+                    // Prompt for entry ID if not provided
+                    const entryIdInput = await vscode.window.showInputBox({
+                        prompt: 'Enter the Entry ID to move',
+                        placeHolder: 'e.g., 123',
+                        validateInput: (text) => {
+                            if (!text) {
+                                return 'Entry ID is required';
+                            }
+                            if (!/^\d+$/.test(text)) {
+                                return 'Entry ID must be a number';
+                            }
+                            return null; // No validation error
+                        }
+                    });
+
+                    if (!entryIdInput) {
+                        return; // User cancelled
+                    }
+
+                    entryId = parseInt(entryIdInput, 10);
+                }
+
+                // Get the filename from the current path if available
+                const fileName = currentPath ? path.basename(currentPath) : 'file';
+
+                // Prompt for destination path
+                const destinationPath = await vscode.window.showInputBox({
+                    prompt: 'Enter destination path (including filename)',
+                    placeHolder: 'e.g., /folder/file.txt',
+                    value: currentPath || `/${fileName}`,
+                    validateInput: (text) => {
+                        if (!text) {
+                            return 'Destination path is required';
+                        }
+                        if (!text.startsWith('/')) {
+                            return 'Path must start with /';
+                        }
+                        return null; // No validation error
+                    }
+                });
+
+                if (!destinationPath) {
+                    return; // User cancelled
+                }
+
+                // Show progress notification
+                await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: 'Moving file...',
+                    cancellable: false
+                }, async (progress) => {
+                    // Move the entry
+                    await courseService.moveEntry(token, entryId, destinationPath);
+
+                    vscode.window.showInformationMessage(
+                        `Entry successfully moved to ${destinationPath}`
+                    );
+                    await vscode.commands.executeCommand('intelligent-ide.course.refresh');
+                });
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Error moving entry: ${error.message}`);
             }
         }
     );

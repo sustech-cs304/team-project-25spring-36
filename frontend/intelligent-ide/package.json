@@ -93,6 +93,12 @@
         "title": "Upload File",
         "category": "Intelligent IDE: Course",
         "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "intelligent-ide.entry.move",
+        "title": "Move File/Directory",
+        "category": "Intelligent IDE: Course",
+        "icon": "$(arrow-right)"
       }
     ],
     "viewsContainers": {
@@ -174,6 +180,11 @@
           "command": "intelligent-ide.entry.upload",
           "when": "viewItem == directory || viewItem == entry-directory",
           "group": "2_workspace"
+        },
+        {
+          "command": "intelligent-ide.entry.move",
+          "when": "viewItem == entry-file || viewItem == entry-directory",
+          "group": "1_modification"
         }
       ]
     }

@@ -1,8 +1,6 @@
 import axios from 'axios';
 import * as vscode from 'vscode';
-import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 import { API_CONFIG } from '../resources/configs/config';
 import { parseResponse } from '../utils/parseResponse';
 import { ICourse, ICourseDirectory, ICourseDirectoryEntry, DirectoryPermissionType } from '../models/CourseModels';
@@ -26,7 +24,7 @@ export const courseService = {
     }
   },
   /**
- * Get directories for a course
+ * Get directories for a courses
  */
   async getDirectories(token: string, courseId: number): Promise<ICourseDirectory[]> {
     try {
@@ -194,7 +192,7 @@ export const courseService = {
    * @param token Authentication token
    * @param directoryId Directory ID to upload to
    * @param entryPath Path within the directory
-   * @param fileUri VS Code URI to the file
+   * @param fileUri VS Code URI to the fil
    * @returns ID of the created entry
    */
   async uploadFile(
@@ -277,5 +275,38 @@ export const courseService = {
       console.error('Error downloading entry:', error);
       throw new Error(error.response?.data?.message || error.message);
     }
-  }
+  },
+
+  /**
+   * Move an entry to a different path
+   * @param token Authentication token
+   * @param entryId ID of the entry to move
+   * @param destinationPath Destination path for the entry
+   * @returns Success message
+   */
+  async moveEntry(
+    token: string,
+    entryId: number,
+    destinationPath: string
+  ): Promise<string> {
+    try {
+      const response = await axios.put(
+        `${API_CONFIG.BASE_URL}${API_CONFIG.COURSE.DIRECTORY_ENTRY}/move`,
+        {
+          course_directory_entry_id: entryId,
+          dst_path: destinationPath
+        },
+        {
+          headers: {
+            'Access-Token': token
+          }
+        }
+      );
+
+      return parseResponse<string>(response);
+    } catch (error: any) {
+      console.error('Error moving entry:', error);
+      throw new Error(error.response?.data?.message || error.message);
+    }
+  },
 };
