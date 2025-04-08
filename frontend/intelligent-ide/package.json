@@ -168,7 +168,7 @@
         {
           "command": "intelligent-ide.entry.delete",
           "when": "viewItem == entry-file",
-          "group": "1_modification"
+          "group": "inline"
         },
         {
           "command": "intelligent-ide.entry.upload",
