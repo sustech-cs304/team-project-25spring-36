@@ -94,13 +94,13 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
         const loginInfo = this.context.globalState.get('loginInfo') as LoginInfo | undefined;
         if (!loginInfo) {
             vscode.window.showWarningMessage('Please log in to view courses.');
-            return []; // Return empty array instead of error item
+            return [];
         }
 
         const token = await this.context.secrets.get('authToken');
         if (!token) {
             vscode.window.showWarningMessage('Authentication token not found. Please log in again.');
-            return []; // Return empty array instead of error item
+            return [];
         }
 
         try {
@@ -109,7 +109,7 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
                 const courses = await courseService.getCourses(token, loginInfo.role);
                 if (courses.length === 0) {
                     vscode.window.showInformationMessage(`No courses found for ${loginInfo.role} role.`);
-                    return []; // Return empty array instead of error item
+                    return [];
                 }
 
                 return courses.map(course => new CourseTreeItem(
@@ -130,7 +130,7 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
 
                 if (directories.length === 0) {
                     vscode.window.showInformationMessage('No directories found in this course.');
-                    return []; // Return empty array instead of error item
+                    return [];
                 }
 
                 return directories.map(directory => new CourseTreeItem(
@@ -162,15 +162,17 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
 
                     // If no entries, just return empty array without error message
                     if (entries.length === 0) {
-                        // Optional: Show informational message
-                        vscode.window.showInformationMessage('This directory is empty.');
                         return [];
                     }
 
                     return this.organizeEntriesByPath(entries, directoryId);
                 } catch (error: any) {
+                    // If this is a "no entries" error, return empty array silently
+                    if (error.message?.includes('No entries found')) {
+                        return [];
+                    }
                     vscode.window.showErrorMessage(`Error getting entries: ${error.message}`);
-                    return []; // Return empty array instead of error item
+                    return [];
                 }
             } else if (element.type === 'virtual-directory') {
                 // Return the children of this virtual directory
@@ -181,22 +183,10 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
             }
         } catch (error: any) {
             vscode.window.showErrorMessage(`Error: ${error.message}`);
-            return []; // Return empty array instead of error item
+            return [];
         }
 
         return [];
-    }
-
-    private createErrorItem(message: string): CourseTreeItem {
-        return new CourseTreeItem(
-            message,
-            vscode.TreeItemCollapsibleState.None,
-            'entry',
-            0,
-            undefined,
-            undefined,
-            false
-        );
     }
 
     /**
@@ -230,7 +220,7 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
                     normalizedPath,
                     false,
                     entry,
-                    entry.created_at // Pass created_at directly
+                    entry.created_at
                 ));
             } else {
                 // This is a nested file - we need to ensure all parent directories exist

@@ -69,6 +69,30 @@
         "title": "Open Course File",
         "category": "Intelligent IDE: Course",
         "icon": "$(file)"
+      },
+      {
+        "command": "intelligent-ide.directory.delete",
+        "title": "Delete Directory",
+        "category": "Intelligent IDE: Course",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "intelligent-ide.directory.post",
+        "title": "Create Directory",
+        "category": "Intelligent IDE: Course",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "intelligent-ide.entry.delete",
+        "title": "Delete File",
+        "category": "Intelligent IDE: Course",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "intelligent-ide.entry.upload",
+        "title": "Upload File",
+        "category": "Intelligent IDE: Course",
+        "icon": "$(cloud-upload)"
       }
     ],
     "viewsContainers": {
@@ -130,6 +154,26 @@
           "command": "intelligent-ide.course.delete",
           "when": "viewItem == course && globalState.loginInfo ",
           "group": "inline"
+        },
+        {
+          "command": "intelligent-ide.directory.delete",
+          "when": "viewItem == directory && globalState.loginInfo",
+          "group": "inline"
+        },
+        {
+          "command": "intelligent-ide.directory.post",
+          "when": "viewItem == course && globalState.loginInfo",
+          "group": "inline"
+        },
+        {
+          "command": "intelligent-ide.entry.delete",
+          "when": "viewItem == entry-file",
+          "group": "1_modification"
+        },
+        {
+          "command": "intelligent-ide.entry.upload",
+          "when": "viewItem == directory || viewItem == entry-directory",
+          "group": "2_workspace"
         }
       ]
     }
@@ -163,6 +207,7 @@
   },
   "dependencies": {
     "axios": "^1.8.1",
+    "form-data": "^4.0.2",
     "sinon": "^19.0.2"
   }
 }

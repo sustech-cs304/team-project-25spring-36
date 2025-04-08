@@ -40,3 +40,9 @@ export interface ICollaborativeEntry {
     created_by: number;
     created_by_name: string;
 }
+export enum DirectoryPermissionType {
+    READ = "read",
+    WRITE = "write",
+    UPLOAD = "upload",
+    DELETE = "delete",
+}
