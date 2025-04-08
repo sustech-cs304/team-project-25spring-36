@@ -174,7 +174,7 @@ class CourseDirectory(SQLAlchemyBaseModel, Mixin):
 
     __tablename__ = "course_directories"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    course_id = Column(BigInteger, ForeignKey("courses.id"), nullable=False, index=True)
+    course_id = Column(BigInteger, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String, nullable=False)
     permission = Column(JSONB)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
@@ -187,7 +187,7 @@ class CourseDirectoryEntry(SQLAlchemyBaseModel, Mixin):
     """
     __tablename__ = "course_directory_entries"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    course_directory_id = Column(BigInteger, ForeignKey("course_directories.id"), nullable=False, index=True)
+    course_directory_id = Column(BigInteger, ForeignKey("course_directories.id", ondelete="CASCADE"), nullable=False, index=True)
     author_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
     path = Column(String, nullable=False, index=True)
     depth = Column(Integer, nullable=False)
@@ -218,7 +218,7 @@ class CourseCollaborativeDirectoryEntry(SQLAlchemyBaseModel, Mixin):
     """
     __tablename__ = "course_collaborative_directory_entries"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    course_id = Column(BigInteger, ForeignKey("courses.id"), nullable=False, index=True)
+    course_id = Column(BigInteger, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
     storage_name = Column(String, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
@@ -231,7 +231,7 @@ class CourseCollaborativeDirectoryEntryEditHistory(SQLAlchemyBaseModel, Mixin):
     __tablename__ = "course_collaborative_directory_entries_edit_history"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     course_collaborative_directory_entry_id = Column(BigInteger,
-                                                     ForeignKey("course_collaborative_directory_entries.id"),
+                                                     ForeignKey("course_collaborative_directory_entries.id", ondelete="CASCADE"),
                                                      nullable=False, index=True)
     operation = Column(String, nullable=False)
     position = Column(Integer, nullable=False)
@@ -251,7 +251,7 @@ class CourseStudent(SQLAlchemyBaseModel, Mixin):
 
     __tablename__ = "course_students"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    course_id = Column(BigInteger, ForeignKey("courses.id"), nullable=False, index=True)
+    course_id = Column(BigInteger, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
     student_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
