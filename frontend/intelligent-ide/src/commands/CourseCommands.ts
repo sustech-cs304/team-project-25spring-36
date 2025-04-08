@@ -84,7 +84,7 @@ function registerCreateCourseCommand(context: vscode.ExtensionContext): void {
 }
 
 /**
- * Register command to delete a course
+ * Register command to delete a cours
  */
 function registerDeleteCourseCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand(
@@ -200,6 +200,7 @@ function registerOpenFileCommand(context: vscode.ExtensionContext): void {
             // Here you would implement file downloading and opening
             vscode.window.showInformationMessage(`File would be downloaded: ${item.path}`);
 
+            //TODO: Implement file download and open logic
             // Example implementation for downloading and opening the file
             // const fileContent = await courseService.downloadEntry(token, item.entry.id);
             // ... create a temporary file and open it

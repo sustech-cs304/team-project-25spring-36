@@ -121,20 +121,15 @@
         },
         {
           "command": "intelligent-ide.course.post",
-          "when": "view == courses && globalState.loginInfo && globalState.loginInfo.role == 'teacher'",
+          "when": "view == courses && globalState.loginInfo ",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
           "command": "intelligent-ide.course.delete",
-          "when": "viewItem == course && globalState.loginInfo && globalState.loginInfo.role == 'teacher'",
+          "when": "viewItem == course && globalState.loginInfo ",
           "group": "inline"
-        },
-        {
-          "command": "intelligent-ide.course.openFile",
-          "when": "viewItem == file || viewItem == entry-file",
-          "group": "navigation"
         }
       ]
     }

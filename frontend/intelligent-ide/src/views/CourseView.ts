@@ -6,7 +6,7 @@ import * as path from 'path';
 import { registerCourseCommands } from '../commands/CourseCommands';
 
 // Define tree item types
-type TreeItemType = 'course' | 'directory' | 'entry' | 'virtual-directory' | 'file';
+type TreeItemType = 'course' | 'directory' | 'entry' | 'virtual-directory';
 
 // Define a class for tree items
 export class CourseTreeItem extends vscode.TreeItem {
@@ -42,11 +42,6 @@ export class CourseTreeItem extends vscode.TreeItem {
                 this.contextValue = 'virtual-directory';
                 this.tooltip = `Directory: ${label}`;
                 break;
-            case 'file':
-                this.iconPath = getFileIcon(label);
-                this.contextValue = 'file';
-                this.tooltip = `File: ${label}`;
-                break;
             case 'entry':
                 if (entry && entry.type === 'directory') {
                     this.iconPath = new vscode.ThemeIcon('folder');
@@ -68,7 +63,7 @@ export class CourseTreeItem extends vscode.TreeItem {
 
         this.id = `${type}-${itemId}-${timestamp}${path ? `-${path.replace(/[\/\\]/g, '_')}` : ''}`;
 
-        if ((type === 'file' || (type === 'entry' && !isDirectory)) && path) {
+        if ((type === 'entry' && !isDirectory) && path) {
             this.command = {
                 command: 'intelligent-ide.course.openFile',
                 title: 'Open File',
