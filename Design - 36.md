@@ -4,7 +4,7 @@
 
 ### Architectural Design
 
-![Archtecture](./images/arch)
+![Archtecture](./images/arch.svg)
 
 #### Why bother using commands while we have views?
 
