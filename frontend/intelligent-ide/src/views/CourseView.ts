@@ -5,6 +5,15 @@ import { LoginInfo } from '../models/LoginInfo';
 import * as path from 'path';
 import { registerCourseCommands } from '../commands/CourseCommands';
 
+/**
+ * AI-generated-content
+ * tool: GitHub Copilot
+ * version: Claude 3.7 Sonnet Thinking
+ * usage: I asked Copilot to implement a tree view for course content with proper 
+ * hierarchical structure, file icons, and handling of virtual directories.
+ * The code was adapted to cohere with backend design.
+ */
+
 // Define tree item types
 type TreeItemType = 'course' | 'directory' | 'entry' | 'virtual-directory';
 

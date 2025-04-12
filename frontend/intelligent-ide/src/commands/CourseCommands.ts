@@ -8,9 +8,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 
-/**
- * Register all course-related command
- */
+
 export function registerCourseCommands(context: vscode.ExtensionContext, treeDataProvider?: CourseTreeDataProvider): void {
     registerCreateCourseCommand(context);
     registerDeleteCourseCommand(context);
@@ -24,7 +22,11 @@ export function registerCourseCommands(context: vscode.ExtensionContext, treeDat
 }
 
 /**
- * Register command to create a new course
+ * AI-generated-content
+ * tool: GitHub Copilot
+ * version: Claude 3.7 Sonnet Thinking
+ * usage: I asked Copilot to implement command registration for course creation.
+ * Then I use this as a template for command registration for the resting commands.
  */
 function registerCreateCourseCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand('intelligent-ide.course.post', async () => {
