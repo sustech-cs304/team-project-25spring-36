@@ -185,6 +185,11 @@
           "command": "intelligent-ide.entry.move",
           "when": "viewItem == entry-file || viewItem == entry-directory",
           "group": "1_modification"
+        },
+        {
+          "command": "intelligent-ide.entry.download",
+          "when": "view == courses && resourceType == entry && !isDirectory",
+          "group": "1_modification"
         }
       ]
     }

@@ -731,3 +731,86 @@ function registerMoveEntryCommand(context: vscode.ExtensionContext): void {
     context.subscriptions.push(disposable);
 }
 
+
+function registerJoinCourseCommand(context: vscode.ExtensionContext): void {
+    const disposable = vscode.commands.registerCommand(
+        'intelligent-ide.course.join',
+        async () => {
+            try {
+                const token = await context.secrets.get('authToken');
+                if (!token) {
+                    vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
+                    return;
+                }
+                const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
+                if (!loginInfo) {
+                    vscode.window.showErrorMessage('You must log in first.');
+                    return;
+                }
+
+                const courseIdInput = await vscode.window.showInputBox({
+                    prompt: 'Enter the Course ID you want to join',
+                    placeHolder: 'e.g., 101',
+                    validateInput: (text) => {
+                        if (!text) {
+                            return 'Course ID is required';
+                        }
+                        if (!/^\d+$/.test(text)) {
+                            return 'Course ID must be a number';
+                        }
+                        return null;
+                    }
+                });
+
+                if (!courseIdInput) {
+                    return;
+                }
+
+                const courseId = parseInt(courseIdInput, 10);
+
+                const joinRecordId = await courseService.joinCourse(token, courseId);
+                vscode.window.showInformationMessage(`You successfully joined the course. Record ID: ${joinRecordId}`);
+
+                await vscode.commands.executeCommand('intelligent-ide.course.refresh');
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Failed to join course: ${error.message}`);
+            }
+        }
+    );
+
+    context.subscriptions.push(disposable);
+}
+
+export function registerDownloadEntryCommand(context: vscode.ExtensionContext): void {
+    const disposable = vscode.commands.registerCommand(
+        'intelligent-ide.entry.download',
+        async (entryId: number) => {
+            try {
+                const token = await context.secrets.get('authToken');
+                if (!token) {
+                    vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
+                    return;
+                }
+
+                const fileData = await courseService.downloadEntry(token, entryId);
+
+                // Save the file locally
+                const saveUri = await vscode.window.showSaveDialog({
+                    saveLabel: 'Save File',
+                    title: 'Save Downloaded File'
+                });
+
+                if (saveUri) {
+                    await vscode.workspace.fs.writeFile(saveUri, fileData);
+                    vscode.window.showInformationMessage('File downloaded successfully!');
+                }
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Failed to download file: ${error.message}`);
+            }
+        }
+    );
+
+    context.subscriptions.push(disposable);
+}
+
+
