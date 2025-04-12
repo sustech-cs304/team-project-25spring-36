@@ -309,4 +309,31 @@ export const courseService = {
       throw new Error(error.response?.data?.message || error.message);
     }
   },
+
+
+  /**
+   * 
+   * @param token Authentication token
+   * @param courseId 
+   * @returns 
+   */
+  async joinCourse(token: string, courseId: number): Promise<number> {
+    try {
+      const response = await axios.post(
+        `${API_CONFIG.BASE_URL}${API_CONFIG.COURSE.STUDENT_JOIN}`,
+        { course_id: courseId },
+        {
+          headers: { 'Access-Token': token }
+        }
+      );
+
+      const result = parseResponse<{ id: number }>(response);
+      return result.id;
+    } catch (err: any) {
+      console.error('Error joining course:', err);
+      throw new Error(err.response?.data?.message || err.message);
+
+    }
+  }
+
 };

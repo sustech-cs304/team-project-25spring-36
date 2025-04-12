@@ -1,5 +1,5 @@
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:8080', 
+  BASE_URL: 'http://localhost:8080',
   // User endpoints
   USER: {
     LOGIN: '/api/user/login',
@@ -7,7 +7,7 @@ export const API_CONFIG = {
     REGISTER_CODE: '/api/user/register/code',
     INFO: '/api/user',
   },
-  
+
   // Course endpoints
   COURSE: {
     BASE: '/api/course',
