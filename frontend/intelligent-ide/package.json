@@ -47,12 +47,6 @@
         "icon": "$(person)"
       },
       {
-        "command": "intelligent-ide.course.refresh",
-        "title": "Refresh Courses",
-        "category": "Intelligent IDE: Course",
-        "icon": "$(refresh)"
-      },
-      {
         "command": "intelligent-ide.course.post",
         "title": "Create Course",
         "category": "Intelligent IDE: Course",
@@ -74,7 +68,7 @@
         "command": "intelligent-ide.course.join",
         "title": "Join Course",
         "category": "Intelligent IDE: Course",
-        "icon": "$(add)"
+        "icon": "$(debug-step-into)"
       },
       {
         "command": "intelligent-ide.directory.delete",
@@ -105,6 +99,18 @@
         "title": "Move File/Directory",
         "category": "Intelligent IDE: Course",
         "icon": "$(arrow-right)"
+      },
+      {
+        "command": "intelligent-ide.student.delete",
+        "title": "Remove Student",
+        "category": "Intelligent IDE: Course",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "intelligent-ide.views.refresh",
+        "title": "Refresh Views",
+        "category": "Intelligent IDE: View",
+        "icon": "$(refresh)"
       }
     ],
     "viewsContainers": {
@@ -151,17 +157,17 @@
           "group": "navigation"
         },
         {
-          "command": "intelligent-ide.course.refresh",
-          "when": "view == courses",
-          "group": "navigation"
-        },
-        {
           "command": "intelligent-ide.course.post",
-          "when": "view == courses && globalState.loginInfo ",
+          "when": "view == courses && globalState.loginInfo && globalState.userRole == 'teacher'",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.course.join",
+          "when": "view == courses && globalState.loginInfo && globalState.userRole == 'student'",
+          "group": "navigation"
+        },
+        {
+          "command": "intelligent-ide.views.refresh",
           "when": "view == courses && globalState.loginInfo",
           "group": "navigation"
         }
@@ -169,22 +175,22 @@
       "view/item/context": [
         {
           "command": "intelligent-ide.course.delete",
-          "when": "viewItem == course && globalState.loginInfo",
+          "when": "viewItem == course && globalState.loginInfo && globalState.userRole == 'teacher'",
           "group": "inline"
         },
         {
           "command": "intelligent-ide.directory.delete",
-          "when": "viewItem == directory && globalState.loginInfo",
+          "when": "viewItem == directory && globalState.loginInfo&& globalState.userRole == 'teacher'",
           "group": "inline"
         },
         {
           "command": "intelligent-ide.directory.post",
-          "when": "viewItem == course && globalState.loginInfo",
+          "when": "viewItem == course && globalState.loginInfo&& globalState.userRole == 'teacher'",
           "group": "inline"
         },
         {
           "command": "intelligent-ide.entry.delete",
-          "when": "viewItem == entry-file || viewItem == entry-directory",
+          "when": "viewItem == entry-file || viewItem == entry-directory&& globalState.userRole == 'teacher'",
           "group": "inline"
         },
         {
@@ -196,6 +202,11 @@
           "command": "intelligent-ide.entry.move",
           "when": "viewItem == entry-file",
           "group": "1_modification"
+        },
+        {
+          "command": "intelligent-ide.student.delete",
+          "when": "viewItem == student && globalState.loginInfo && globalState.userRole == 'teacher'",
+          "group": "inline"
         }
       ]
     }

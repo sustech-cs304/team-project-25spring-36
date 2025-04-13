@@ -15,7 +15,7 @@ import { registerCourseCommands } from '../commands/CourseCommands';
  */
 
 // Define tree item types
-type TreeItemType = 'course' | 'directory' | 'entry' | 'virtual-directory';
+type TreeItemType = 'course' | 'directory' | 'entry' | 'virtual-directory' | 'student';
 
 // Define a class for tree items
 export class CourseTreeItem extends vscode.TreeItem {
@@ -30,7 +30,7 @@ export class CourseTreeItem extends vscode.TreeItem {
         public readonly path?: string,
         public readonly isDirectory?: boolean,
         public readonly entry?: ICourseDirectoryEntry,
-        public readonly created_at?: string  // Add created_at parameter
+        public readonly created_at?: string  // Add created_at paramete
     ) {
         super(label, collapsibleState);
 
@@ -39,28 +39,33 @@ export class CourseTreeItem extends vscode.TreeItem {
             case 'course':
                 this.iconPath = new vscode.ThemeIcon('book');
                 this.contextValue = 'course';
-                this.tooltip = `Course: ${label}`;
+                this.tooltip = `Course: ${label} (ID: ${itemId})`;
                 break;
             case 'directory':
                 this.iconPath = new vscode.ThemeIcon('folder');
                 this.contextValue = 'directory';
-                this.tooltip = `Directory: ${label}`;
+                this.tooltip = `Directory: ${label} (ID: ${itemId})`;
                 break;
             case 'virtual-directory':
                 this.iconPath = new vscode.ThemeIcon('folder');
                 this.contextValue = 'virtual-directory';
-                this.tooltip = `Directory: ${label}`;
+                this.tooltip = `Directory: ${label} (ID: ${itemId})`;
                 break;
             case 'entry':
                 if (entry && entry.type === 'directory') {
                     this.iconPath = new vscode.ThemeIcon('folder');
                     this.contextValue = 'entry-directory';
-                    this.tooltip = `Directory: ${path}`;
+                    this.tooltip = `Directory: ${path} (ID: ${entry.id})`;
                 } else {
                     this.iconPath = getFileIcon(path || '');
                     this.contextValue = 'entry-file';
-                    this.tooltip = `File: ${path}`;
+                    this.tooltip = `File: ${path} (ID: ${itemId})`;
                 }
+                break;
+            case 'student':
+                this.iconPath = new vscode.ThemeIcon('person');
+                this.contextValue = 'student';
+                this.tooltip = `Student: ${label} (ID: ${itemId})`;
                 break;
         }
 
@@ -135,24 +140,71 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
             } else if (element.type === 'course') {
                 // Second level: Fetch directories for the selected course
                 const courseId = typeof element.itemId === 'number' ? element.itemId : parseInt(element.itemId.toString());
+
+                // Get directories
                 const directories = await courseService.getDirectories(token, courseId);
-
-                if (directories.length === 0) {
-                    vscode.window.showInformationMessage('No directories found in this course.');
-                    return [];
-                }
-
-                return directories.map(directory => new CourseTreeItem(
+                const directoryItems = directories.map(directory => new CourseTreeItem(
                     directory.name,
                     vscode.TreeItemCollapsibleState.Collapsed,
                     'directory',
                     directory.id,
                     courseId,
-                    undefined, // path
-                    true, // isDirectory
-                    undefined, // entry
-                    directory.created_at // Pass created_at directly
+                    undefined,
+                    true,
+                    undefined,
+                    directory.created_at
                 ));
+
+                // Only show students folder for teacher role
+                if (loginInfo.role === 'teacher') {
+                    // Create a students folder
+                    const studentsFolder = new CourseTreeItem(
+                        'Students',
+                        vscode.TreeItemCollapsibleState.Collapsed,
+                        'virtual-directory',
+                        `students-${courseId}`,
+                        courseId,
+                        undefined,
+                        true
+                    );
+
+                    // Get students
+                    try {
+                        const students = await courseService.getStudents(token, courseId);
+                        if (students && students.length > 0) {
+                            // Create student items
+                            (studentsFolder as any).children = students.map(student => new CourseTreeItem(
+                                `${student.username} (${student.email})`,
+                                vscode.TreeItemCollapsibleState.None,
+                                'student',
+                                student.id,
+                                courseId,
+                                undefined,
+                                false
+                            ));
+                        }
+                        // Return both directories and students folder
+                        return [...directoryItems, studentsFolder];
+                    } catch (error) {
+                        console.error('Error fetching students:', error);
+                        // Still return directories and students folder even if students fail to load
+                        (studentsFolder as any).children = [
+                            new CourseTreeItem(
+                                'Error loading students',
+                                vscode.TreeItemCollapsibleState.None,
+                                'virtual-directory',
+                                'error-students',
+                                courseId,
+                                undefined,
+                                false
+                            )
+                        ];
+                        return [...directoryItems, studentsFolder];
+                    }
+                } else {
+                    // For students, only return the directories
+                    return directoryItems;
+                }
             } else if (element.type === 'directory') {
                 try {
                     // Convert itemId to number if it's a string
@@ -369,21 +421,4 @@ function getFileIcon(filePath: string): vscode.ThemeIcon {
         default:
             return new vscode.ThemeIcon('file');
     }
-}
-
-/**
- * Register the TreeView
- */
-export function registerCourseView(context: vscode.ExtensionContext): vscode.Disposable {
-    const treeDataProvider = new CourseTreeDataProvider(context);
-    const treeView = vscode.window.createTreeView('courses', {
-        treeDataProvider,
-        showCollapseAll: true
-    });
-
-    // Pass treeDataProvider to command registration
-    registerCourseCommands(context, treeDataProvider);
-
-    context.subscriptions.push(treeView);
-    return treeView;
 }

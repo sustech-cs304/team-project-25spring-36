@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { authenticationService } from '../services/userService';
-import { refreshLoginView } from '../views/userView';
-
+import { ViewType, refreshAllViews, refreshViews } from '../views/viewManager';
 /**
  * Register all user-related commands
  */
@@ -45,8 +44,7 @@ function registerLoginCommand(context: vscode.ExtensionContext): void {
                 await context.secrets.store('authToken', token);
                 vscode.window.showInformationMessage('Login successful!');
 
-                // Update the login view
-                refreshLoginView(context);
+                refreshAllViews();
             } else {
                 vscode.window.showErrorMessage('Username and password are required.');
             }
@@ -124,8 +122,7 @@ function registerRegisterCommand(context: vscode.ExtensionContext): void {
             await context.secrets.store("authToken", token);
             vscode.window.showInformationMessage(`Registration successful for ${username} !`);
 
-            // Update the user view
-            refreshLoginView(context);
+            refreshAllViews();
 
         } catch (error: any) {
             const detailedError = error.response?.data?.message || error.message;
@@ -177,7 +174,7 @@ function registerUpdateCommand(context: vscode.ExtensionContext): void {
             const token = await authenticationService.update(username, password, storedToken);
             await authenticationService.getUserInfo(token, context);
             await context.secrets.store('authToken', token);
-            refreshLoginView(context);
+            refreshViews([ViewType.LOGIN]);
             vscode.window.showInformationMessage(`Updated successfully!`);
         } catch (error: any) {
             const detailedError = error.response?.data?.message || error.message;
@@ -206,8 +203,7 @@ function registerLogoutCommand(context: vscode.ExtensionContext): void {
             // Remove token from secrets
             await context.secrets.delete('authToken');
 
-            // Update the user view
-            refreshLoginView(context);
+            refreshAllViews();
 
             vscode.window.showInformationMessage('Logout successful!');
         } catch (error: any) {
@@ -253,15 +249,8 @@ function registerSwitchRoleCommand(context: vscode.ExtensionContext): void {
             // Save updated login info
             await context.globalState.update('loginInfo', updatedLoginInfo);
 
-            // Refresh user view to show the new role
-            refreshLoginView(context);
+            refreshViews([ViewType.LOGIN, ViewType.COURSE]);
 
-            // Refresh course view to show relevant courses for the new role
-            try {
-                await vscode.commands.executeCommand('intelligent-ide.course.refresh');
-            } catch (error) {
-
-            }
 
             vscode.window.showInformationMessage(`Role switched to: ${selectedRole}`);
         } catch (error: any) {

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { courseService } from '../services/CourseService';
-import { refreshLoginView } from '../views/userView';
+import { refreshViews, ViewType, refreshAllViews } from '../views/viewManager';
 import { LoginInfo } from '../models/LoginInfo';
 import { CourseTreeDataProvider, CourseTreeItem } from '../views/CourseView';
 import { DirectoryPermissionType } from '../models/CourseModels';
@@ -12,7 +12,6 @@ import * as fs from 'fs';
 export function registerCourseCommands(context: vscode.ExtensionContext, treeDataProvider?: CourseTreeDataProvider): void {
     registerCreateCourseCommand(context);
     registerDeleteCourseCommand(context);
-    registerRefreshCommand(context, treeDataProvider);
     registerOpenFileCommand(context);
     registerDeleteDirectoryCommand(context);
     registerPostDirectoryCommand(context);
@@ -20,7 +19,7 @@ export function registerCourseCommands(context: vscode.ExtensionContext, treeDat
     registerDeleteEntryCommand(context);
     registerMoveEntryCommand(context);
     registerJoinCourseCommand(context);
-    // registerDownloadEntryCommand(context);
+    registerDeleteStudentCommand(context);
 }
 
 /**
@@ -61,7 +60,7 @@ function registerCreateCourseCommand(context: vscode.ExtensionContext): void {
                         ...loginInfo,
                         role: 'teacher'
                     });
-                    refreshLoginView(context);
+                    refreshAllViews();
                 } else {
                     return; // User cancelled
                 }
@@ -86,8 +85,8 @@ function registerCreateCourseCommand(context: vscode.ExtensionContext): void {
             }
             await courseService.createCourse(token, name, description);
             vscode.window.showInformationMessage(`Course "${name}" created successfully.`);
-            await vscode.commands.executeCommand('intelligent-ide.course.refresh');
 
+            refreshViews([ViewType.COURSE]);
         } catch (error: any) {
             vscode.window.showErrorMessage(`Error creating course: ${error.message}`);
         }
@@ -170,7 +169,8 @@ function registerDeleteCourseCommand(context: vscode.ExtensionContext): void {
                 // Proceed with deletion using courseId
                 await courseService.deleteCourse(token, courseId);
                 vscode.window.showInformationMessage(`Course deleted successfully.`);
-                await vscode.commands.executeCommand('intelligent-ide.course.refresh');
+
+                refreshViews([ViewType.COURSE]);
 
             } catch (error: any) {
                 vscode.window.showErrorMessage(`Error deleting course: ${error.message}`);
@@ -181,18 +181,6 @@ function registerDeleteCourseCommand(context: vscode.ExtensionContext): void {
     context.subscriptions.push(disposable);
 }
 
-/**
- * Register command to refresh the course tree view
- */
-function registerRefreshCommand(context: vscode.ExtensionContext, treeDataProvider?: CourseTreeDataProvider): void {
-    const disposable = vscode.commands.registerCommand('intelligent-ide.course.refresh', () => {
-        if (treeDataProvider) {
-            treeDataProvider.refresh();
-        }
-    });
-
-    context.subscriptions.push(disposable);
-}
 
 /**
  * Register command to open a course file
@@ -328,7 +316,8 @@ function registerDeleteDirectoryCommand(context: vscode.ExtensionContext): void 
                 // Proceed with deletion
                 await courseService.deleteDirectory(token, directoryId);
                 vscode.window.showInformationMessage(`Directory deleted successfully.`);
-                await vscode.commands.executeCommand('intelligent-ide.course.refresh');
+
+                refreshViews([ViewType.COURSE]);
 
             } catch (error: any) {
                 vscode.window.showErrorMessage(`Error deleting directory: ${error.message}`);
@@ -483,7 +472,7 @@ function registerPostDirectoryCommand(context: vscode.ExtensionContext): void {
                 // Create directory with undefined permissions (skipping permission handling for now)
                 const directoryId = await courseService.postDirectory(token, courseId, name, undefined);
                 vscode.window.showInformationMessage(`Directory "${name}" created with ID: ${directoryId}`);
-                await vscode.commands.executeCommand('intelligent-ide.course.refresh');
+                refreshViews([ViewType.COURSE]);
 
             } catch (error: any) {
                 vscode.window.showErrorMessage(`Error creating directory: ${error.message}`);
@@ -526,7 +515,7 @@ function registerDeleteEntryCommand(context: vscode.ExtensionContext): void {
                 // Delete the entry
                 await courseService.deleteEntry(token, entryItem.entry.id);
                 vscode.window.showInformationMessage(`Entry deleted successfully.`);
-                await vscode.commands.executeCommand('intelligent-ide.course.refresh');
+                refreshViews([ViewType.COURSE]);
 
             } catch (error: any) {
                 vscode.window.showErrorMessage(`Error deleting entry: ${error.message}`);
@@ -631,7 +620,7 @@ function registerUploadFileCommand(context: vscode.ExtensionContext): void {
                     );
 
                     vscode.window.showInformationMessage(`File uploaded successfully with ID: ${entryId}`);
-                    await vscode.commands.executeCommand('intelligent-ide.course.refresh');
+                    refreshViews([ViewType.COURSE]);
                 });
 
             } catch (error: any) {
@@ -722,7 +711,7 @@ function registerMoveEntryCommand(context: vscode.ExtensionContext): void {
                     vscode.window.showInformationMessage(
                         `Entry successfully moved to ${destinationPath}`
                     );
-                    await vscode.commands.executeCommand('intelligent-ide.course.refresh');
+                    refreshViews([ViewType.COURSE]);
                 });
             } catch (error: any) {
                 vscode.window.showErrorMessage(`Error moving entry: ${error.message}`);
@@ -770,10 +759,10 @@ function registerJoinCourseCommand(context: vscode.ExtensionContext): void {
 
                 const courseId = parseInt(courseIdInput, 10);
 
-                const joinRecordId = await courseService.joinCourse(token, courseId);
-                vscode.window.showInformationMessage(`You successfully joined the course. Record ID: ${joinRecordId}`);
+                const student_id = await courseService.joinCourse(token, courseId);
+                vscode.window.showInformationMessage(`You successfully joined the course with student ID: ${student_id}.`);
 
-                await vscode.commands.executeCommand('intelligent-ide.course.refresh');
+                refreshViews([ViewType.COURSE]);
             } catch (error: any) {
                 vscode.window.showErrorMessage(`Failed to join course: ${error.message}`);
             }
@@ -783,6 +772,119 @@ function registerJoinCourseCommand(context: vscode.ExtensionContext): void {
     context.subscriptions.push(disposable);
 }
 
+
+function registerDeleteStudentCommand(context: vscode.ExtensionContext): void {
+    const disposable = vscode.commands.registerCommand(
+        'intelligent-ide.student.delete',
+        async (studentItem?: CourseTreeItem) => {
+            try {
+                const token = await context.secrets.get('authToken');
+                if (!token) {
+                    vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
+                    return;
+                }
+
+                const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
+                if (!loginInfo) {
+                    vscode.window.showErrorMessage('You must log in first.');
+                    return;
+                }
+
+                // Check if user has teacher role
+                if (loginInfo.role !== 'teacher') {
+                    vscode.window.showErrorMessage('Only teachers can remove students.');
+                    return;
+                }
+
+                let studentId: number;
+                let courseId: number;
+
+                // If student item was clicked in the tree view
+                if (studentItem && studentItem.type === 'student') {
+                    studentId = typeof studentItem.itemId === 'number'
+                        ? studentItem.itemId
+                        : parseInt(studentItem.itemId.toString(), 10);
+
+                    courseId = typeof studentItem.parentId === 'number'
+                        ? studentItem.parentId
+                        : parseInt(studentItem.parentId!.toString(), 10);
+
+                    // Confirm deletion
+                    const confirmation = await vscode.window.showWarningMessage(
+                        `Are you sure you want to remove student "${studentItem.label}" from the course?`,
+                        'Yes', 'No'
+                    );
+
+                    if (confirmation !== 'Yes') {
+                        return;
+                    }
+                } else {
+                    // If command was invoked without a student selected, prompt for course ID
+                    const courseIdInput = await vscode.window.showInputBox({
+                        prompt: 'Enter the Course ID to manage students',
+                        placeHolder: 'e.g., 101',
+                        validateInput: (text) => {
+                            if (!text) { return 'Course ID is required'; }
+                            if (!/^\d+$/.test(text)) { return 'Course ID must be a number'; }
+                            return null;
+                        }
+                    });
+
+                    if (!courseIdInput) { return; }
+                    courseId = parseInt(courseIdInput, 10);
+
+                    // Get student list and show picker
+                    try {
+                        const students = await courseService.getStudents(token, courseId);
+
+                        if (!students || students.length === 0) {
+                            vscode.window.showInformationMessage('No students enrolled in this course.');
+                            return;
+                        }
+
+                        const studentOption = await vscode.window.showQuickPick(
+                            students.map(student => ({
+                                label: `${student.username} (${student.email})`,
+                                id: student.id
+                            })),
+                            { placeHolder: 'Select student to remove' }
+                        );
+
+                        if (!studentOption) { return; }
+                        studentId = parseInt(studentOption.id, 10);
+
+                    } catch (error) {
+                        // Fallback to manual ID entry
+                        const studentIdInput = await vscode.window.showInputBox({
+                            prompt: 'Enter the student ID you want to remove',
+                            placeHolder: 'e.g., 101',
+                            validateInput: (text) => {
+                                if (!text) { return 'Student ID is required'; }
+                                if (!/^\d+$/.test(text)) { return 'Student ID must be a number'; }
+                                return null;
+                            }
+                        });
+
+                        if (!studentIdInput) { return; }
+                        studentId = parseInt(studentIdInput, 10);
+                    }
+                }
+
+                // Delete the student
+                await courseService.deleteStudent(token, courseId, studentId);
+                vscode.window.showInformationMessage(`Student removed from the course successfully`);
+
+                // Refresh the tree view
+                refreshViews([ViewType.COURSE]);
+
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Failed to remove student: ${error.message}`);
+            }
+        }
+    );
+
+    context.subscriptions.push(disposable);
+}
 // 🚫🚫🚫 WARNING 🚫🚫🚫
 // +-----------------------------------------+
 // | openfile command已经涵盖了这一部份，请不要重复实现 |

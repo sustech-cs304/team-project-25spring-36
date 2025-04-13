@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { API_CONFIG } from '../resources/configs/config';
 import { parseResponse } from '../utils/parseResponse';
-import { ICourse, ICourseDirectory, ICourseDirectoryEntry, DirectoryPermissionType } from '../models/CourseModels';
+import { ICourse, ICourseDirectory, ICourseDirectoryEntry, DirectoryPermissionType, ICourseStudent } from '../models/CourseModels';
 
 export const courseService = {
   /**
@@ -313,7 +313,7 @@ export const courseService = {
 
   /**
    * 
-   * @param token Authentication token
+   * @param token Authentication toke
    * @param courseId 
    * @returns 
    */
@@ -327,12 +327,46 @@ export const courseService = {
         }
       );
 
-      const result = parseResponse<{ id: number }>(response);
-      return result.id;
+      const result = parseResponse<{ course_student_id: number }>(response);
+      return result.course_student_id;
     } catch (err: any) {
       console.error('Error joining course:', err);
       throw new Error(err.response?.data?.message || err.message);
 
+    }
+  },
+  async getStudents(token: string, courseId: number): Promise<ICourseStudent[]> {
+    try {
+      const response = await axios.get(
+        `${API_CONFIG.BASE_URL}${API_CONFIG.COURSE.STUDENT}`, {
+        params: { course_id: courseId },
+        headers: {
+          'Access-Token': token
+        }
+      });
+
+      // The students array is directly in the data field, not in a nested 'students' property
+      return parseResponse<ICourseStudent[]>(response);
+    } catch (err: any) {
+      console.error('Error getting students:', err);
+      throw new Error(err.response?.data?.message || err.message);
+    }
+  },
+
+  async deleteStudent(token: string, courseId: number, course_student_id: number): Promise<string> {
+    try {
+      const response = await axios.delete(
+        `${API_CONFIG.BASE_URL}${API_CONFIG.COURSE.STUDENT}`, {
+        params: { course_id: courseId, course_student_id: course_student_id },
+        headers: {
+          'Access-Token': token
+        }
+      });
+      const result = parseResponse<{ msg: string }>(response);
+      return result.msg;
+    } catch (err: any) {
+      console.error('Error deleting student:', err);
+      throw new Error(err.response?.data?.message || err.message);
     }
   }
 

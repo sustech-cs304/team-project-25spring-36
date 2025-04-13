@@ -21,15 +21,18 @@ export interface ICourseDirectoryEntry {
     path: string;
     type: string;
     created_at: string;
-    storage_name: string
+    storage_name: string;
 }
 
 export interface ICourseStudent {
-    id: number;
-    course_id: number;
-    user_id: number;
-    user_name: string;
+    id: string;
+    username: string;
+    email: string;
+    password?: string;
     created_at: string;
+    updated_at?: string;
+    uid: string;
+    user_id?: number;
 }
 
 export interface ICollaborativeEntry {
@@ -40,6 +43,7 @@ export interface ICollaborativeEntry {
     created_by: number;
     created_by_name: string;
 }
+
 export enum DirectoryPermissionType {
     READ = "read",
     WRITE = "write",
