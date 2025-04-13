@@ -1,4 +1,6 @@
 const esbuild = require("esbuild");
+const fs = require('fs');
+const path = require('path');
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
@@ -23,6 +25,30 @@ const esbuildProblemMatcherPlugin = {
 	},
 };
 
+/**
+ * @type {import('esbuild').Plugin}
+ */
+const copyPdfkitFontsPlugin = {
+	name: 'copy-pdfkit-fonts',
+	setup(build) {
+		build.onEnd(() => {
+			const sourceDir = path.resolve(__dirname, 'node_modules/pdfkit/js/data');
+			const destDir = path.resolve(__dirname, 'dist/data');
+
+			if (!fs.existsSync(destDir)) {
+				fs.mkdirSync(destDir, { recursive: true });
+			}
+
+			fs.readdirSync(sourceDir).forEach(file => {
+				const sourceFile = path.join(sourceDir, file);
+				const destFile = path.join(destDir, file);
+				fs.copyFileSync(sourceFile, destFile);
+				console.log(`Copied ${file} to dist/data`);
+			});
+		});
+	},
+};
+
 async function main() {
 	const ctx = await esbuild.context({
 		entryPoints: [
@@ -40,6 +66,7 @@ async function main() {
 		plugins: [
 			/* add to the end of plugins array */
 			esbuildProblemMatcherPlugin,
+			copyPdfkitFontsPlugin, // Add this plugin
 		],
 	});
 	if (watch) {

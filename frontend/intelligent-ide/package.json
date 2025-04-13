@@ -11,7 +11,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onNotebook:*"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -111,6 +112,42 @@
         "title": "Refresh Views",
         "category": "Intelligent IDE: View",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "intelligent-ide.notebook.new",
+        "title": "New Notebook",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "intelligent-ide.notebook.open",
+        "title": "Open Notebook",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(file)"
+      },
+      {
+        "command": "intelligent-ide.notebook.delete",
+        "title": "Delete Notebook",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "intelligent-ide.notebook.refresh",
+        "title": "Refresh Notebook Explorer",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "intelligent-ide.notebook.exportToPdf",
+        "title": "Export to PDF",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(file-pdf)"
+      },
+      {
+        "command": "intelligent-ide.notebook.openDefault",
+        "title": "Open Default Notebook",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(book)"
       }
     ],
     "viewsContainers": {
@@ -119,6 +156,11 @@
           "id": "intelligent-ide",
           "title": "Intelligent IDE",
           "icon": "src/resources/images/icon.svg"
+        },
+        {
+          "id": "notebookView",
+          "title": "Notebooks",
+          "icon": "src/resources/images/notebook-icon.svg"
         }
       ]
     },
@@ -131,6 +173,11 @@
         {
           "id": "courses",
           "name": "Course Explorer"
+        },
+        {
+          "id": "notebookExplorer",
+          "name": "Notebook Explorer",
+          "contextualTitle": "Notebook Explorer"
         }
       ]
     },
@@ -170,6 +217,16 @@
           "command": "intelligent-ide.views.refresh",
           "when": "view == courses && globalState.loginInfo",
           "group": "navigation"
+        },
+        {
+          "command": "intelligent-ide.notebook.new",
+          "when": "view == notebookExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "intelligent-ide.notebook.refresh",
+          "when": "view == notebookExplorer",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
@@ -207,9 +264,42 @@
           "command": "intelligent-ide.student.delete",
           "when": "viewItem == student && globalState.loginInfo && globalState.userRole == 'teacher'",
           "group": "inline"
+        },
+        {
+          "command": "intelligent-ide.notebook.delete",
+          "when": "viewItem == notebookItem",
+          "group": "inline"
+        },
+        {
+          "command": "intelligent-ide.notebook.exportToPdf",
+          "when": "viewItem == notebookItem",
+          "group": "inline"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "intelligent-ide.notebook.new",
+          "when": "true",
+          "group": "navigation"
+        },
+        {
+          "command": "intelligent-ide.notebook.open",
+          "when": "true",
+          "group": "navigation"
         }
       ]
-    }
+    },
+    "notebooks": [
+      {
+        "type": "my-notebook",
+        "displayName": "My Notebook",
+        "selector": [
+          {
+            "filenamePattern": "*.myipynb"
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -239,8 +329,11 @@
     "typescript": "^5.7.3"
   },
   "dependencies": {
+    "@types/pdfkit": "^0.13.9",
     "axios": "^1.8.1",
     "form-data": "^4.0.2",
+    "pdfkit": "^0.17.0",
+    "showdown": "^2.1.0",
     "sinon": "^19.0.2"
   }
 }
