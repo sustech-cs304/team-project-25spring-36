@@ -20,7 +20,7 @@ export function registerCourseCommands(context: vscode.ExtensionContext, treeDat
     registerDeleteEntryCommand(context);
     registerMoveEntryCommand(context);
     registerJoinCourseCommand(context);
-    registerDownloadEntryCommand(context);
+    // registerDownloadEntryCommand(context);
 }
 
 /**
@@ -783,63 +783,69 @@ function registerJoinCourseCommand(context: vscode.ExtensionContext): void {
     context.subscriptions.push(disposable);
 }
 
-export function registerDownloadEntryCommand(context: vscode.ExtensionContext): void {
-    const disposable = vscode.commands.registerCommand(
-        'intelligent-ide.entry.download',
-        async (treeItem: CourseTreeItem) => {
-            try {
-                // assuming courseService is already imported and available
-                const token = await context.secrets.get('authToken');
-                if (!token) {
-                    vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
-                    console.error('Error: Authentication token not found.');
-                    return;
-                }
-                console.log('Authentication token retrieved successfully.');
+// 🚫🚫🚫 WARNING 🚫🚫🚫
+// +-----------------------------------------+
+// | openfile command已经涵盖了这一部份，请不要重复实现 |
+// +-----------------------------------------+
+// 🚫🚫🚫 WARNING 🚫🚫🚫
 
-                // Check if the treeItem is valid and of type 'entry'
-                if (!treeItem || treeItem.type !== 'entry' || treeItem.isDirectory) {
-                    vscode.window.showErrorMessage('Invalid file entry selected for download.');
-                    console.error('Error: Invalid file entry selected.');
-                    return;
-                }
+// export function registerDownloadEntryCommand(context: vscode.ExtensionContext): void {
+//     const disposable = vscode.commands.registerCommand(
+//         'intelligent-ide.entry.download',
+//         async (treeItem: CourseTreeItem) => {
+//             try {
+//                 // assuming courseService is already imported and available
+//                 const token = await context.secrets.get('authToken');
+//                 if (!token) {
+//                     vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
+//                     console.error('Error: Authentication token not found.');
+//                     return;
+//                 }
+//                 console.log('Authentication token retrieved successfully.');
 
-                // Check if the entry ID is valid
-                const entryId = typeof treeItem.itemId === 'number'
-                    ? treeItem.itemId
-                    : parseInt(treeItem.itemId.toString(), 10);
+//                 // Check if the treeItem is valid and of type 'entry'
+//                 if (!treeItem || treeItem.type !== 'entry' || treeItem.isDirectory) {
+//                     vscode.window.showErrorMessage('Invalid file entry selected for download.');
+//                     console.error('Error: Invalid file entry selected.');
+//                     return;
+//                 }
 
-                if (isNaN(entryId)) {
-                    vscode.window.showErrorMessage('Invalid entry ID.');
-                    console.error('Error: Invalid entry ID:', treeItem.itemId);
-                    return;
-                }
+//                 // Check if the entry ID is valid
+//                 const entryId = typeof treeItem.itemId === 'number'
+//                     ? treeItem.itemId
+//                     : parseInt(treeItem.itemId.toString(), 10);
 
-
-                const fileData = await courseService.downloadEntry(token, entryId);
-
-                const saveUri = await vscode.window.showSaveDialog({
-                    saveLabel: 'Save File',
-                    title: 'Save Downloaded File',
-                    defaultUri: vscode.Uri.file(treeItem.label)
-                });
-
-                if (!saveUri) {
-                    console.log('Save dialog cancelled by user.');
-                    return;
-                }
-                await vscode.workspace.fs.writeFile(saveUri, fileData);
-                vscode.window.showInformationMessage('File downloaded successfully!');
+//                 if (isNaN(entryId)) {
+//                     vscode.window.showErrorMessage('Invalid entry ID.');
+//                     console.error('Error: Invalid entry ID:', treeItem.itemId);
+//                     return;
+//                 }
 
 
-            } catch (error: any) {
-                vscode.window.showErrorMessage(`Failed to download file: ${error.message}`);
-                console.error('Error during file download:', error.message, error.stack);
-            }
-        }
-    );
+//                 const fileData = await courseService.downloadEntry(token, entryId);
 
-    context.subscriptions.push(disposable);
-}
+//                 const saveUri = await vscode.window.showSaveDialog({
+//                     saveLabel: 'Save File',
+//                     title: 'Save Downloaded File',
+//                     defaultUri: vscode.Uri.file(treeItem.label)
+//                 });
+
+//                 if (!saveUri) {
+//                     console.log('Save dialog cancelled by user.');
+//                     return;
+//                 }
+//                 await vscode.workspace.fs.writeFile(saveUri, fileData);
+//                 vscode.window.showInformationMessage('File downloaded successfully!');
+
+
+//             } catch (error: any) {
+//                 vscode.window.showErrorMessage(`Failed to download file: ${error.message}`);
+//                 console.error('Error during file download:', error.message, error.stack);
+//             }
+//         }
+//     );
+
+//     context.subscriptions.push(disposable);
+// }
 
 

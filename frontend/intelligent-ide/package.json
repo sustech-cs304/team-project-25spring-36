@@ -105,12 +105,6 @@
         "title": "Move File/Directory",
         "category": "Intelligent IDE: Course",
         "icon": "$(arrow-right)"
-      },
-      {
-        "command": "intelligent-ide.entry.download",
-        "title": "Download File",
-        "category": "Intelligent IDE: Course",
-        "icon": "$(cloud-download)"
       }
     ],
     "viewsContainers": {
@@ -199,13 +193,8 @@
           "group": "2_workspace"
         },
         {
-          "command": "intelligent-ide.entry.download",
-          "when": "viewItem == entry-file || viewItem == entry-directory",
-          "group": "inline"
-        },
-        {
           "command": "intelligent-ide.entry.move",
-          "when": "viewItem == entry-file || viewItem == entry-directory",
+          "when": "viewItem == entry-file",
           "group": "1_modification"
         }
       ]
