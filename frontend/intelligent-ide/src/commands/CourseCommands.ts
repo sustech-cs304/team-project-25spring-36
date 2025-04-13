@@ -183,7 +183,7 @@ function registerDeleteCourseCommand(context: vscode.ExtensionContext): void {
 
 
 /**
- * Register command to open a course file
+ * Register command to open a course file with smart temporary file cachin
  */
 function registerOpenFileCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand('intelligent-ide.course.openFile', async (item: CourseTreeItem) => {
@@ -198,16 +198,20 @@ function registerOpenFileCommand(context: vscode.ExtensionContext): void {
                 return;
             }
 
-            // Show progress while downloadin
+            // Show progress while downloading
             await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
-                title: `Downloading ${item.label}...`,
+                title: `Opening ${item.label}...`,
                 cancellable: false
             }, async (progress) => {
                 try {
-                    // Create a unique identifier for this file
-                    const fileId = `${item.entry!.id}-${Date.now()}`;
+                    // Create a stable identifier for this file
                     const fileName = path.basename(item.path || 'file');
+                    const entryId = item.entry!.id;
+                    const createdAt = item.entry!.created_at;
+
+                    // Create a stable file identifier that doesn't change with each download
+                    const fileId = `${entryId}-${createdAt.replace(/[^0-9]/g, '')}`;
 
                     // Use system temp directory with our extension prefix
                     const tempDir = path.join(os.tmpdir(), 'intelligent-ide');
@@ -215,27 +219,39 @@ function registerOpenFileCommand(context: vscode.ExtensionContext): void {
                         fs.mkdirSync(tempDir, { recursive: true });
                     }
 
-                    // Use a unique filename to avoid collisions
+                    // Use a consistent filename based on stable ID
                     const tempFilePath = path.join(tempDir, `${fileId}-${fileName}`);
 
-                    // Always download fresh content
-                    const fileContent = await courseService.downloadEntry(token, item.entry!.id);
-                    await vscode.workspace.fs.writeFile(vscode.Uri.file(tempFilePath), fileContent);
+                    // Check if the file already exists and is recent
+                    let shouldDownload = true;
+                    if (fs.existsSync(tempFilePath)) {
+                        // File exists, show notification that we're using cached version
+                        progress.report({ message: 'Using cached version...' });
+                        shouldDownload = false;
+                    }
 
-                    // Open file with warning about being temporary
+                    // Download only if necessary
+                    if (shouldDownload) {
+                        progress.report({ message: 'Downloading fresh content...' });
+                        const fileContent = await courseService.downloadEntry(token, entryId);
+                        await vscode.workspace.fs.writeFile(vscode.Uri.file(tempFilePath), fileContent);
+                    }
+
+                    // Open the file
                     const document = await vscode.workspace.openTextDocument(tempFilePath);
                     await vscode.window.showTextDocument(document);
 
-                    // Prompt to save permanently
-                    const saveAction = await vscode.window.showInformationMessage(
-                        'This is a temporary file that may be deleted. Save a permanent copy?',
-                        'Save As', 'No Thanks'
-                    );
+                    // Only show "temporary file" warning first time
+                    if (shouldDownload) {
+                        const saveAction = await vscode.window.showInformationMessage(
+                            'This is a cached file from your course. Save a permanent copy?',
+                            'Save As', 'No Thanks'
+                        );
 
-                    if (saveAction === 'Save As') {
-                        await vscode.commands.executeCommand('workbench.action.files.saveAs');
+                        if (saveAction === 'Save As') {
+                            await vscode.commands.executeCommand('workbench.action.files.saveAs');
+                        }
                     }
-
 
                 } catch (error: any) {
                     vscode.window.showErrorMessage(`Error opening file: ${error.message}`);

@@ -190,7 +190,7 @@
         },
         {
           "command": "intelligent-ide.entry.delete",
-          "when": "viewItem == entry-file || viewItem == entry-directory&& globalState.userRole == 'teacher'",
+          "when": "viewItem == entry-file || viewItem == entry-directory && globalState.userRole == 'teacher'",
           "group": "inline"
         },
         {

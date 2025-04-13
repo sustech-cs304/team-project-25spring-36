@@ -18,7 +18,7 @@ export enum ViewType {
 }
 
 /**
- * Initialize the view manager with required context and providers
+ * Initialize the view manager with required context and provider
  */
 export function initializeViewManager(extContext: vscode.ExtensionContext): CourseTreeDataProvider {
     context = extContext;
@@ -40,7 +40,7 @@ function registerUserView(context: vscode.ExtensionContext): void {
 }
 
 /**
- * Register course tree view
+ * Register course tree vie
  */
 function registerCourseView(context: vscode.ExtensionContext): CourseTreeDataProvider {
     // Create tree data provider

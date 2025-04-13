@@ -136,16 +136,12 @@ export const courseService = {
     permission?: Record<string, DirectoryPermissionType[]>
   ): Promise<number> {
     try {
-      // Create request body with required fields
+      // Create request body with required fields and default empty permissio
       const requestBody: any = {
         course_id: courseId,
-        name
+        name,
+        permission: permission || {} // Always include permission field, default to empty object
       };
-
-      // Only include permission field if provided and not empty
-      if (permission && Object.keys(permission).length > 0) {
-        requestBody.permission = permission;
-      }
 
       const response = await axios.post(
         `${API_CONFIG.BASE_URL}${API_CONFIG.COURSE.DIRECTORY}`,

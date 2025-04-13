@@ -159,7 +159,7 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
                 if (loginInfo.role === 'teacher') {
                     // Create a students folder
                     const studentsFolder = new CourseTreeItem(
-                        'Students',
+                        'students',
                         vscode.TreeItemCollapsibleState.Collapsed,
                         'virtual-directory',
                         `students-${courseId}`,

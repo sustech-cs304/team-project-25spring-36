@@ -57,7 +57,7 @@ export const authenticationService = {
       });
       const userInfo = parseResponse<IUserInfo>(response);
 
-      // Store login info in global state
+      // Store login info in global states
       const newLoginInfo = {
         token: token,
         username: userInfo.username,
@@ -79,7 +79,7 @@ export const authenticationService = {
   async update(username: string, password: string, token: string): Promise<string> {
     try {
       const response = await axios.put(
-        `${API_CONFIG.BASE_URL}${API_CONFIG.USER}`,
+        `${API_CONFIG.BASE_URL}${API_CONFIG.USER.INFO}`,
         { username, password },
         {
           headers: {
