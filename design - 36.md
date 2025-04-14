@@ -14,7 +14,9 @@
   - Once the commands are tested and functioning, adding a user interface becomes a simple task of connecting the existing commands to the corresponding components. This not only accelerates development but also ensures that the logic remains consistent across both the command-line and UI-driven workflows.
 
 ### UI Design
+
 ![Archtecture](./images/UI.svg)
+
 **Implemented:**
 - User login and registration
 - Course resource management
