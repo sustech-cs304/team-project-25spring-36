@@ -22,3 +22,5 @@ export const API_CONFIG = {
     COLLABORATIVE_DOWNLOAD: '/api/course/collaborative/download'
   }
 };
+
+export const OPENAI_API_KEY = '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';

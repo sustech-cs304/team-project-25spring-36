@@ -148,6 +148,18 @@
         "title": "Open Default Notebook",
         "category": "Intelligent IDE: Notebook",
         "icon": "$(book)"
+      },
+      {
+        "command": "intelligent-ide.chat.open",
+        "title": "Open AI Chat Assistant",
+        "category": "Intelligent IDE: Chat",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "intelligent-ide.chat.clear",
+        "title": "Clear AI Conversation History",
+        "category": "Intelligent IDE: Chat",
+        "icon": "$(clear-all)"
       }
     ],
     "viewsContainers": {

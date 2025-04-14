@@ -266,7 +266,7 @@ function registerOpenFileCommand(context: vscode.ExtensionContext): void {
 }
 
 /**
- * Register command to delete a directory
+ * egister command to delete a directory
  */
 function registerDeleteDirectoryCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand(

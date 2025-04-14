@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { registerUserCommands } from './UserCommands';
 import { registerCourseCommands } from './CourseCommands';
+import { registerChatCommands } from './ChatCommands';
 import { CourseTreeDataProvider } from '../views/CourseView';
 import { ViewType, refreshViews } from '../views/viewManager';
 
@@ -24,6 +25,7 @@ export class CommandManager {
         this.registerGlobalCommands();
         this.registerUserCommands();
         this.registerCourseCommands();
+        this.registerChatCommands();
     }
 
     /**
@@ -53,5 +55,9 @@ export class CommandManager {
      */
     private registerCourseCommands(): void {
         registerCourseCommands(this.context, this.courseTreeDataProvider);
+    }
+
+    private registerChatCommands(): void {
+        registerChatCommands(this.context);
     }
 }

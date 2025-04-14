@@ -1,7 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { initializeViewManager } from './views/viewManager';
+import { initializeViewManager, disposeViews } from './views/viewManager';
 import { CommandManager } from './commands/CommandManager';
 import { NotebookView } from './views/NotebookView';
 
@@ -25,4 +25,5 @@ export function activate(context: vscode.ExtensionContext) {
 // This method is called when your extension is deactivated
 export function deactivate() {
   // Any cleanup code would go here
+  disposeViews();
 }
