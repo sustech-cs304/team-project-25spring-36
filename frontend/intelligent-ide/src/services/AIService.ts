@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import OpenAI from 'openai';
-import { OPENAI_API_KEY } from '../resources/configs/config';
+import { OPENAI_API_KEY, OPENAI_API_MODEL } from '../resources/configs/config';
 
 // Store conversation history
 let conversationHistory: { role: 'system' | 'user' | 'assistant', content: string }[] = [
@@ -77,7 +77,7 @@ async function promptForAPIKey(context: vscode.ExtensionContext): Promise<string
 }
 
 /**
- * Send a message to OpenAI API and get a response
+ * Send a message to OpenAI API and get a respons
  */
 export async function getChatResponse(userMessage: string, context: vscode.ExtensionContext): Promise<string> {
     try {
@@ -96,7 +96,7 @@ export async function getChatResponse(userMessage: string, context: vscode.Exten
         // If we have a previous response, continue the conversation
         if (lastResponseId) {
             response = await openaiClient.responses.create({
-                model: "gpt-4o-mini",
+                model: OPENAI_API_MODEL,
                 previous_response_id: lastResponseId,
                 input: [{ role: "user", content: userMessage }],
                 store: true,
@@ -104,7 +104,7 @@ export async function getChatResponse(userMessage: string, context: vscode.Exten
         } else {
             // Start a new conversation with history
             response = await openaiClient.responses.create({
-                model: "gpt-4o-mini",
+                model: OPENAI_API_MODEL,
                 input: conversationHistory.concat({ role: "user", content: userMessage }),
                 store: true,
             });
@@ -151,14 +151,14 @@ export async function getChatResponseStream(
         // If we have a previous response, continue the conversation
         if (lastResponseId) {
             stream = await openaiClient.chat.completions.create({
-                model: "gpt-4o-mini",
+                model: OPENAI_API_MODEL,
                 messages: [{ role: "user", content: userMessage }],
                 stream: true,
             });
         } else {
             // Start a new conversation with history
             stream = await openaiClient.chat.completions.create({
-                model: "gpt-4o-mini",
+                model: OPENAI_API_MODEL,
                 messages: conversationHistory.concat({ role: "user", content: userMessage }),
                 stream: true,
             });
