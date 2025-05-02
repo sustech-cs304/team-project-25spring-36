@@ -15,6 +15,7 @@ body {
     padding: 10px;
     display: flex;
     flex-direction: column;
+    height: 100%;
 }
 
 .message {
@@ -217,6 +218,41 @@ button:active {
     transform: translateY(1px);
 }
 
+#file-input {
+    display: none !important;
+}
+
+#quiz-container {
+    height: 20%;
+    padding: 10px;
+    background-color: var(--vscode-editor-background);
+    border-radius: 4px;
+    border: 1px solid var(--vscode-panel-border);
+    margin: 20px;
+    height: 30%;
+    color: var(--vscode-editor-foreground);
+}
+
+
+#question-container {
+    margin-bottom: 20px;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+#answer-container {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#progress-container {
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--vscode-descriptionForeground);
+    text-align: right;
+}
+
 /* Animation for typing effect */
 .typing-indicator {
     display: inline-block;
@@ -238,4 +274,26 @@ button:active {
     50% {
         opacity: 0;
     }
+}
+
+#return-to-chat-button {
+    display: none;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+#return-to-chat-button:hover {
+    opacity: 0.9;
+}
+
+#return-to-chat-button:active {
+    transform: translateY(1px);
 }

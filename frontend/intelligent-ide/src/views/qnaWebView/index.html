@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'none'; style-src {{cspSource}}; script-src 'nonce-{{nonce}}';">
+  <link rel="stylesheet" href="{{stylesUri}}?v={{Date.now()}}">
+  <title>QnA Interface</title>
+</head>
+
+<body>
+  <!-- Quiz Container -->
+  <div id="quiz-container" style="display: none;">
+    <!-- Question Display -->
+    <div id="question-container">
+      <!-- Questions will be dynamically added here -->
+    </div>
+
+    <!-- Answer Input and Submit Button -->
+    <div id="answer-container">
+      <input type="text" id="answer-input" placeholder="Enter your answer here" />
+      <button id="submit-answer-button">Submit</button>
+    </div>
+
+    <!-- Progress Display -->
+    <div id="progress-container">
+      <!-- Progress will be dynamically updated here -->
+    </div>
+  </div>
+
+  <!-- Import Button -->
+  <button id="import-button">Import QnA File</button>
+
+  <!-- Hidden File Input -->
+  <input type="file" id="file-input" accept=".txt" style="display: none;" />
+
+  <!-- Script -->
+  <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
+</body>
+
+</html>

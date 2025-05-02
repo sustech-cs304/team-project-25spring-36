@@ -16,6 +16,7 @@ let courseTreeView: vscode.TreeView<any> | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let context: vscode.ExtensionContext | undefined;
 let chatViewPanel: vscode.WebviewPanel | undefined;
+let qnaViewPanel: vscode.WebviewPanel | undefined;
 
 /**
  * View types that can be refreshed
@@ -24,6 +25,7 @@ export enum ViewType {
     LOGIN,
     COURSE,
     CHAT,
+    QNA,
     ALL
 }
 
@@ -102,7 +104,9 @@ function registerChatView(context: vscode.ExtensionContext): void {
     );
 
     // Set the initial HTML content
-    updateChatView();
+    function updateChatView(context: vscode.ExtensionContext): void {
+
+    };
 
     // Handle messages from the webview
     chatViewPanel.webview.onDidReceiveMessage(async message => {
@@ -121,6 +125,77 @@ function registerChatView(context: vscode.ExtensionContext): void {
         chatViewPanel = undefined;
     }, null, context.subscriptions);
 }
+
+/**
+ * Register QnA Webview
+ */
+export function registerQnAView(context: vscode.ExtensionContext): void {
+    // If the panel already exists, reveal it
+    if (qnaViewPanel) {
+        qnaViewPanel.reveal(vscode.ViewColumn.One);
+        return;
+    }
+
+    // Create a new Webview panel
+    qnaViewPanel = vscode.window.createWebviewPanel(
+        'qnaWebView', // Internal identifier
+        'QnA Interface', // Title of the panel
+        vscode.ViewColumn.One, // Show in the first column
+        {
+            enableScripts: true, // Allow JavaScript in the Webview
+            retainContextWhenHidden: true, // Keep the Webview state when hidden
+            localResourceRoots: [
+                vscode.Uri.joinPath(context.extensionUri, 'src', 'views', 'qnaWebView')
+            ]
+        }
+    );
+
+    // Set the initial HTML content
+    updateQnAView(context);
+
+    // Handle panel disposal
+    qnaViewPanel.onDidDispose(() => {
+        qnaViewPanel = undefined;
+    });
+}
+
+/**
+ * Update QnA Webview content
+ */
+function updateQnAView(context: vscode.ExtensionContext): void {
+    if (!qnaViewPanel) {
+        return;
+    }
+
+    try {
+        const webviewFolder = 'qnaWebView';
+        const htmlPath = path.join(context.extensionUri.fsPath, 'src', 'views', webviewFolder, 'index.html');
+        let htmlContent = fs.readFileSync(htmlPath, 'utf8');
+
+        const webview = qnaViewPanel.webview;
+        const stylesUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(context.extensionUri, 'src', 'views', webviewFolder, 'style.css')
+        );
+        const scriptUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(context.extensionUri, 'src', 'views', webviewFolder, 'main.js')
+        );
+        const nonce = getNonce();
+
+        // Replace placeholders in the HTML
+        htmlContent = htmlContent
+            .replace('{{cspSource}}', webview.cspSource)
+            .replace(/{{nonce}}/g, nonce)
+            .replace('{{stylesUri}}', stylesUri.toString())
+            .replace('{{scriptUri}}', scriptUri.toString());
+
+        // Set the Webview HTML content
+        qnaViewPanel.webview.html = htmlContent;
+    } catch (error) {
+        console.error('Error updating QnA view:', error);
+    }
+}
+
+
 
 /**
  * Initialize the AI service
@@ -264,6 +339,36 @@ function updateChatView(): void {
         console.error('Error updating chat view:', error);
     }
 }
+
+function updateQnaWebView(): void {
+    if (!qnaViewPanel || !context) { return; }
+
+    try {
+        const webviewFolder = 'qnaWebView';
+        const htmlPath = path.join(context.extensionUri.fsPath, 'src', 'views', webviewFolder, 'index.html');
+        let htmlContent = fs.readFileSync(htmlPath, 'utf8');
+
+        const webview = qnaViewPanel.webview;
+        const stylesUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(context.extensionUri, 'src', 'views', webviewFolder, 'style.css')
+        );
+        const scriptUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(context.extensionUri, 'src', 'views', webviewFolder, 'main.js')
+        );
+        const nonce = getNonce();
+
+        htmlContent = htmlContent
+            .replace('{{cspSource}}', webview.cspSource)
+            .replace(/{{nonce}}/g, nonce)
+            .replace('{{stylesUri}}', stylesUri.toString())
+            .replace('{{scriptUri}}', scriptUri.toString());
+
+        qnaViewPanel.webview.html = htmlContent;
+    } catch (error) {
+        console.error('Error updating QNA view:', error);
+    }
+}
+
 
 /**
  * Convenience method to refresh all views

@@ -3,11 +3,11 @@ import { registerUserCommands } from './UserCommands';
 import { registerCourseCommands } from './CourseCommands';
 import { registerChatCommands } from './ChatCommands';
 import { CourseTreeDataProvider } from '../views/CourseView';
-import { ViewType, refreshViews } from '../views/viewManager';
+import { ViewType, refreshViews, registerQnAView } from '../views/viewManager';
 
 /**
  * Centralized command registration manager
- * Handles all command registrations in the extensio
+ * Handles all command registrations in the extension
  */
 export class CommandManager {
     private context: vscode.ExtensionContext;
@@ -26,13 +26,13 @@ export class CommandManager {
         this.registerUserCommands();
         this.registerCourseCommands();
         this.registerChatCommands();
+        this.registerQnACommands(); // Register QnA commands
     }
 
     /**
      * Register global/utility commands
      */
     private registerGlobalCommands(): void {
-        // Register the global view refresh command
         const refreshDisposable = vscode.commands.registerCommand(
             'intelligent-ide.views.refresh',
             async (viewTypes?: ViewType[]) => {
@@ -42,6 +42,19 @@ export class CommandManager {
 
         this.context.subscriptions.push(refreshDisposable);
     }
+
+    /**
+     * Register QnA-related commands
+     */
+    private registerQnACommands(): void {
+        const qnaDisposable = vscode.commands.registerCommand('intelligent-ide.qna.open', () => {
+            // Delegate to ViewManager to handle the Webview creation
+            registerQnAView(this.context);
+        });
+
+        this.context.subscriptions.push(qnaDisposable);
+    }
+
 
     /**
      * Register user-related commands

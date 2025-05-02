@@ -3,7 +3,6 @@
 import * as vscode from 'vscode';
 import { initializeViewManager, disposeViews } from './views/viewManager';
 import { CommandManager } from './commands/CommandManager';
-import { NotebookView } from './views/NotebookView';
 
 // This method is called when your extension is activated
 // Your extension is activated along the vscode 
@@ -15,9 +14,6 @@ export function activate(context: vscode.ExtensionContext) {
   // Initialize command manager - this registers all commands
   const commandManager = new CommandManager(context, courseTreeDataProvider);
   commandManager.registerAllCommands();
-
-  // Initialize notebook view
-  new NotebookView(context);
 
   console.log(`Intelligent IDE extension is now active!`);
 }
