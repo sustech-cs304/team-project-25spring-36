@@ -77,9 +77,13 @@ async function promptForAPIKey(context: vscode.ExtensionContext): Promise<string
 }
 
 /**
- * Send a message to OpenAI API and get a respons
+ * Send a message to OpenAI API and get a response
  */
-export async function getChatResponse(userMessage: string, context: vscode.ExtensionContext): Promise<string> {
+export async function getChatResponse(
+    userMessage: string,
+    attachments: any[] = [],
+    context: vscode.ExtensionContext
+): Promise<string> {
     try {
         // Make sure we have an API key and client
         if (!openaiClient) {
@@ -91,35 +95,43 @@ export async function getChatResponse(userMessage: string, context: vscode.Exten
             throw new Error('OpenAI client not initialized');
         }
 
-        let response;
+        // Format message content with attachments
+        let formattedMessage = userMessage;
 
-        // If we have a previous response, continue the conversation
-        if (lastResponseId) {
-            response = await openaiClient.responses.create({
-                model: OPENAI_API_MODEL,
-                previous_response_id: lastResponseId,
-                input: [{ role: "user", content: userMessage }],
-                store: true,
-            });
-        } else {
-            // Start a new conversation with history
-            response = await openaiClient.responses.create({
-                model: OPENAI_API_MODEL,
-                input: conversationHistory.concat({ role: "user", content: userMessage }),
-                store: true,
-            });
+        // Add attachments to the message
+        if (attachments && attachments.length > 0) {
+            formattedMessage += '\n\n--- Attachments ---\n';
+            for (const attachment of attachments) {
+                formattedMessage += `\n### ${attachment.filename} (${attachment.type}) ###\n`;
+                if (attachment.type === 'code' && attachment.content) {
+                    // Include code content directly
+                    formattedMessage += `\n\`\`\`\n${attachment.content}\n\`\`\`\n`;
+                } else {
+                    // Reference to non-code files
+                    formattedMessage += `[File reference: ${attachment.filePath}]\n`;
+                }
+            }
         }
 
-        // Store the response ID for the next message
-        lastResponseId = response.id;
+        // Prepare messages for the API
+        const messages = [
+            ...conversationHistory,
+            { role: 'user' as const, content: formattedMessage }
+        ];
 
-        // Add messages to conversation history for backup
-        conversationHistory.push({ role: 'user', content: userMessage });
-        if (response.output_text) {
-            conversationHistory.push({ role: 'assistant', content: response.output_text });
-        }
+        // Send request to OpenAI
+        const response = await openaiClient.chat.completions.create({
+            model: OPENAI_API_MODEL,
+            messages: messages
+        });
 
-        return response.output_text || 'Sorry, I couldn\'t generate a response';
+        const assistantResponse = response.choices[0]?.message?.content || 'Sorry, I couldn\'t generate a response';
+
+        // Add messages to conversation history
+        conversationHistory.push({ role: 'user', content: formattedMessage });
+        conversationHistory.push({ role: 'assistant', content: assistantResponse });
+
+        return assistantResponse;
     } catch (error: any) {
         console.error('Error getting AI response:', error);
         throw new Error(`Failed to get AI response: ${error.message}`);
@@ -131,6 +143,7 @@ export async function getChatResponse(userMessage: string, context: vscode.Exten
  */
 export async function getChatResponseStream(
     userMessage: string,
+    attachments: any[],
     context: vscode.ExtensionContext,
     onChunk: (chunk: string) => void
 ): Promise<string> {
@@ -145,48 +158,98 @@ export async function getChatResponseStream(
             throw new Error('OpenAI client not initialized');
         }
 
-        let completeResponse = '';
-        let stream;
+        // Format message content with attachments
+        let formattedMessage = userMessage;
 
-        // If we have a previous response, continue the conversation
-        if (lastResponseId) {
-            stream = await openaiClient.chat.completions.create({
-                model: OPENAI_API_MODEL,
-                messages: [{ role: "user", content: userMessage }],
-                stream: true,
-            });
-        } else {
-            // Start a new conversation with history
-            stream = await openaiClient.chat.completions.create({
-                model: OPENAI_API_MODEL,
-                messages: conversationHistory.concat({ role: "user", content: userMessage }),
-                stream: true,
-            });
+        // Add attachments to the message
+        if (attachments && attachments.length > 0) {
+            formattedMessage += '\n\n--- Attachments ---\n';
+            for (const attachment of attachments) {
+                formattedMessage += `\n### ${attachment.filename} (${attachment.type}) ###\n`;
+                if (attachment.type === 'code' && attachment.content) {
+                    // Include code content directly
+                    formattedMessage += `\n\`\`\`\n${attachment.content}\n\`\`\`\n`;
+                } else {
+                    // Reference to non-code files
+                    formattedMessage += `[File reference: ${attachment.filePath}]\n`;
+                }
+            }
         }
+
+        // Prepare messages for the API
+        const messages = [
+            ...conversationHistory,
+            { role: 'user' as const, content: formattedMessage }
+        ];
+
+        let completeResponse = '';
+        let abortController = new AbortController();
+
+        // Create the streaming completion with abort controller
+        const stream = await openaiClient.chat.completions.create({
+            model: OPENAI_API_MODEL,
+            messages: messages,
+            stream: true,
+        }, {
+            signal: abortController.signal
+        });
 
         // Handle the streaming response
-        for await (const chunk of stream) {
-            // Extract the content from the chunk
-            const content = chunk.choices[0]?.delta?.content || '';
-            if (content) {
-                completeResponse += content;
-                onChunk(content);
+        try {
+            for await (const chunk of stream) {
+                // Extract the content from the chunk
+                const content = chunk.choices[0]?.delta?.content || '';
+                if (content) {
+                    completeResponse += content;
+                    onChunk(content);
+                }
             }
-
-            // Store the response ID for the next message if available
-            if (chunk.id) {
-                lastResponseId = chunk.id;
+        } catch (e: any) {
+            // Check if this was aborted
+            if (e.name === 'AbortError') {
+                throw new Error('TERMINATED');
             }
+            throw e;
         }
 
-        // Add messages to conversation history for backup
-        conversationHistory.push({ role: 'user', content: userMessage });
+        // Add messages to conversation history
+        conversationHistory.push({ role: 'user', content: formattedMessage });
         conversationHistory.push({ role: 'assistant', content: completeResponse });
 
         return completeResponse || 'Sorry, I couldn\'t generate a response';
     } catch (error: any) {
+        // If it's our special termination error, handle it differently
+        if (error.message === 'TERMINATED') {
+            throw error;
+        }
+
         console.error('Error getting AI streaming response:', error);
         throw new Error(`Failed to get AI response: ${error.message}`);
+    }
+}
+
+/**
+ * Upload a file to OpenAI and get the file ID
+ */
+async function uploadFileToOpenAI(filePath: string): Promise<string | null> {
+    if (!openaiClient) {
+        throw new Error('OpenAI client not initialized');
+    }
+
+    try {
+        const fs = require('fs');
+        const fileData = fs.readFileSync(filePath);
+        const fileName = require('path').basename(filePath);
+
+        const file = await openaiClient.files.create({
+            file: fileData,
+            purpose: 'assistants',
+        });
+
+        return file.id;
+    } catch (error) {
+        console.error('Error uploading file to OpenAI:', error);
+        return null;
     }
 }
 

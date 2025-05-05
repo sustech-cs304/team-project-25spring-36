@@ -1,14 +1,9 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
 import { LoginInfo } from '../models/LoginInfo';
 import { CourseTreeDataProvider } from '../views/CourseView';
 import {
-    handleUserMessage,
-    handleCodeAttachment,
-    getNonce
+    updateChatView
 } from './ChatView';
-import * as ai from '../services/AIService';
 
 // Store view providers and UI elements
 let courseTreeDataProvider: CourseTreeDataProvider | undefined;
@@ -72,68 +67,7 @@ function registerCourseView(context: vscode.ExtensionContext): CourseTreeDataPro
     return treeDataProvider;
 }
 
-/**
- * Register chat view panel and initialize AI service
- */
-function registerChatView(context: vscode.ExtensionContext): void {
-    // If we already have a panel, show it
-    if (chatViewPanel) {
-        chatViewPanel.reveal(vscode.ViewColumn.Two);
-        return;
-    }
 
-    // Initialize AI service early
-    initializeAIService(context).catch(error => {
-        vscode.window.showErrorMessage(`Failed to initialize AI service: ${error.message}`);
-    });
-
-    // Create a new panel
-    chatViewPanel = vscode.window.createWebviewPanel(
-        'intelliCode.aiChat',
-        'AI Assistant',
-        vscode.ViewColumn.Two,
-        {
-            enableScripts: true,
-            retainContextWhenHidden: true,
-            localResourceRoots: [
-                vscode.Uri.joinPath(context.extensionUri, 'src', 'views', 'chatwebview')
-            ]
-        }
-    );
-
-    // Set the initial HTML content
-    updateChatView();
-
-    // Handle messages from the webview
-    chatViewPanel.webview.onDidReceiveMessage(async message => {
-        switch (message.command) {
-            case 'sendMessage':
-                handleUserMessage(chatViewPanel!, message.text, context);
-                break;
-            case 'attachCode':
-                handleCodeAttachment(chatViewPanel!);
-                break;
-        }
-    });
-
-    // Handle panel disposal
-    chatViewPanel.onDidDispose(() => {
-        chatViewPanel = undefined;
-    }, null, context.subscriptions);
-}
-
-/**
- * Initialize the AI service
- */
-async function initializeAIService(context: vscode.ExtensionContext): Promise<void> {
-    try {
-        const apiKey = await ai.getOpenAIKey(context);
-        ai.initializeAIService(apiKey);
-    } catch (error) {
-        console.error('Error initializing AI service:', error);
-        throw error;
-    }
-}
 
 /**
  * Updates login-related UI components
@@ -214,54 +148,13 @@ export async function refreshViews(viewTypes: ViewType[] = [ViewType.ALL]): Prom
             courseTreeDataProvider.refresh();
         }
 
-        // For chat view, we need special handling
+        // For chat view, just call updateChatView from ChatView.ts
         if (refreshAll || viewTypes.includes(ViewType.CHAT)) {
-            // If panel doesn't exist, create it
-            if (!chatViewPanel) {
-                registerChatView(context);
-            } else {
-                // Otherwise just update existing panel
-                updateChatView();
-                // Make sure to reveal it since it might be hidden
-                chatViewPanel.reveal(vscode.ViewColumn.Two);
-            }
+            updateChatView(context);
         }
 
     } catch (error) {
         console.error('Error refreshing views:', error);
-    }
-}
-
-/**
- * Update chat view (refresh)
- */
-function updateChatView(): void {
-    if (!chatViewPanel || !context) { return; }
-
-    try {
-        // Read the HTML template
-        const htmlPath = path.join(context.extensionUri.fsPath, 'src', 'views', 'chatwebview', 'index.html');
-        let htmlContent = fs.readFileSync(htmlPath, 'utf8');
-
-        // Get web resources
-        const webview = chatViewPanel.webview;
-        const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'views', 'chatwebview', 'styles.css'));
-        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'src', 'views', 'chatwebview', 'main.js'));
-        const nonce = getNonce();
-
-        // Replace placeholders in the HTM
-        htmlContent = htmlContent
-            .replace('{{cspSource}}', webview.cspSource)
-            .replace(/{{nonce}}/g, nonce)
-            .replace('{{stylesUri}}', stylesUri.toString())
-            .replace('{{scriptUri}}', scriptUri.toString());
-
-        // Set the webview HTML content
-        chatViewPanel.webview.html = htmlContent;
-        chatViewPanel.reveal(vscode.ViewColumn.Two);
-
-    } catch (error) {
-        console.error('Error updating chat view:', error);
     }
 }
 
