@@ -462,7 +462,7 @@
                 addAttachment({
                     type: 'code',
                     filename: message.filename,
-                    content: message.content || message.text, // Fix: Use content or text (for backward compatibility)
+                    content: message.content || message.text,
                     filePath: message.filePath
                 });
                 break;
@@ -470,18 +470,8 @@
                 addAttachment({
                     type: message.fileType,
                     filename: message.filename,
-                    content: message.content, // Fix: Include the content
+                    content: message.content,
                     filePath: message.filePath
-                });
-                break;
-            case 'dropFiles':
-                // Handle dropped files
-                message.filePaths.forEach(filePath => {
-                    addAttachment({
-                        type: 'file',
-                        filename: filePath.split('/').pop(),
-                        filePath: filePath
-                    });
                 });
                 break;
             case 'clear':
