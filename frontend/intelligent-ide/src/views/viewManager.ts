@@ -11,6 +11,7 @@ let courseTreeView: vscode.TreeView<any> | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let context: vscode.ExtensionContext | undefined;
 let chatViewPanel: vscode.WebviewPanel | undefined;
+let qnaViewPanel: vscode.WebviewPanel | undefined;
 
 /**
  * View types that can be refreshed
@@ -19,6 +20,7 @@ export enum ViewType {
     LOGIN,
     COURSE,
     CHAT,
+    QNA,
     ALL
 }
 

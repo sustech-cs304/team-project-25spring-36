@@ -1,8 +1,11 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { courseService } from '../services/CourseService';
 import { ICourseDirectoryEntry } from '../models/CourseModels';
 import { LoginInfo } from '../models/LoginInfo';
-import * as path from 'path';
+import { MyNotebookController } from '../notebook/NotebookController';
+import { MyNotebookSerializer } from '../notebook/NotebookSerializer';
 import { registerCourseCommands } from '../commands/CourseCommands';
 
 /**
@@ -15,7 +18,7 @@ import { registerCourseCommands } from '../commands/CourseCommands';
  */
 
 // Define tree item types
-type TreeItemType = 'course' | 'directory' | 'entry' | 'virtual-directory' | 'student';
+type TreeItemType = 'course' | 'directory' | 'entry' | 'virtual-directory' | 'student' | 'notebook';
 
 // Define a class for tree items
 export class CourseTreeItem extends vscode.TreeItem {
@@ -67,6 +70,15 @@ export class CourseTreeItem extends vscode.TreeItem {
                 this.contextValue = 'student';
                 this.tooltip = `Student: ${label} (ID: ${itemId})`;
                 break;
+            case 'notebook':
+                this.iconPath = new vscode.ThemeIcon('notebook');
+                this.contextValue = 'notebookItem';
+                this.command = {
+                    command: 'vscode.openWith',
+                    title: 'Open Notebook',
+                    arguments: [vscode.Uri.file(path || ''), 'my-notebook']
+                };
+                break;
         }
 
         const timestamp = created_at
@@ -94,7 +106,15 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
     readonly onDidChangeTreeData: vscode.Event<CourseTreeItem | undefined | null | void> =
         this._onDidChangeTreeData.event;
 
-    constructor(private context: vscode.ExtensionContext) { }
+    private readonly notebookFiles: vscode.Uri[] = [];
+    private readonly defaultNotebookPath = "C:\\Users\\Lenovo\\Desktop";
+
+    constructor(private context: vscode.ExtensionContext) {
+        this.registerNotebookSerializer();
+        this.registerNotebookController();
+        this.loadNotebooksFromDefaultPath();
+        this.registerNotebookCommands();
+    }
 
     refresh(): void {
         this._onDidChangeTreeData.fire();
@@ -105,6 +125,25 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
     }
 
     async getChildren(element?: CourseTreeItem): Promise<CourseTreeItem[]> {
+        if (!element) {
+            // Root level: Show notebooks and courses
+            const notebooks = this.notebookFiles.map(uri => new CourseTreeItem(
+                path.basename(uri.fsPath),
+                vscode.TreeItemCollapsibleState.None,
+                'notebook',
+                uri.fsPath,
+                undefined,
+                uri.fsPath
+            ));
+
+            const courses = await this.getCourses();
+            return [...notebooks, ...courses];
+        }
+
+        if (element.type === 'course') {
+            return this.getCourseDirectories(element.itemId as number);
+        }
+
         const loginInfo = this.context.globalState.get('loginInfo') as LoginInfo | undefined;
         if (!loginInfo) {
             vscode.window.showWarningMessage('Please log in to view courses.');
@@ -137,7 +176,7 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
                     undefined,
                     course.created_at
                 ));
-            } else if (element.type === 'course') {
+            } else if ((element.type as TreeItemType) === 'course') {
                 // Second level: Fetch directories for the selected course
                 const courseId = typeof element.itemId === 'number' ? element.itemId : parseInt(element.itemId.toString());
 
@@ -248,6 +287,45 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
         }
 
         return [];
+    }
+
+    private async getCourses(): Promise<CourseTreeItem[]> {
+        const loginInfo = this.context.globalState.get('loginInfo') as LoginInfo | undefined;
+        if (!loginInfo) {
+            vscode.window.showWarningMessage('Please log in to view courses.');
+            return [];
+        }
+
+        const token = await this.context.secrets.get('authToken');
+        if (!token) {
+            vscode.window.showWarningMessage('Authentication token not found. Please log in again.');
+            return [];
+        }
+
+        const courses = await courseService.getCourses(token, loginInfo.role);
+        return courses.map(course => new CourseTreeItem(
+            course.name,
+            vscode.TreeItemCollapsibleState.Collapsed,
+            'course',
+            course.id
+        ));
+    }
+
+    private async getCourseDirectories(courseId: number): Promise<CourseTreeItem[]> {
+        const token = await this.context.secrets.get('authToken');
+        if (!token) {
+            vscode.window.showWarningMessage('Authentication token not found. Please log in again.');
+            return [];
+        }
+
+        const directories = await courseService.getDirectories(token, courseId);
+        return directories.map(directory => new CourseTreeItem(
+            directory.name,
+            vscode.TreeItemCollapsibleState.Collapsed,
+            'directory',
+            directory.id,
+            courseId
+        ));
     }
 
     /**
@@ -374,8 +452,92 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
         return items;
     }
 
-}
+    private registerNotebookSerializer() {
+        vscode.workspace.registerNotebookSerializer(
+            'my-notebook',
+            new MyNotebookSerializer()
+        );
+    }
 
+    private registerNotebookController() {
+        new MyNotebookController();
+    }
+
+    private loadNotebooksFromDefaultPath() {
+        if (!fs.existsSync(this.defaultNotebookPath)) {
+            console.error(`Default notebook path does not exist: ${this.defaultNotebookPath}`);
+            return;
+        }
+
+        const files = fs.readdirSync(this.defaultNotebookPath);
+        files.forEach(file => {
+            if (file.endsWith('.ipynb')) {
+                const filePath = path.join(this.defaultNotebookPath, file);
+                this.notebookFiles.push(vscode.Uri.file(filePath));
+            }
+        });
+
+        this.refresh();
+    }
+
+    private registerNotebookCommands() {
+        vscode.commands.registerCommand('intelligent-ide.notebook.new', async () => {
+            const uri = await vscode.window.showSaveDialog({
+                filters: { 'My Notebook': ['ipynb'] },
+                saveLabel: 'Create Notebook',
+                defaultUri: vscode.Uri.file(path.join(this.defaultNotebookPath, 'Untitled.ipynb'))
+            });
+
+            if (!uri) {
+                vscode.window.showInformationMessage('Notebook creation cancelled.');
+                return;
+            }
+
+            const initialContent = JSON.stringify({ cells: [] }, null, 2);
+            await vscode.workspace.fs.writeFile(uri, Buffer.from(initialContent, 'utf8'));
+
+            this.notebookFiles.push(uri);
+            this.refresh();
+
+            vscode.window.showInformationMessage(`Notebook created: ${uri.fsPath}`);
+        });
+
+        vscode.commands.registerCommand('intelligent-ide.notebook.delete', async (item: CourseTreeItem) => {
+            const uri = vscode.Uri.file(item.path || '');
+            if (!uri || !uri.fsPath) {
+                vscode.window.showErrorMessage('Invalid notebook file.');
+                return;
+            }
+
+            const confirmed = await vscode.window.showWarningMessage(
+                `Are you sure you want to delete ${path.basename(uri.fsPath)}?`,
+                { modal: true },
+                'Yes'
+            );
+
+            if (confirmed === 'Yes') {
+                try {
+                    fs.unlinkSync(uri.fsPath);
+                    const index = this.notebookFiles.findIndex(file => file.fsPath === uri.fsPath);
+                    if (index !== -1) {
+                        this.notebookFiles.splice(index, 1);
+                        this.refresh();
+                    }
+                    vscode.window.showInformationMessage(`Notebook deleted: ${uri.fsPath}`);
+                } catch (error) {
+                    vscode.window.showErrorMessage(`Failed to delete notebook: ${(error as Error).message}`);
+                }
+            }
+        });
+
+        vscode.commands.registerCommand('intelligent-ide.notebook.refresh', () => {
+            this.notebookFiles.length = 0;
+            this.loadNotebooksFromDefaultPath();
+            this.refresh();
+            vscode.window.showInformationMessage('Notebook Explorer refreshed.');
+        });
+    }
+}
 
 /**
  * Get appropriate icon for file based on extension

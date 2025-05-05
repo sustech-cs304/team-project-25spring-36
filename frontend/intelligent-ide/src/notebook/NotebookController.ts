@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { exec } from 'child_process';
 
 export class MyNotebookController {
   private readonly controller: vscode.NotebookController;
@@ -10,7 +11,7 @@ export class MyNotebookController {
       'My Notebook Controller'
     );
 
-    this.controller.supportedLanguages = ['javascript', 'python', 'markdown'];
+    this.controller.supportedLanguages = ['javascript', 'python', 'java', 'c', 'markdown'];
     this.controller.executeHandler = this.execute.bind(this);
   }
 
@@ -41,11 +42,77 @@ export class MyNotebookController {
 
   private async runCode(code: string, language: string): Promise<string> {
     if (language === 'javascript') {
-      return eval(code); // For simplicity, use eval for JavaScript
+      try {
+        return eval(code); // For simplicity, use eval for JavaScript
+      } catch (error) {
+        return `JavaScript Error: ${(error as Error).message}`;
+      }
     } else if (language === 'python') {
-      // Call a Python execution service (e.g., via REST API)
-      return 'Python execution not implemented';
+      return this.runPythonCode(code);
+    } else if (language === 'java') {
+      return this.runJavaCode(code);
+    } else if (language === 'c') {
+      return this.runCCode(code);
     }
     return 'Unsupported language';
+  }
+
+  private runPythonCode(code: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const process = exec('python', (error, stdout, stderr) => {
+        if (error) {
+          reject(`Python Error: ${stderr || error.message}`);
+        } else {
+          resolve(stdout.trim());
+        }
+      });
+
+      if (process.stdin) {
+        process.stdin.write(code);
+        process.stdin.end();
+      }
+    });
+  }
+
+  private runJavaCode(code: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const tempFile = `${__dirname}/Temp.java`;
+      const fs = require('fs');
+      fs.writeFileSync(tempFile, code);
+
+      exec(`javac ${tempFile} && java -cp ${__dirname} Temp`, (error, stdout, stderr) => {
+        fs.unlinkSync(tempFile); // Clean up the temp file
+        const classFile = `${__dirname}/Temp.class`;
+        if (fs.existsSync(classFile)) {
+          fs.unlinkSync(classFile); // Clean up the compiled class file
+        }
+        if (error) {
+          reject(`Java Error: ${stderr || error.message}`);
+        } else {
+          resolve(stdout.trim());
+        }
+      });
+    });
+  }
+
+  private runCCode(code: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const tempFile = `${__dirname}/temp.c`;
+      const outputFile = `${__dirname}/temp.exe`;
+      const fs = require('fs');
+      fs.writeFileSync(tempFile, code);
+
+      exec(`gcc ${tempFile} -o ${outputFile} && ${outputFile}`, (error, stdout, stderr) => {
+        fs.unlinkSync(tempFile); // Clean up the temp file
+        if (fs.existsSync(outputFile)) {
+          fs.unlinkSync(outputFile); // Clean up the compiled file
+        }
+        if (error) {
+          reject(`C Error: ${stderr || error.message}`);
+        } else {
+          resolve(stdout.trim());
+        }
+      });
+    });
   }
 }

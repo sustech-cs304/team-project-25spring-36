@@ -160,6 +160,12 @@
         "title": "Clear AI Conversation History",
         "category": "Intelligent IDE: Chat",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "intelligent-ide.qna.open",
+        "title": "Open QnA Interface",
+        "category": "Intelligent IDE: QnA",
+        "icon": "$(question)"
       }
     ],
     "viewsContainers": {
@@ -184,12 +190,14 @@
         },
         {
           "id": "courses",
-          "name": "Course Explorer"
-        },
-        {
-          "id": "notebookExplorer",
-          "name": "Notebook Explorer",
-          "contextualTitle": "Notebook Explorer"
+          "name": "Course Explorer",
+          "children": [
+            {
+              "id": "notebookExplorer",
+              "name": "Notebook Explorer",
+              "contextualTitle": "Notebook Explorer"
+            }
+          ]
         }
       ]
     },
@@ -238,6 +246,16 @@
         {
           "command": "intelligent-ide.notebook.refresh",
           "when": "view == notebookExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "intelligent-ide.notebook.new",
+          "when": "view == courses && globalState.loginInfo",
+          "group": "navigation"
+        },
+        {
+          "command": "intelligent-ide.notebook.refresh",
+          "when": "view == courses && globalState.loginInfo",
           "group": "navigation"
         }
       ],

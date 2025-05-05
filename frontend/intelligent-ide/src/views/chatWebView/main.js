@@ -499,4 +499,30 @@
                 break;
         }
     });
+
+    function showChatContainer() {
+        document.getElementById('chat-container').style.display = 'block';
+        document.getElementById('quiz-container').style.display = 'none';
+    }
+
+    function showQuizContainer() {
+        document.getElementById('chat-container').style.display = 'none';
+        document.getElementById('quiz-container').style.display = 'block';
+    }
+
+    // Show the return button
+    function showReturnButton() {
+        returnToChatButton.style.display = 'block';
+    }
+
+    // Hide the return button
+    function hideReturnButton() {
+        returnToChatButton.style.display = 'none';
+    }
+
+    // Add click event to the return button
+    returnToChatButton.addEventListener('click', () => {
+        showChatContainer(); // Switch back to the chat container
+        hideReturnButton(); // Hide the return button
+    });
 })();
