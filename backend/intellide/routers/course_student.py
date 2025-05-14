@@ -23,9 +23,9 @@ api = APIRouter(prefix="/course/student")
 
 @api.get("")
 async def course_student_get(
-        course_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_id: int,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """获取课程学生列表
 
@@ -76,9 +76,9 @@ class CourseStudentJoinRequest(BaseModel):
 
 @api.post("/join")
 async def course_student_join(
-        request: CourseStudentJoinRequest,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    request: CourseStudentJoinRequest,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """学生加入课程
 
@@ -124,10 +124,10 @@ async def course_student_join(
 
 @api.delete("")
 async def course_student_delete(
-        course_id: int,
-        course_student_id: Optional[int] = None,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_id: int,
+    course_student_id: Optional[int] = None,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """退出课程或将学生移出课程
 

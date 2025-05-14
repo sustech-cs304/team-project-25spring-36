@@ -16,10 +16,10 @@ manager = WebSocketManager()
 
 @ws.websocket("/{course_id}")
 async def course_chat(
-        websocket: WebSocket,
-        course_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    websocket: WebSocket,
+    course_id: int,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     课程聊天 WebSocket
@@ -49,11 +49,7 @@ async def course_chat(
         return
     # 添加 WebSocket 连接到管理器
     keys = (course_id,)
-    manager.add(
-        keys=keys,
-        identifier=user_id,
-        websocket=websocket
-    )
+    manager.add(keys=keys, identifier=user_id, websocket=websocket)
     # 处理 WebSocket 消息
     try:
         while True:
@@ -63,11 +59,8 @@ async def course_chat(
                     "user_id": user_id,
                     "user_username": user_username,
                     "data": await websocket.receive_json(),
-                }
+                },
             )
     # 移除 WebSocket 连接
     except (WebSocketDisconnect, WebSocketException):
-        manager.remove(
-            keys=keys,
-            identifier=user_id
-        )
+        manager.remove(keys=keys, identifier=user_id)

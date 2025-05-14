@@ -21,8 +21,8 @@ api = APIRouter(prefix="/user")
 
 @api.get("/register/code")
 async def user_register_code(
-        email: str,
-        db: AsyncSession = Depends(database),
+    email: str,
+    db: AsyncSession = Depends(database),
 ):
     """
     发送邮箱验证码
@@ -57,8 +57,8 @@ class UserRegisterRequest(BaseModel):
 
 @api.post("/register")
 async def user_register(
-        request: UserRegisterRequest,
-        db: AsyncSession = Depends(database),
+    request: UserRegisterRequest,
+    db: AsyncSession = Depends(database),
 ):
     """
     创建新用户
@@ -93,7 +93,7 @@ async def user_register(
                         "user_username": user.username,
                     },
                     exp_hours=24,
-                )
+                ),
             }
         )
     except IntegrityError:
@@ -108,8 +108,8 @@ class UserLoginRequest(BaseModel):
 
 @api.post("/login")
 async def user_login(
-        request: UserLoginRequest,
-        db: AsyncSession = Depends(database),
+    request: UserLoginRequest,
+    db: AsyncSession = Depends(database),
 ):
     """
     用户登录
@@ -137,7 +137,7 @@ async def user_login(
                     "user_username": user.username,
                 },
                 exp_hours=24,
-            )
+            ),
         }
     )
 
@@ -149,8 +149,8 @@ class UserPutRequest(BaseModel):
 
 @api.get("")
 async def user_get(
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     获取用户信息
@@ -172,9 +172,9 @@ async def user_get(
 
 @api.put("")
 async def user_put(
-        request: UserPutRequest,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    request: UserPutRequest,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     更新用户信息
@@ -205,6 +205,6 @@ async def user_put(
                     "user_username": user.username,
                 },
                 exp_hours=24,
-            )
+            ),
         }
     )

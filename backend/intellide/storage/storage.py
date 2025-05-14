@@ -33,7 +33,7 @@ def storage_path(storage_name: str) -> str:
 
 
 async def storage_remove_file(
-        storage_name: str,
+    storage_name: str,
 ) -> None:
     """
     异步删除文件
@@ -45,8 +45,8 @@ async def storage_remove_file(
 
 
 async def storage_write_file(
-        storage_name: str,
-        content: bytes,
+    storage_name: str,
+    content: bytes,
 ) -> None:
     """
     异步写入文件
@@ -60,7 +60,7 @@ async def storage_write_file(
 
 
 async def storage_read_file(
-        storage_name: str,
+    storage_name: str,
 ) -> bytes:
     """
     异步读取文件
@@ -76,8 +76,8 @@ async def storage_read_file(
 
 
 def storage_get_file_response(
-        storage_name: str,
-        file_name: str,
+    storage_name: str,
+    file_name: str,
 ) -> FileResponse:
     """
     获取文件响应
@@ -97,5 +97,5 @@ def storage_get_file_response(
     return FileResponse(
         storage_path(storage_name),
         media_type=media_type,
-        headers={"Content-Disposition": f"attachment; filename={file_name}"}
+        headers={"Content-Disposition": f"attachment; filename={file_name}"},
     )

@@ -12,12 +12,12 @@ from jwcrypto.common import json_encode
 
 from intellide.config import AUTH_JWE_ALG, AUTH_JWE_ENC
 
-_jwe_key = jwk.JWK.generate(kty='oct', size=256)
+_jwe_key = jwk.JWK.generate(kty="oct", size=256)
 
 
 def jwe_encode(
-        data: Dict,
-        exp_hours: Optional[int],
+    data: Dict,
+    exp_hours: Optional[int],
 ) -> str:
     """
     生成 JWT
@@ -46,7 +46,7 @@ def jwe_encode(
 
 
 def jwe_decode(
-        token: str = Header(None, alias="Access-Token"),
+    token: str = Header(None, alias="Access-Token"),
 ) -> Dict:
     """
     验证 JWT
@@ -78,6 +78,6 @@ def jwe_decode(
 
 
 def verification_code(
-        length: int,
+    length: int,
 ):
-    return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(length))
+    return "".join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(length))

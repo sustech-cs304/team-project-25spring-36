@@ -83,7 +83,7 @@ def server(clean):
                 "--port",
                 f"{SERVER_PORT}",
                 "--log-level",
-                "trace"
+                "trace",
             ],
             cwd=WORK_DIRECTORY,
             stdout=log,
@@ -118,25 +118,23 @@ def unique_counter():
 
 @pytest.fixture(scope="session")
 def unique_string_generator(
-        unique_counter: count,
+    unique_counter: count,
 ):
     return lambda: f"str_{hex(next(unique_counter))}_str"
 
 
 @pytest.fixture(scope="session")
 def unique_integer_generator(
-        unique_counter: count,
+    unique_counter: count,
 ):
     return lambda: next(unique_counter)
 
 
 @pytest.fixture(scope="session")
-def unique_path_generator(
-        unique_string_generator: Callable
-) -> Callable:
+def unique_path_generator(unique_string_generator: Callable) -> Callable:
     def _unique_path_generator(
-            depth: int,
-            suffix: Optional[str] = None,
+        depth: int,
+        suffix: Optional[str] = None,
     ) -> str:
         if depth <= 0:
             raise ValueError("depth must be greater than 0")
@@ -147,14 +145,14 @@ def unique_path_generator(
 
 @pytest.fixture(scope="session")
 def temp_file_content(
-        unique_string_generator: Callable,
+    unique_string_generator: Callable,
 ) -> bytes:
     return unique_string_generator().encode()
 
 
 @pytest.fixture(scope="session")
 def temp_file_path(
-        temp_file_content: bytes,
+    temp_file_content: bytes,
 ) -> str:
     test_file = os.path.join(os.path.dirname(__file__), "..", "..", "temp", "file.txt")
     # 写入测试文件

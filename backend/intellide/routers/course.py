@@ -14,7 +14,13 @@ from intellide.database.model import (
     CourseDirectoryEntry,
 )
 from intellide.utils.auth import jwe_decode
-from intellide.utils.response import ok, bad_request, forbidden, not_implemented, APIError
+from intellide.utils.response import (
+    ok,
+    bad_request,
+    forbidden,
+    not_implemented,
+    APIError,
+)
 
 # 创建课程路由前缀
 api = APIRouter(prefix="/course")
@@ -22,9 +28,9 @@ api = APIRouter(prefix="/course")
 
 @api.get("")
 async def course_get(
-        role: UserRole,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    role: UserRole,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """获取课程列表
 
@@ -86,9 +92,9 @@ class CoursePostRequest(BaseModel):
 
 @api.post("")
 async def course_post(
-        request: CoursePostRequest,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    request: CoursePostRequest,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     创建新课程
@@ -117,9 +123,9 @@ async def course_post(
 
 @api.delete("")
 async def course_delete(
-        course_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_id: int,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     删除课程
@@ -153,9 +159,9 @@ async def course_delete(
 
 
 async def course_user_info(
-        course_id: int,
-        user_id: int,
-        db: AsyncSession,
+    course_id: int,
+    user_id: int,
+    db: AsyncSession,
 ) -> Tuple[Optional[UserRole], Course]:
     """
     获取用户在课程中的角色信息
@@ -203,10 +209,10 @@ async def course_user_info(
 
 
 async def course_entry_info(
-        db: AsyncSession,
-        course_directory_entry_id: Optional[int] = None,
-        course_directory_id: Optional[int] = None,
-        course_id: Optional[int] = None,
+    db: AsyncSession,
+    course_directory_entry_id: Optional[int] = None,
+    course_directory_id: Optional[int] = None,
+    course_id: Optional[int] = None,
 ) -> Tuple[Optional[Course], Optional[CourseDirectory], Optional[CourseDirectoryEntry]]:
     """获取课程条目相关信息
 
@@ -265,12 +271,17 @@ async def course_entry_info(
 
 
 async def course_user_entry_info(
-        db: AsyncSession,
-        user_id: int,
-        course_id: Optional[int] = None,
-        course_directory_id: Optional[int] = None,
-        course_directory_entry_id: Optional[int] = None,
-) -> Tuple[Optional[UserRole], Course, Optional[CourseDirectory], Optional[CourseDirectoryEntry]]:
+    db: AsyncSession,
+    user_id: int,
+    course_id: Optional[int] = None,
+    course_directory_id: Optional[int] = None,
+    course_directory_entry_id: Optional[int] = None,
+) -> Tuple[
+    Optional[UserRole],
+    Course,
+    Optional[CourseDirectory],
+    Optional[CourseDirectoryEntry],
+]:
     """
     获取课程及相关信息
 

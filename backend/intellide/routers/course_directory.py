@@ -8,7 +8,8 @@ from sqlalchemy.future import select
 from intellide.database import database
 from intellide.database.model import (
     UserRole,
-    CourseDirectory, CourseDirectoryPermission,
+    CourseDirectory,
+    CourseDirectoryPermission,
 )
 from intellide.routers.course import (
     course_entry_info,
@@ -23,9 +24,9 @@ api = APIRouter(prefix="/course/directory")
 
 @api.get("")
 async def course_directory_get(
-        course_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_id: int,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     获取课程目录列表
@@ -83,9 +84,9 @@ class CourseDirectoryPostRequest(BaseModel):
 
 @api.post("")
 async def course_directory_post(
-        request: CourseDirectoryPostRequest,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    request: CourseDirectoryPostRequest,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     创建课程目录
@@ -133,9 +134,9 @@ async def course_directory_post(
 
 @api.delete("")
 async def course_directory_delete(
-        course_directory_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_directory_id: int,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     删除课程目录

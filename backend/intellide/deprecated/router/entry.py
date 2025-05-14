@@ -26,10 +26,10 @@ api = APIRouter(prefix="/entry")
 
 @api.get("")
 async def entry_get(
-        entry_path: str,
-        entry_depth: Optional[int] = None,
-        db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwe_decode),
+    entry_path: str,
+    entry_depth: Optional[int] = None,
+    db: AsyncSession = Depends(database),
+    access_info: Dict = Depends(jwe_decode),
 ):
     """
     获取文件或目录信息
@@ -46,21 +46,17 @@ async def entry_get(
     # 规范化文件路径
     entry_path = path_normalize(entry_path)
     # 返回文件或目录信息
-    return ok(
-        data=[
-            entry.dict() for entry in await select_entries(access_info["user_id"], entry_path, entry_depth, db)
-        ]
-    )
+    return ok(data=[entry.dict() for entry in await select_entries(access_info["user_id"], entry_path, entry_depth, db)])
 
 
 @api.post("")
 async def entry_post(
-        entry_path: str = Form(...),
-        entry_type: EntryType = Form(...),
-        is_collaborative: bool = Form(False),
-        file: Optional[UploadFile] = File(None),
-        db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwe_decode),
+    entry_path: str = Form(...),
+    entry_type: EntryType = Form(...),
+    is_collaborative: bool = Form(False),
+    file: Optional[UploadFile] = File(None),
+    db: AsyncSession = Depends(database),
+    access_info: Dict = Depends(jwe_decode),
 ):
     """
     上传文件或创建目录
@@ -87,9 +83,9 @@ async def entry_post(
 
 @api.delete("")
 async def entry_delete(
-        entry_path: str,
-        db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwe_decode),
+    entry_path: str,
+    db: AsyncSession = Depends(database),
+    access_info: Dict = Depends(jwe_decode),
 ):
     """
     删除文件或目录
@@ -119,9 +115,9 @@ class EntryMoveRequest(BaseModel):
 
 @api.put("/move")
 async def entry_move(
-        request: EntryMoveRequest,
-        db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwe_decode),
+    request: EntryMoveRequest,
+    db: AsyncSession = Depends(database),
+    access_info: Dict = Depends(jwe_decode),
 ):
     """
     移动文件或目录
@@ -146,9 +142,9 @@ async def entry_move(
 
 @api.get("/download")
 async def entry_download(
-        entry_path: str,
-        db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwe_decode),
+    entry_path: str,
+    db: AsyncSession = Depends(database),
+    access_info: Dict = Depends(jwe_decode),
 ):
     """
     下载文件
@@ -173,9 +169,9 @@ async def entry_download(
 
 
 async def post_entry_parents(
-        entry_path: str,
-        owner_id: int,
-        db: AsyncSession,
+    entry_path: str,
+    owner_id: int,
+    db: AsyncSession,
 ) -> None:
     """
     验证及自动创建父目录
@@ -202,10 +198,10 @@ async def post_entry_parents(
 
 
 async def select_entries(
-        owner_id: int,
-        entry_path: str,
-        entry_depth: Optional[int],
-        db: AsyncSession,
+    owner_id: int,
+    entry_path: str,
+    entry_depth: Optional[int],
+    db: AsyncSession,
 ) -> Sequence[Entry]:
     query = select(Entry).where(Entry.entry_path.like(f"{entry_path}%"), Entry.owner_id == owner_id)
     # 限制文件深度
@@ -216,10 +212,10 @@ async def select_entries(
 
 
 async def select_entry_by_entry_path(
-        entry_path: str,
-        owner_id: int,
-        db: AsyncSession,
-        nullable: bool = False,
+    entry_path: str,
+    owner_id: int,
+    db: AsyncSession,
+    nullable: bool = False,
 ) -> Optional[Entry]:
     """
     查询 Entry 记录
@@ -247,9 +243,9 @@ async def select_entry_by_entry_path(
 
 
 async def download_entry(
-        entry_path: str,
-        owner_id: int,
-        db: AsyncSession,
+    entry_path: str,
+    owner_id: int,
+    db: AsyncSession,
 ) -> FileResponse:
     entry: Entry = await select_entry_by_entry_path(entry_path, owner_id, db)
     # 验证文件类型
@@ -262,9 +258,9 @@ async def download_entry(
 
 
 async def delete_entry(
-        owner_id: int,
-        entry_path: str,
-        db: AsyncSession,
+    owner_id: int,
+    entry_path: str,
+    db: AsyncSession,
 ):
     # 寻找文件或目录
     entry: Entry = await select_entry_by_entry_path(entry_path, owner_id, db)
@@ -276,7 +272,11 @@ async def delete_entry(
     elif entry.entry_type == EntryType.DIRECTORY:
         # 删除目录及其子项
         result = await db.execute(
-            select(Entry).where(Entry.entry_path.like(f"{entry.entry_path}%"), Entry.owner_id == entry.owner_id))
+            select(Entry).where(
+                Entry.entry_path.like(f"{entry.entry_path}%"),
+                Entry.owner_id == entry.owner_id,
+            )
+        )
         sub_entries: Sequence[Entry] = result.scalars().all()
         for sub_entry in sub_entries:
             if sub_entry.entry_type == EntryType.FILE:
@@ -288,12 +288,12 @@ async def delete_entry(
 
 
 async def post_entry(
-        owner_id: int,
-        entry_path: str,
-        is_collaborative: bool,
-        entry_type: EntryType,
-        file: Optional[UploadFile],
-        db: AsyncSession,
+    owner_id: int,
+    entry_path: str,
+    is_collaborative: bool,
+    entry_type: EntryType,
+    file: Optional[UploadFile],
+    db: AsyncSession,
 ):
     # 查询 Entry 记录
     entry: Optional[Entry] = await select_entry_by_entry_path(entry_path, owner_id, db, nullable=True)
@@ -335,10 +335,10 @@ async def post_entry(
 
 
 async def move_entry(
-        owner_id: int,
-        src_entry_path: str,
-        dst_entry_path: str,
-        db: AsyncSession,
+    owner_id: int,
+    src_entry_path: str,
+    dst_entry_path: str,
+    db: AsyncSession,
 ):
     if src_entry_path == dst_entry_path:
         raise APIError(bad_request, "Entry path unchanged")
@@ -358,10 +358,14 @@ async def move_entry(
     # 移动文件或目录
     if src_entry.entry_type == EntryType.DIRECTORY:
         result = await db.execute(
-            select(Entry).where(Entry.entry_path.like(f"{src_entry.entry_path}%"), Entry.owner_id == owner_id))
+            select(Entry).where(
+                Entry.entry_path.like(f"{src_entry.entry_path}%"),
+                Entry.owner_id == owner_id,
+            )
+        )
         sub_entries: Sequence[Entry] = result.scalars().all()
         for sub_entry in sub_entries:
-            sub_entry.entry_path = dst_entry_path + sub_entry.entry_path[len(src_entry.entry_path):]
+            sub_entry.entry_path = dst_entry_path + sub_entry.entry_path[len(src_entry.entry_path) :]
     elif src_entry.entry_type == EntryType.FILE:
         src_entry.entry_path = dst_entry_path
     else:

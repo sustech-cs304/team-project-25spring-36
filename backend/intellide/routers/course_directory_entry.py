@@ -23,8 +23,19 @@ from intellide.storage import (
     storage_remove_file,
 )
 from intellide.utils.auth import jwe_decode
-from intellide.utils.path import path_normalize, path_dir_base_name, path_iterate_parents, path_prefix
-from intellide.utils.response import forbidden, ok, bad_request, not_implemented, APIError
+from intellide.utils.path import (
+    path_normalize,
+    path_dir_base_name,
+    path_iterate_parents,
+    path_prefix,
+)
+from intellide.utils.response import (
+    forbidden,
+    ok,
+    bad_request,
+    not_implemented,
+    APIError,
+)
 
 # 创建课程路由前缀
 api = APIRouter(prefix="/course/directory/entry")
@@ -32,11 +43,11 @@ api = APIRouter(prefix="/course/directory/entry")
 
 @api.post("")
 async def course_directory_entry_post(
-        course_directory_id: int = Form(...),
-        path: str = Form(...),
-        file: Optional[UploadFile] = File(None),
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_directory_id: int = Form(...),
+    path: str = Form(...),
+    file: Optional[UploadFile] = File(None),
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     创建课程目录条目
@@ -58,9 +69,7 @@ async def course_directory_entry_post(
     user_id = access_info["user_id"]
 
     # 获取用户角色、课程、目录和条目信息
-    user_role, course, course_directory, __ = await course_user_entry_info(db=db,
-                                                                           course_directory_id=course_directory_id,
-                                                                           user_id=user_id)
+    user_role, course, course_directory, __ = await course_user_entry_info(db=db, course_directory_id=course_directory_id, user_id=user_id)
     # 规范化路径
     path = path_normalize(path)
     # 如果路径无效，返回错误
@@ -71,13 +80,11 @@ async def course_directory_entry_post(
     if user_role == UserRole.STUDENT:
         # 检查上一个存在的父目录的作者是否是当前用户
         # 写在了check_if_skip_permission_check_for_upload函数中
-        if not await check_if_skip_permission_check_for_upload(db=db, path=path,
-                                                               course_directory_id=course_directory.id,
-                                                               user_id=user_id):
+        if not await check_if_skip_permission_check_for_upload(db=db, path=path, course_directory_id=course_directory.id, user_id=user_id):
             if not verify_permissions(
-                    path_prefix(path),
-                    course_directory.permission,
-                    CourseDirectoryPermissionType.UPLOAD,
+                path_prefix(path),
+                course_directory.permission,
+                CourseDirectoryPermissionType.UPLOAD,
             ):
                 return forbidden("No upload permission")
 
@@ -136,11 +143,11 @@ async def course_directory_entry_post(
 
 @api.get("")
 async def course_directory_entry_get(
-        course_directory_id: int,
-        path: str,
-        fuzzy: bool = True,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_directory_id: int,
+    path: str,
+    fuzzy: bool = True,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     获取课程目录条目
@@ -163,8 +170,7 @@ async def course_directory_entry_get(
     user_id = access_info["user_id"]
 
     # 获取用户角色、课程、目录和条目信息
-    role, course, course_directory, _ = await course_user_entry_info(db=db, course_directory_id=course_directory_id,
-                                                                     user_id=user_id)
+    role, course, course_directory, _ = await course_user_entry_info(db=db, course_directory_id=course_directory_id, user_id=user_id)
 
     # 规范化路径
     path = path_normalize(path)
@@ -186,9 +192,9 @@ async def course_directory_entry_get(
             # 检查每个条目的权限
             for course_directory_entry in course_directory_entries:
                 if course_directory_entry.author_id == user_id or verify_permissions(
-                        course_directory_entry.path,
-                        course_directory.permission,
-                        CourseDirectoryPermissionType.READ,
+                    course_directory_entry.path,
+                    course_directory.permission,
+                    CourseDirectoryPermissionType.READ,
                 ):
                     allowed_entrys.append(course_directory_entry)
             if not allowed_entrys:
@@ -212,9 +218,9 @@ async def course_directory_entry_get(
         if role == UserRole.STUDENT:
             if course_directory_entry.author_id != user_id:
                 if not verify_permissions(
-                        course_directory_entry.path,
-                        course_directory.permission,
-                        CourseDirectoryPermissionType.READ,
+                    course_directory_entry.path,
+                    course_directory.permission,
+                    CourseDirectoryPermissionType.READ,
                 ):
                     return forbidden("No read permission")
         # 返回精确匹配的单个条目
@@ -223,9 +229,9 @@ async def course_directory_entry_get(
 
 @api.delete("")
 async def course_directory_entry_delete(
-        course_directory_entry_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_directory_entry_id: int,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     删除课程目录条目
@@ -245,9 +251,7 @@ async def course_directory_entry_delete(
     user_id = access_info["user_id"]
 
     # 获取用户角色、课程、目录和条目信息
-    role, course, course_directory, course_directory_entry = await course_user_entry_info(
-        db=db, course_directory_entry_id=course_directory_entry_id, user_id=user_id
-    )
+    role, course, course_directory, course_directory_entry = await course_user_entry_info(db=db, course_directory_entry_id=course_directory_entry_id, user_id=user_id)
     # 如果条目不存在，返回错误
     if not course_directory_entry:
         return bad_request("Course directory entry not found")
@@ -257,9 +261,9 @@ async def course_directory_entry_delete(
         if course_directory_entry.type == EntryType.FILE:
             if course_directory_entry.author_id != user_id:
                 if not verify_permissions(
-                        course_directory_entry.path,
-                        course_directory.permission,
-                        CourseDirectoryPermissionType.DELETE,
+                    course_directory_entry.path,
+                    course_directory.permission,
+                    CourseDirectoryPermissionType.DELETE,
                 ):
                     return forbidden("No delete permission")
         else:
@@ -276,9 +280,9 @@ async def course_directory_entry_delete(
                 if course_directory_entry.author_id != user_id:
                     if course_directory_entry.author_id != user_id:
                         if not verify_permissions(
-                                course_directory_entry.path,
-                                course_directory.permission,
-                                CourseDirectoryPermissionType.DELETE,
+                            course_directory_entry.path,
+                            course_directory.permission,
+                            CourseDirectoryPermissionType.DELETE,
                         ):
                             return forbidden("No delete permission for some entries in the directory")
     # 删除课程目录条目
@@ -293,9 +297,9 @@ async def course_directory_entry_delete(
 
 @api.get("/download")
 async def course_directory_entry_download(
-        course_directory_entry_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_directory_entry_id: int,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     下载课程目录条目文件
@@ -315,9 +319,7 @@ async def course_directory_entry_download(
     user_id = access_info["user_id"]
 
     # 获取用户角色、课程、目录和条目信息
-    role, course, course_directory, course_directory_entry = await course_user_entry_info(
-        db=db, course_directory_entry_id=course_directory_entry_id, user_id=user_id
-    )
+    role, course, course_directory, course_directory_entry = await course_user_entry_info(db=db, course_directory_entry_id=course_directory_entry_id, user_id=user_id)
 
     # 如果条目不存在，返回错误
     if not course_directory_entry:
@@ -327,9 +329,9 @@ async def course_directory_entry_download(
     if role == UserRole.STUDENT:
         if course_directory_entry.author_id != user_id:
             if not verify_permissions(
-                    course_directory_entry.path,
-                    course_directory.permission,
-                    CourseDirectoryPermissionType.READ,
+                course_directory_entry.path,
+                course_directory.permission,
+                CourseDirectoryPermissionType.READ,
             ):
                 return forbidden("No read permission")
 
@@ -359,9 +361,9 @@ class CourseDirectoryEntryMoveRequest(BaseModel):
 
 @api.put("/move")
 async def course_directory_entry_move(
-        request: CourseDirectoryEntryMoveRequest,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    request: CourseDirectoryEntryMoveRequest,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """移动课程目录条目
 
@@ -386,25 +388,30 @@ async def course_directory_entry_move(
 
     # 获取用户角色、课程、目录和条目信息
     role, course, course_directory, course_directory_entry = await course_user_entry_info(
-        db=db, course_directory_entry_id=request.course_directory_entry_id, user_id=user_id
+        db=db,
+        course_directory_entry_id=request.course_directory_entry_id,
+        user_id=user_id,
     )
 
     # 如果用户是学生，检查权限
     if role == UserRole.STUDENT:
         if course_directory_entry.author_id != user_id:
             if not verify_permissions(
-                    course_directory_entry.path,
-                    course_directory.permission,
-                    CourseDirectoryPermissionType.DELETE,
+                course_directory_entry.path,
+                course_directory.permission,
+                CourseDirectoryPermissionType.DELETE,
             ):
                 return forbidden("No delete permission")
-        if not await check_if_skip_permission_check_for_upload(db=db, path=request.dst_path,
-                                                               course_directory_id=course_directory.id,
-                                                               user_id=user_id):
+        if not await check_if_skip_permission_check_for_upload(
+            db=db,
+            path=request.dst_path,
+            course_directory_id=course_directory.id,
+            user_id=user_id,
+        ):
             if not verify_permissions(
-                    path_prefix(request.dst_path),
-                    course_directory.permission,
-                    CourseDirectoryPermissionType.UPLOAD,
+                path_prefix(request.dst_path),
+                course_directory.permission,
+                CourseDirectoryPermissionType.UPLOAD,
             ):
                 return forbidden("No upload permission")
     # 获取当前条目的根路径
@@ -422,14 +429,14 @@ async def course_directory_entry_move(
     result = await db.execute(
         select(CourseDirectoryEntry).where(
             CourseDirectoryEntry.course_directory_id == course_directory.id,
-            CourseDirectoryEntry.path.like(f"{root_path}%")
+            CourseDirectoryEntry.path.like(f"{root_path}%"),
         )
     )
     course_directory_entries: Sequence[CourseDirectoryEntry] = result.scalars().all()
 
     # 更新每个条目的路径
     for course_directory_entry in course_directory_entries:
-        course_directory_entry.path = request.dst_path + course_directory_entry.path[len(root_path):]
+        course_directory_entry.path = request.dst_path + course_directory_entry.path[len(root_path) :]
 
     # 提交数据库更改
     await db.commit()
@@ -437,11 +444,11 @@ async def course_directory_entry_move(
 
 
 async def insert_course_directory_entry_parent_recursively(
-        course_directory_id: int,
-        user_id: int,
-        child: str,
-        db: AsyncSession,
-        commit: bool = False,
+    course_directory_id: int,
+    user_id: int,
+    child: str,
+    db: AsyncSession,
+    commit: bool = False,
 ) -> None:
     """
     递归插入课程目录的父目录
@@ -477,9 +484,9 @@ async def insert_course_directory_entry_parent_recursively(
 
 
 async def delete_course_directory_entry(
-        course_directory_entry_id: int,
-        db: AsyncSession,
-        commit: bool = False,
+    course_directory_entry_id: int,
+    db: AsyncSession,
+    commit: bool = False,
 ):
     """
     删除课程目录条目
@@ -511,7 +518,7 @@ async def delete_course_directory_entry(
         result = await db.execute(
             select(CourseDirectoryEntry).where(
                 CourseDirectoryEntry.course_directory_id == course_directory_entry.course_directory_id,
-                CourseDirectoryEntry.path.like(f"{path}%")
+                CourseDirectoryEntry.path.like(f"{path}%"),
             )
         )
         # 删除所有匹配的子条目
@@ -528,18 +535,18 @@ async def delete_course_directory_entry(
 
 
 def verify_permissions(
-        entry_path: str,
-        permissions: CourseDirectoryPermission,
-        needed_permission_type: CourseDirectoryPermissionType
+    entry_path: str,
+    permissions: CourseDirectoryPermission,
+    needed_permission_type: CourseDirectoryPermissionType,
 ) -> bool:
     """
     检查用户是否对共享目录中的指定条目路径具有某种权限。
-    
+
     参数:
         entry_path: 要检查的条目路径
         permissions: 路径到权限的映射字典
         needed_permission_type: 需要的权限类型
-        
+
     返回:
         如果用户具有需要的权限则返回True，否则返回False
     """
@@ -564,10 +571,10 @@ def verify_permissions(
 
 
 async def check_if_skip_permission_check_for_upload(
-        path: str,
-        course_directory_id: int,
-        user_id: int,
-        db: AsyncSession,
+    path: str,
+    course_directory_id: int,
+    user_id: int,
+    db: AsyncSession,
 ) -> bool:
     """
     在用户是学生时，检查上传操作是否可以跳过权限检查

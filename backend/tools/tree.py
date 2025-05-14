@@ -6,20 +6,16 @@ from treelib import Tree
 
 
 def load_gitignore_spec(
-        root_path: str,
+    root_path: str,
 ) -> PathSpec:
     """
     加载 .gitignore 文件内容
     """
     with open(os.path.join(root_path, ".gitignore"), "r") as fp:
-        return PathSpec.from_lines('gitwildmatch', fp.readlines())
+        return PathSpec.from_lines("gitwildmatch", fp.readlines())
 
 
-def is_ignored(
-        root_path: str,
-        target_path: str,
-        spec: PathSpec
-) -> bool:
+def is_ignored(root_path: str, target_path: str, spec: PathSpec) -> bool:
     """
     判断文件是否被 .gitignore 忽略
     """
@@ -28,18 +24,14 @@ def is_ignored(
 
 
 def generate_tree(
-        root_path: str,
-        spec: PathSpec,
+    root_path: str,
+    spec: PathSpec,
 ) -> Tree:
     """
     生成目录树
     """
 
-    def add_nodes(
-            _path: str,
-            _parent: str,
-            _spec: PathSpec
-    ):
+    def add_nodes(_path: str, _parent: str, _spec: PathSpec):
         for item in os.listdir(_path):
             item_path = os.path.join(_path, item)
             # 如果该文件或目录被.gitignore忽略，则跳过

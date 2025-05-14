@@ -4,8 +4,15 @@ import pickle
 from typing import Dict, List
 
 import y_py
-from fastapi import APIRouter, Depends, UploadFile, File, WebSocket, WebSocketDisconnect, \
-    WebSocketException
+from fastapi import (
+    APIRouter,
+    Depends,
+    UploadFile,
+    File,
+    WebSocket,
+    WebSocketDisconnect,
+    WebSocketException,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -32,16 +39,16 @@ from intellide.utils.websocket import WebSocketManager
 api = APIRouter(prefix="/course/collaborative")
 ws = APIRouter(prefix="/course/collaborative")
 manager = WebSocketManager()
-editors: Dict[int, List[
-    int]] = {}  # 跟踪每个文档的编辑者 {collab_id1: [user_id1, user_id2, ...], collab_id2: [user_id3, user_id4, ...], ...}
-crdt_docs: Dict[int, y_py.YDoc] = {} # 内存存储每个文档的crdt_doc {collab_id1: crdt_doc1, collab_id2: crdt_doc2, ...}
+editors: Dict[int, List[int]] = {}  # 跟踪每个文档的编辑者 {collab_id1: [user_id1, user_id2, ...], collab_id2: [user_id3, user_id4, ...], ...}
+crdt_docs: Dict[int, y_py.YDoc] = {}  # 内存存储每个文档的crdt_doc {collab_id1: crdt_doc1, collab_id2: crdt_doc2, ...}
+
 
 @api.post("")
 async def course_collaborative_directory_entry_post(
-        course_id: int,
-        file: UploadFile = File(...),
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_id: int,
+    file: UploadFile = File(...),
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     创建课程共享可协作条目(仅文件，仅老师)
@@ -92,9 +99,9 @@ async def course_collaborative_directory_entry_post(
 
 @api.get("")
 async def course_collaborative_directory_entry_get(
-        course_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_id: int,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     获取课程共享可协作条目列表
@@ -126,16 +133,15 @@ async def course_collaborative_directory_entry_get(
     course_collaborative_directory_entries = course_collaborative_directory_entries.scalars().all()
 
     # 返回协作条目
-    return ok(data=[course_collaborative_directory_entry.dict() for course_collaborative_directory_entry in
-                    course_collaborative_directory_entries])
+    return ok(data=[course_collaborative_directory_entry.dict() for course_collaborative_directory_entry in course_collaborative_directory_entries])
 
 
 @api.get("/history")
 async def course_collaborative_directory_entry_edit_history_get(
-        course_id: int,
-        course_collaborative_directory_entry_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_id: int,
+    course_collaborative_directory_entry_id: int,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     获取课程共享可协作条目编辑历史
@@ -167,17 +173,15 @@ async def course_collaborative_directory_entry_edit_history_get(
     )
     course_collaborative_directory_entry_edit_histories = course_collaborative_directory_entry_edit_histories.scalars().all()
     # 返回协作条目历史
-    return ok(data=[course_collaborative_directory_entry_edit_history.dict() for
-                    course_collaborative_directory_entry_edit_history in
-                    course_collaborative_directory_entry_edit_histories])
+    return ok(data=[course_collaborative_directory_entry_edit_history.dict() for course_collaborative_directory_entry_edit_history in course_collaborative_directory_entry_edit_histories])
 
 
 @api.get("/download")
 async def course_collaborative_directory_entry_download(
-        course_id: int,
-        course_collaborative_directory_entry_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_id: int,
+    course_collaborative_directory_entry_id: int,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     下载课程共享可协作条目
@@ -215,18 +219,18 @@ async def course_collaborative_directory_entry_download(
     # 返回文本文件响应
     return FileResponse(
         # 使用io.BytesIO创建一个内存中的临时文件对象
-        io.BytesIO(ytext_content.encode('utf-8')),
+        io.BytesIO(ytext_content.encode("utf-8")),
         media_type="text/plain",
-        headers={"Content-Disposition": f"attachment; filename={file_name}"}
+        headers={"Content-Disposition": f"attachment; filename={file_name}"},
     )
 
 
 @api.delete("")
 async def course_collaborative_directory_entry_delete(
-        course_id: int,
-        course_collaborative_directory_entry_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    course_id: int,
+    course_collaborative_directory_entry_id: int,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     删除课程共享可协作条目(仅老师)
@@ -270,13 +274,7 @@ async def broadcast_editors(course_collaborative_directory_entry_id: int):
     广播编辑者更新
     """
     keys = (course_collaborative_directory_entry_id,)
-    await manager.broadcast_json(
-        keys=keys,
-        content={
-            "type": "user_updated",
-            "editors": list(editors[keys])
-        }
-    )
+    await manager.broadcast_json(keys=keys, content={"type": "user_updated", "editors": list(editors[keys])})
 
 
 async def add_user_to_editors(collab_id: int, user_id: int):
@@ -300,7 +298,10 @@ async def remove_user_from_editors(collab_id: int, user_id: int):
         broadcast_editors(collab_id)
 
 
-async def get_crdt_doc_from_storage_or_memory(course_collaborative_directory_entry_id: int, entry: CourseCollaborativeDirectoryEntry):
+async def get_crdt_doc_from_storage_or_memory(
+    course_collaborative_directory_entry_id: int,
+    entry: CourseCollaborativeDirectoryEntry,
+):
     """
     获取协作条目CRDT文档
     """
@@ -311,14 +312,13 @@ async def get_crdt_doc_from_storage_or_memory(course_collaborative_directory_ent
     return crdt_docs[course_collaborative_directory_entry_id]
 
 
-
 @ws.websocket("/join")
 async def collaborative_join(
-        websocket: WebSocket,
-        course_id: int,
-        course_collaborative_directory_entry_id: int,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    websocket: WebSocket,
+    course_id: int,
+    course_collaborative_directory_entry_id: int,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     加入协作编辑会话
@@ -336,7 +336,7 @@ async def collaborative_join(
     entry_result = await db.execute(
         select(CourseCollaborativeDirectoryEntry).where(
             CourseCollaborativeDirectoryEntry.id == course_collaborative_directory_entry_id,
-            CourseCollaborativeDirectoryEntry.course_id == course_id
+            CourseCollaborativeDirectoryEntry.course_id == course_id,
         )
     )
     entry = entry_result.scalar()
@@ -356,21 +356,23 @@ async def collaborative_join(
     manager.add(
         keys=(course_collaborative_directory_entry_id,),
         identifier=user_id,
-        websocket=websocket
+        websocket=websocket,
     )
 
     # 将当前用户添加到编辑者列表, 并广播编辑者更新
     add_user_to_editors(course_collaborative_directory_entry_id, user_id)
-    
+
     crdt_doc = get_crdt_doc_from_storage_or_memory(course_collaborative_directory_entry_id, entry)
     crdt_text = crdt_doc.get_text("text")
 
     # 获取初始内容
-    await websocket.send_json({
-        "type": "content",
-        "content": crdt_text.to_string(),
-        "user_id": user_id,
-    })
+    await websocket.send_json(
+        {
+            "type": "content",
+            "content": crdt_text.to_string(),
+            "user_id": user_id,
+        }
+    )
 
     try:
         # 处理消息
@@ -397,7 +399,7 @@ async def collaborative_join(
                         "type": "content",
                         "content": crdt_text.to_string(),
                         "user_id": user_id,
-                    }
+                    },
                 )
                 # 记录编辑历史
                 edit_history = CourseCollaborativeDirectoryEntryEditHistory(
@@ -418,10 +420,7 @@ async def collaborative_join(
             storage_name=entry.storage_name,
             content=crdt_doc_pickle,
         )
-        manager.remove(
-            keys=(course_collaborative_directory_entry_id,),
-            identifier=user_id
-        )
+        manager.remove(keys=(course_collaborative_directory_entry_id,), identifier=user_id)
         remove_user_from_editors(course_collaborative_directory_entry_id, user_id)
 
         # 如果发现编辑者列表为空，则从内存中删除CRDT文档

@@ -9,15 +9,15 @@ _cache = redis.from_url(CACHE_URL)
 
 
 def cache_set(
-        key: str,
-        value: Any,
-        ttl: int,
+    key: str,
+    value: Any,
+    ttl: int,
 ):
     _cache.set(key, json.dumps(value), ex=ttl)
 
 
 def cache_get(
-        key: str,
+    key: str,
 ) -> Any:
     value = _cache.get(key)
     if value:
@@ -28,16 +28,16 @@ def cache_get(
 
 # 统一断言 HTTP 响应码
 def assert_code(
-        response: Dict,
-        expected_code: int,
+    response: Dict,
+    expected_code: int,
 ):
     assert response["code"] == expected_code
 
 
 def assert_dict(
-        src: Dict,
-        dst: Dict,
-        keys: Tuple[Hashable, ...],
+    src: Dict,
+    dst: Dict,
+    keys: Tuple[Hashable, ...],
 ):
     for key in keys:
         assert src[key] == dst[key]

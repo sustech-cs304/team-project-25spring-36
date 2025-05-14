@@ -19,7 +19,12 @@ from intellide.database.model import (
     CourseDirectoryPermissionType,
     EntryType,
 )
-from intellide.deprecated.router.entry import download_entry, delete_entry, post_entry, move_entry
+from intellide.deprecated.router.entry import (
+    download_entry,
+    delete_entry,
+    post_entry,
+    move_entry,
+)
 from intellide.utils.auth import jwe_encode, jwe_decode
 from intellide.utils.path import path_normalize, path_prefix
 from intellide.utils.response import ok, bad_request, forbidden, APIError
@@ -36,10 +41,10 @@ class SharedEntryTokenCreateRequest(BaseModel):
 
 @api.post("/token/create")
 async def shared_entry_token_create(
-        request: SharedEntryTokenCreateRequest,
-        exp_hours: Optional[int] = None,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    request: SharedEntryTokenCreateRequest,
+    exp_hours: Optional[int] = None,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     生成共享令牌
@@ -60,7 +65,7 @@ async def shared_entry_token_create(
     result = await db.execute(
         select(Entry).where(
             Entry.entry_path == request.entry_path,
-            Entry.owner_id == access_info["user_id"]
+            Entry.owner_id == access_info["user_id"],
         )
     )
     root_entry: Entry = result.scalar()
@@ -70,9 +75,7 @@ async def shared_entry_token_create(
     # 添加共享记录
     shared_entry = SharedEntry(
         entry_id=root_entry.id,
-        permissions={
-            path: CourseDirectoryPermissionType(permission).value for path, permission in request.permissions.items()
-        } if request.permissions else {}
+        permissions=({path: CourseDirectoryPermissionType(permission).value for path, permission in request.permissions.items()} if request.permissions else {}),
     )
 
     db.add(shared_entry)
@@ -88,7 +91,7 @@ async def shared_entry_token_create(
                     "shared_entry_id": shared_entry.id,
                 },
                 exp_hours=exp_hours,
-            )
+            ),
         }
     )
 
@@ -99,9 +102,9 @@ class SharedEntryTokenParseRequest(BaseModel):
 
 @api.post("/token/parse")
 async def shared_entry_token_parse(
-        request: SharedEntryTokenParseRequest,
-        access_info: Dict = Depends(jwe_decode),
-        db: AsyncSession = Depends(database),
+    request: SharedEntryTokenParseRequest,
+    access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
 ):
     """
     解析共享令牌
@@ -135,8 +138,8 @@ async def shared_entry_token_parse(
 
 @api.get("/info")
 async def shared_entry_info_get(
-        db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwe_decode),
+    db: AsyncSession = Depends(database),
+    access_info: Dict = Depends(jwe_decode),
 ):
     """
     获取共享记录列表
@@ -171,11 +174,11 @@ async def shared_entry_info_get(
 
 @api.get("")
 async def shared_entry_get(
-        shared_entry_id: int,
-        entry_path: str,
-        entry_depth: Optional[int] = None,
-        db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwe_decode),
+    shared_entry_id: int,
+    entry_path: str,
+    entry_depth: Optional[int] = None,
+    db: AsyncSession = Depends(database),
+    access_info: Dict = Depends(jwe_decode),
 ):
     """
     获取共享条目信息
@@ -208,11 +211,14 @@ async def shared_entry_get(
     # 创建一个新的条目列表，只包含有权限的条目
     allowed_entry_ids = []
     for entry in all_entries:
-        relative_path = entry.entry_path[len(root_entry_path):]
+        relative_path = entry.entry_path[len(root_entry_path) :]
         if not verify_permissions(
-                relative_path,
-                shared_entry.permissions,
-                (CourseDirectoryPermissionType.READ, CourseDirectoryPermissionType.READ_WRITE)
+            relative_path,
+            shared_entry.permissions,
+            (
+                CourseDirectoryPermissionType.READ,
+                CourseDirectoryPermissionType.READ_WRITE,
+            ),
         ):
             continue
 
@@ -226,25 +232,27 @@ async def shared_entry_get(
     result = await db.execute(query)
     entries: Sequence[Entry] = result.scalars().all()
     # 返回文件或目录信息
-    return ok(data=[
-        {
-            **entry.dict(),  # 展开原始字典
-            "entry_path": entry.entry_path[len(root_entry_path):],  # 处理路径
-            "entry_depth": entry.entry_depth - root_entry_depth  # 处理深度
-        }
-        for entry in entries
-    ])
+    return ok(
+        data=[
+            {
+                **entry.dict(),  # 展开原始字典
+                "entry_path": entry.entry_path[len(root_entry_path) :],  # 处理路径
+                "entry_depth": entry.entry_depth - root_entry_depth,  # 处理深度
+            }
+            for entry in entries
+        ]
+    )
 
 
 @api.post("")
 async def shared_entry_post(
-        shared_entry_id: int,
-        entry_path: str = Form(...),
-        entry_type: EntryType = Form(...),
-        is_collaborative: bool = Form(False),
-        file: Optional[UploadFile] = File(None),
-        db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwe_decode),
+    shared_entry_id: int,
+    entry_path: str = Form(...),
+    entry_type: EntryType = Form(...),
+    is_collaborative: bool = Form(False),
+    file: Optional[UploadFile] = File(None),
+    db: AsyncSession = Depends(database),
+    access_info: Dict = Depends(jwe_decode),
 ):
     """
     在共享目录中上传文件或创建目录
@@ -266,9 +274,9 @@ async def shared_entry_post(
     shared_entry, root_entry = await select_shared_entry_with_root_entry_by_id(user_id, shared_entry_id, db)
     # 检查用户是否具有写入权限
     if not verify_permissions(
-            entry_path,
-            shared_entry.permissions,
-            (CourseDirectoryPermissionType.READ_WRITE,)
+        entry_path,
+        shared_entry.permissions,
+        (CourseDirectoryPermissionType.READ_WRITE,),
     ):
         return forbidden(message="No permission to post")
     # 规范化文件路径
@@ -289,10 +297,10 @@ async def shared_entry_post(
 
 @api.delete("")
 async def shared_entry_delete(
-        shared_entry_id: int,
-        entry_path: str,
-        db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwe_decode),
+    shared_entry_id: int,
+    entry_path: str,
+    db: AsyncSession = Depends(database),
+    access_info: Dict = Depends(jwe_decode),
 ):
     """
     删除共享条目中的文件或目录
@@ -311,9 +319,9 @@ async def shared_entry_delete(
     shared_entry, root_entry = await select_shared_entry_with_root_entry_by_id(user_id, shared_entry_id, db)
     # 验证文件权限
     if not verify_permissions(
-            entry_path,
-            shared_entry.permissions,
-            (CourseDirectoryPermissionType.READ_WRITE,),
+        entry_path,
+        shared_entry.permissions,
+        (CourseDirectoryPermissionType.READ_WRITE,),
     ):
         return forbidden(message="No permission to delete")
     # 规范化文件路径
@@ -333,16 +341,17 @@ class SharedEntryMoveRequest(BaseModel):
     - src_entry_path: 源文件或目录相对共享根目录的路径
     - dst_entry_path: 目标文件或目录相对共享根目录的路径
     """
+
     src_entry_path: str
     dst_entry_path: str
 
 
 @api.put("/move")
 async def shared_entry_move(
-        request: SharedEntryMoveRequest,
-        shared_entry_id: int,
-        db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwe_decode),
+    request: SharedEntryMoveRequest,
+    shared_entry_id: int,
+    db: AsyncSession = Depends(database),
+    access_info: Dict = Depends(jwe_decode),
 ):
     """
     移动文件或目录
@@ -361,15 +370,15 @@ async def shared_entry_move(
     shared_entry, root_entry = await select_shared_entry_with_root_entry_by_id(user_id, shared_entry_id, db)
     # 验证文件权限
     if not verify_permissions(
-            request.src_entry_path,
-            shared_entry.permissions,
-            (CourseDirectoryPermissionType.READ_WRITE,),
+        request.src_entry_path,
+        shared_entry.permissions,
+        (CourseDirectoryPermissionType.READ_WRITE,),
     ):
         return forbidden(message="No permission to move from source")
     if not verify_permissions(
-            request.dst_entry_path,
-            shared_entry.permissions,
-            (CourseDirectoryPermissionType.READ_WRITE,),
+        request.dst_entry_path,
+        shared_entry.permissions,
+        (CourseDirectoryPermissionType.READ_WRITE,),
     ):
         return forbidden(message="No permission to move to destination")
     # 规范化文件路径
@@ -387,10 +396,10 @@ async def shared_entry_move(
 
 @api.get("/download")
 async def shared_entry_download(
-        shared_entry_id: int,
-        entry_path: str,
-        db: AsyncSession = Depends(database),
-        access_info: Dict = Depends(jwe_decode),
+    shared_entry_id: int,
+    entry_path: str,
+    db: AsyncSession = Depends(database),
+    access_info: Dict = Depends(jwe_decode),
 ):
     """
     下载文件
@@ -408,9 +417,12 @@ async def shared_entry_download(
         user_id = access_info["user_id"]
         shared_entry, root_entry = await select_shared_entry_with_root_entry_by_id(user_id, shared_entry_id, db)
         if not verify_permissions(
-                entry_path,
-                shared_entry.permissions,
-                (CourseDirectoryPermissionType.READ, CourseDirectoryPermissionType.READ_WRITE,),
+            entry_path,
+            shared_entry.permissions,
+            (
+                CourseDirectoryPermissionType.READ,
+                CourseDirectoryPermissionType.READ_WRITE,
+            ),
         ):
             raise HTTPException(status_code=403, detail="No permission to download")
         # 获取文件路径
@@ -430,11 +442,11 @@ manager = WebSocketManager()
 
 @ws.websocket("/collaborative/subscribe")
 async def shared_entry_collaborative_subscribe(
-        websocket: WebSocket,
-        entry_id: int,
-        shared_entry_id: Optional[int] = None,
-        db: AsyncSession = Depends(database),
-        access_info=Depends(jwe_decode),
+    websocket: WebSocket,
+    entry_id: int,
+    shared_entry_id: Optional[int] = None,
+    db: AsyncSession = Depends(database),
+    access_info=Depends(jwe_decode),
 ):
     """
     订阅共享条目协作
@@ -455,8 +467,7 @@ async def shared_entry_collaborative_subscribe(
 
     # TODO: 验证用户是否有权限访问共享文件
     if shared_entry_id is not None:
-        shared_entry: SharedEntry = (
-            await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_id))).scalar()
+        shared_entry: SharedEntry = (await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_id))).scalar()
         if shared_entry is None:
             await websocket.close(code=1008)
             return
@@ -465,9 +476,9 @@ async def shared_entry_collaborative_subscribe(
             await websocket.close(code=1008)
             return
         if not verify_permissions(
-                entry.entry_path,
-                shared_entry.permissions,
-                (CourseDirectoryPermissionType.READ_WRITE,),
+            entry.entry_path,
+            shared_entry.permissions,
+            (CourseDirectoryPermissionType.READ_WRITE,),
         ):
             await websocket.close(code=1008)
             return
@@ -496,18 +507,18 @@ async def shared_entry_collaborative_subscribe(
 
 
 def verify_permissions(
-        entry_path: str,
-        permissions: CourseDirectoryPermission,
-        allowed_permission_types: Tuple[CourseDirectoryPermissionType, ...]
+    entry_path: str,
+    permissions: CourseDirectoryPermission,
+    allowed_permission_types: Tuple[CourseDirectoryPermissionType, ...],
 ) -> bool:
     """
     检查用户是否对共享目录中的指定条目路径具有某些权限之一。
-    
+
     参数:
         entry_path: 要检查的条目相对共享根目录的路径
         permissions: 相对路径到权限的映射字典
         allowed_permission_types: 允许的权限类型列表
-        
+
     返回:
         如果用户具有某些权限之一则返回True，否则返回False
     """
@@ -532,22 +543,21 @@ def verify_permissions(
 
 
 async def select_shared_entry_with_root_entry_by_id(
-        user_id: int,
-        shared_entry_id: int,
-        db: AsyncSession,
+    user_id: int,
+    shared_entry_id: int,
+    db: AsyncSession,
 ) -> Tuple[SharedEntry, Entry]:
     result = await db.execute(
         select(SharedEntryUser).where(
             SharedEntryUser.user_id == user_id,
-            SharedEntryUser.shared_entry_id == shared_entry_id
+            SharedEntryUser.shared_entry_id == shared_entry_id,
         )
     )
     shared_entry_user: SharedEntryUser = result.scalar()
     if shared_entry_user is None:
         raise APIError(bad_request, "You have not join this shared entry")
     # 查询共享条目
-    shared_entry: SharedEntry = (
-        await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_id))).scalar()
+    shared_entry: SharedEntry = (await db.execute(select(SharedEntry).where(SharedEntry.id == shared_entry_id))).scalar()
     if shared_entry is None:
         raise APIError(bad_request, "Shared entry not found")
     result = await db.execute(select(Entry).where(Entry.id == shared_entry.entry_id))
@@ -558,7 +568,7 @@ async def select_shared_entry_with_root_entry_by_id(
 
 
 def shared_entry_absolute_path(
-        root_entry: Entry,
-        relative_entry_path: str,
+    root_entry: Entry,
+    relative_entry_path: str,
 ) -> str:
     return path_normalize(f"{root_entry.entry_path}{relative_entry_path}")

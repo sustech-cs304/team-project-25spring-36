@@ -40,7 +40,7 @@ AUTH_JWE_ALG = "A256KW"
 AUTH_JWE_ENC = "A256CBC-HS512"
 
 # 邮箱配置
-SMTP_SERVER = 'smtp.qq.com'
+SMTP_SERVER = "smtp.qq.com"
 SMTP_PORT = 465
-SMTP_USER = 'fsht12345@qq.com'
-SMTP_PASSWORD = 'eflyqjkfcfdugfed'
+SMTP_USER = "fsht12345@qq.com"
+SMTP_PASSWORD = "eflyqjkfcfdugfed"

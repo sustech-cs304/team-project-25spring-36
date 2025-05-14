@@ -6,17 +6,26 @@ import requests
 import websocket
 from fastapi import status
 
-from intellide.tests.conftest import SERVER_API_BASE_URL, SERVER_WS_BASE_URL, unique_string_generator, \
-    unique_path_generator
+from intellide.tests.conftest import (
+    SERVER_API_BASE_URL,
+    SERVER_WS_BASE_URL,
+    unique_string_generator,
+    unique_path_generator,
+)
 from intellide.tests.test_user import unique_user_dict_generator, user_register_success
 from intellide.tests.utils import assert_code
-from intellide.utils.path import path_first_n, path_iterate_parents, path_parts, path_join
+from intellide.utils.path import (
+    path_first_n,
+    path_iterate_parents,
+    path_parts,
+    path_join,
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
 def init(
-        store: Dict,
-        unique_user_dict_generator: Callable,
+    store: Dict,
+    unique_user_dict_generator: Callable,
 ):
     store["user_dict_teacher"] = unique_user_dict_generator()
     store["user_dict_student"] = unique_user_dict_generator()
@@ -30,8 +39,8 @@ def init(
 
 @pytest.mark.dependency
 def test_course_post_success(
-        store: Dict,
-        unique_string_generator: Callable,
+    store: Dict,
+    unique_string_generator: Callable,
 ):
     user_token_teacher = store["user_token_teacher"]
     response = requests.post(
@@ -50,7 +59,7 @@ def test_course_post_success(
 
 @pytest.mark.dependency(depends=["test_course_post_success"])
 def test_course_student_join_success(
-        store: Dict,
+    store: Dict,
 ):
     user_token_student = store["user_token_student"]
     course_id_base = store["course_id_base"]
@@ -59,7 +68,7 @@ def test_course_student_join_success(
 
 @pytest.mark.dependency(depends=["test_course_post_success"])
 def test_course_get_success_role_teacher(
-        store: Dict,
+    store: Dict,
 ):
     user_token_teacher = store["user_token_teacher"]
     course_id_base = store["course_id_base"]
@@ -70,7 +79,7 @@ def test_course_get_success_role_teacher(
         },
         params={
             "role": "teacher",
-        }
+        },
     ).json()
     assert_code(response, status.HTTP_200_OK)
     assert course_id_base in {course["id"] for course in response["data"]}
@@ -78,7 +87,7 @@ def test_course_get_success_role_teacher(
 
 @pytest.mark.dependency(depends=["test_course_student_join_success"])
 def test_course_get_success_role_student(
-        store: Dict,
+    store: Dict,
 ):
     user_token_student = store["user_token_student"]
     course_id_base = store["course_id_base"]
@@ -89,7 +98,7 @@ def test_course_get_success_role_student(
         },
         params={
             "role": "student",
-        }
+        },
     ).json()
     assert_code(response, status.HTTP_200_OK)
     assert course_id_base in {course["id"] for course in response["data"]}
@@ -97,7 +106,7 @@ def test_course_get_success_role_student(
 
 @pytest.mark.dependency(depends=["test_course_student_join_success"])
 def test_course_student_get_success(
-        store: Dict,
+    store: Dict,
 ):
     user_dict_student = store["user_dict_student"]
     user_token_student = store["user_token_student"]
@@ -108,8 +117,8 @@ def test_course_student_get_success(
 
 @pytest.mark.dependency(depends=["test_course_student_get_success"])
 def test_course_student_delete_quit(
-        store: Dict,
-        unique_user_dict_generator: Callable,
+    store: Dict,
+    unique_user_dict_generator: Callable,
 ):
     user_token_teacher = store["user_token_teacher"]
     course_id_base = store["course_id_base"]
@@ -121,16 +130,13 @@ def test_course_student_delete_quit(
         user_token=student_token,
         course_id=course_id_base,
     )
-    assert student_id not in {
-        student["id"] for student in
-        course_student_get_success(user_token_teacher, course_id_base)
-    }
+    assert student_id not in {student["id"] for student in course_student_get_success(user_token_teacher, course_id_base)}
 
 
 @pytest.mark.dependency(depends=["test_course_student_get_success"])
 def test_course_student_delete_kick(
-        store: Dict,
-        unique_user_dict_generator: Callable,
+    store: Dict,
+    unique_user_dict_generator: Callable,
 ):
     user_token_teacher = store["user_token_teacher"]
     course_id_base = store["course_id_base"]
@@ -143,16 +149,13 @@ def test_course_student_delete_kick(
         course_id=course_id_base,
         student_id=student_id,
     )
-    assert student_id not in {
-        student["id"] for student in
-        course_student_get_success(user_token_teacher, course_id_base)
-    }
+    assert student_id not in {student["id"] for student in course_student_get_success(user_token_teacher, course_id_base)}
 
 
 @pytest.mark.dependency(depends=["test_course_post_success"])
 def test_course_directory_post_success(
-        store: Dict,
-        unique_string_generator: Callable,
+    store: Dict,
+    unique_string_generator: Callable,
 ):
     user_token_teacher = store["user_token_teacher"]
     course_id_base = store["course_id_base"]
@@ -167,7 +170,7 @@ def test_course_directory_post_success(
 
 @pytest.mark.dependency(depends=["test_course_directory_post_success"])
 def test_course_directory_get_success(
-        store: Dict,
+    store: Dict,
 ):
     user_token_teacher = store["user_token_teacher"]
     course_id_base = store["course_id_base"]
@@ -183,8 +186,8 @@ def test_course_directory_get_success(
 
 @pytest.mark.dependency(depends=["test_course_directory_get_success"])
 def test_course_directory_delete_success(
-        store: Dict,
-        unique_string_generator: Callable,
+    store: Dict,
+    unique_string_generator: Callable,
 ):
     user_token_teacher = store["user_token_teacher"]
     course_id_base = store["course_id_base"]
@@ -216,9 +219,9 @@ def test_course_directory_delete_success(
 
 @pytest.mark.dependency(depends=["test_course_directory_post_success"])
 def test_course_directory_entry_post_success(
-        store: Dict,
-        unique_path_generator: Callable,
-        temp_file_path: str,
+    store: Dict,
+    unique_path_generator: Callable,
+    temp_file_path: str,
 ):
     user_token_teacher = store["user_token_teacher"]
     course_directory_id_base = store["course_directory_id_base"]
@@ -230,20 +233,20 @@ def test_course_directory_entry_post_success(
             course_directory_id_base,
             path,
             file_path=temp_file_path,
-        )["course_directory_entry_id"])
+        )["course_directory_entry_id"]
+    )
 
 
 @pytest.mark.dependency(depends=["test_course_directory_entry_post_success"])
 def test_course_directory_entry_get_success(
-        store: Dict,
+    store: Dict,
 ):
     user_token_teacher = store["user_token_teacher"]
     course_directory_id_base = store["course_directory_id_base"]
     course_directory_entry_id_base = store["course_directory_entry_id_base"]
     assert course_directory_entry_id_base in {
         course_directory_entry["id"]
-        for course_directory_entry in
-        course_directory_entry_get_success(
+        for course_directory_entry in course_directory_entry_get_success(
             user_token_teacher,
             course_directory_id_base,
             "/",
@@ -254,8 +257,8 @@ def test_course_directory_entry_get_success(
 
 @pytest.mark.dependency(depends=["test_course_directory_entry_post_success"])
 def test_course_directory_entry_download_success(
-        store: Dict,
-        temp_file_content: bytes,
+    store: Dict,
+    temp_file_content: bytes,
 ):
     user_token_teacher = store["user_token_teacher"]
     course_directory_entry_id_base = store["course_directory_entry_id_base"]
@@ -274,8 +277,8 @@ def test_course_directory_entry_download_success(
 
 @pytest.mark.dependecy(depends=["test_course_directory_entry_get_success"])
 def test_course_directory_entry_delete_success_and_fail(
-        store: Dict,
-        unique_path_generator: Callable,
+    store: Dict,
+    unique_path_generator: Callable,
 ):
     user_token_teacher = store["user_token_teacher"]
     user_token_student = store["user_token_student"]
@@ -318,14 +321,8 @@ def test_course_directory_entry_delete_success_and_fail(
         "/",
         True,
     )
-    course_directory_entry_paths = {
-        course_directory_entry["path"]
-        for course_directory_entry in course_directory_entries
-    }
-    course_directory_entry_ids = {
-        course_directory_entry["id"]
-        for course_directory_entry in course_directory_entries
-    }
+    course_directory_entry_paths = {course_directory_entry["path"] for course_directory_entry in course_directory_entries}
+    course_directory_entry_ids = {course_directory_entry["id"] for course_directory_entry in course_directory_entries}
     for parent in path_iterate_parents(path):
         assert parent not in course_directory_entry_paths
     assert course_directory_entry_id not in course_directory_entry_ids
@@ -333,8 +330,8 @@ def test_course_directory_entry_delete_success_and_fail(
 
 @pytest.mark.dependecy(depends=["test_course_directory_entry_get_success"])
 def test_course_directory_entry_move_success_and_fail(
-        store: Dict,
-        unique_path_generator: Callable,
+    store: Dict,
+    unique_path_generator: Callable,
 ):
     user_token_teacher = store["user_token_teacher"]
     user_token_student = store["user_token_student"]
@@ -360,7 +357,7 @@ def test_course_directory_entry_move_success_and_fail(
         json={
             "course_directory_entry_id": root_course_directory_entry_id,
             "dst_path": dst_path,
-        }
+        },
     ).json()
     assert_code(response_student, status.HTTP_403_FORBIDDEN)
     response_teacher = requests.put(
@@ -371,7 +368,7 @@ def test_course_directory_entry_move_success_and_fail(
         json={
             "course_directory_entry_id": root_course_directory_entry_id,
             "dst_path": dst_path,
-        }
+        },
     ).json()
     assert_code(response_teacher, status.HTTP_200_OK)
     course_directory_entries = course_directory_entry_get_success(
@@ -380,10 +377,7 @@ def test_course_directory_entry_move_success_and_fail(
         "/",
         True,
     )
-    course_directory_entry_paths = {
-        course_directory_entry["path"]
-        for course_directory_entry in course_directory_entries
-    }
+    course_directory_entry_paths = {course_directory_entry["path"] for course_directory_entry in course_directory_entries}
     assert "/" + path_parts(dst_path, 0) in course_directory_entry_paths
     assert dst_path in course_directory_entry_paths
     assert path_join(dst_path, path_parts(path, 2)) in course_directory_entry_paths
@@ -392,8 +386,8 @@ def test_course_directory_entry_move_success_and_fail(
 
 @pytest.mark.dependecy(depends=["test_course_post_success"])
 def test_course_chat_success(
-        store: Dict,
-        unique_string_generator: Callable,
+    store: Dict,
+    unique_string_generator: Callable,
 ):
     user_token_teacher = store["user_token_teacher"]
     user_token_student = store["user_token_student"]
@@ -429,8 +423,8 @@ def test_course_chat_success(
 
 
 def course_student_get_success(
-        user_token: str,
-        course_id: int,
+    user_token: str,
+    course_id: int,
 ) -> List[Dict]:
     response = requests.get(
         url=f"{SERVER_API_BASE_URL}/course/student",
@@ -446,8 +440,8 @@ def course_student_get_success(
 
 
 def course_student_join_success(
-        student_token: str,
-        course_id: int,
+    student_token: str,
+    course_id: int,
 ) -> Dict:
     response = requests.post(
         url=f"{SERVER_API_BASE_URL}/course/student/join",
@@ -463,9 +457,9 @@ def course_student_join_success(
 
 
 def course_student_delete_success(
-        user_token: str,
-        course_id: int,
-        student_id: Optional[int] = None,
+    user_token: str,
+    course_id: int,
+    student_id: Optional[int] = None,
 ) -> None:
     response = requests.get(
         url=f"{SERVER_API_BASE_URL}/course/directory",
@@ -481,9 +475,9 @@ def course_student_delete_success(
 
 
 def course_directory_post_success(
-        user_token: str,
-        course_id: int,
-        directory_name: str,
+    user_token: str,
+    course_id: int,
+    directory_name: str,
 ) -> Dict:
     response = requests.post(
         url=f"{SERVER_API_BASE_URL}/course/directory",
@@ -503,8 +497,8 @@ def course_directory_post_success(
 
 
 def course_directory_get_success(
-        user_token: str,
-        course_id: int,
+    user_token: str,
+    course_id: int,
 ) -> List[Dict]:
     response = requests.get(
         url=f"{SERVER_API_BASE_URL}/course/directory",
@@ -520,10 +514,10 @@ def course_directory_get_success(
 
 
 def course_directory_entry_post_success(
-        user_token: str,
-        course_directory_id: int,
-        path: str,
-        file_path: Optional[str] = None
+    user_token: str,
+    course_directory_id: int,
+    path: str,
+    file_path: Optional[str] = None,
 ):
     headers = {
         "Access-Token": user_token,
@@ -553,10 +547,10 @@ def course_directory_entry_post_success(
 
 
 def course_directory_entry_get_success(
-        user_token: str,
-        course_directory_id: int,
-        path: str,
-        fuzzy: bool,
+    user_token: str,
+    course_directory_id: int,
+    path: str,
+    fuzzy: bool,
 ) -> Union[Dict, List[Dict]]:
     response = requests.get(
         url=f"{SERVER_API_BASE_URL}/course/directory/entry",
@@ -566,7 +560,7 @@ def course_directory_entry_get_success(
         params={
             "course_directory_id": course_directory_id,
             "path": path,
-            "fuzzy": fuzzy
+            "fuzzy": fuzzy,
         },
     ).json()
     assert_code(response, status.HTTP_200_OK)

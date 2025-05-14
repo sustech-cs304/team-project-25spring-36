@@ -9,7 +9,7 @@ api = APIRouter(prefix="/surprise")
 
 @api.api_route("/echo", response_class=PlainTextResponse)
 async def echo(
-        request: Request,
+    request: Request,
 ):
     body = await request.body()
     if not body:
@@ -196,6 +196,6 @@ async def mood():
             "💪 比我刚刚修好的Bug还强",
             "🧑‍🚀 执行部署任务的宇航员",
             "⚡ 由咖啡和代码提供动力",
-            "💤 睡觉是给非开发者的"
+            "💤 睡觉是给非开发者的",
         ]
     )

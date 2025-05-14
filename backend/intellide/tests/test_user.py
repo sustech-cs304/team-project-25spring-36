@@ -10,7 +10,7 @@ from intellide.utils.auth import verification_code
 
 
 def user_register_success(
-        user_register_dict: Dict,
+    user_register_dict: Dict,
 ) -> Dict:
     response = requests.post(
         url=f"{SERVER_API_BASE_URL}/user/register",
@@ -21,7 +21,7 @@ def user_register_success(
 
 
 def user_login_success(
-        user_login_dict: Dict,
+    user_login_dict: Dict,
 ) -> Dict:
     response = requests.post(
         url=f"{SERVER_API_BASE_URL}/user/login",
@@ -34,9 +34,7 @@ def user_login_success(
     return response["data"]
 
 
-def user_get_success(
-        token: str
-) -> Dict:
+def user_get_success(token: str) -> Dict:
     response = requests.get(
         url=f"{SERVER_API_BASE_URL}/user",
         headers={
@@ -49,7 +47,7 @@ def user_get_success(
 
 @pytest.fixture(scope="session")
 def unique_user_dict_generator(
-        unique_string_generator: Callable,
+    unique_string_generator: Callable,
 ) -> Callable:
     def _unique_user_generator():
         email = f"{unique_string_generator()}@{unique_string_generator()}.com"
@@ -67,16 +65,16 @@ def unique_user_dict_generator(
 
 @pytest.fixture(scope="session", autouse=True)
 def init(
-        store: Dict,
-        unique_user_dict_generator: Callable,
+    store: Dict,
+    unique_user_dict_generator: Callable,
 ):
     store["user_dict_default"] = unique_user_dict_generator()
 
 
 @pytest.mark.dependency
 def test_user_register_code_success(
-        store: Dict,
-        unique_string_generator: Callable,
+    store: Dict,
+    unique_string_generator: Callable,
 ):
     email = f"{unique_string_generator()}@ethereal.email"
     response = requests.get(
@@ -92,7 +90,7 @@ def test_user_register_code_success(
 
 @pytest.mark.dependency(depends=["test_user_register_code_success"])
 def test_user_register_success(
-        store: Dict,
+    store: Dict,
 ):
     user_dict_default = store["user_dict_default"]
     user_register_success(user_dict_default)
@@ -100,7 +98,7 @@ def test_user_register_success(
 
 @pytest.mark.dependency(depends=["test_user_register_success"])
 def test_user_register_failure_username_occupied(
-        store: Dict,
+    store: Dict,
 ):
     user_dict_default = store["user_dict_default"]
     response = requests.post(
@@ -112,7 +110,7 @@ def test_user_register_failure_username_occupied(
 
 @pytest.mark.dependency(depends=["test_user_register_success"])
 def test_user_login_success(
-        store: Dict,
+    store: Dict,
 ):
     user_dict_default = store["user_dict_default"]
     user_login_success(user_dict_default)
@@ -120,8 +118,8 @@ def test_user_login_success(
 
 @pytest.mark.dependency(depends=["test_user_login_success"])
 def test_user_login_failure_username_not_exists(
-        store: Dict,
-        unique_string_generator: Callable,
+    store: Dict,
+    unique_string_generator: Callable,
 ):
     user_dict_default = store["user_dict_default"]
     response = requests.post(
@@ -136,8 +134,8 @@ def test_user_login_failure_username_not_exists(
 
 @pytest.mark.dependency(depends=["test_user_login_success"])
 def test_user_login_failure_password_incorrect(
-        store: Dict,
-        unique_string_generator: Callable,
+    store: Dict,
+    unique_string_generator: Callable,
 ):
     user_dict_default = store["user_dict_default"]
     response = requests.post(
@@ -152,18 +150,25 @@ def test_user_login_failure_password_incorrect(
 
 @pytest.mark.dependency(depends=["test_user_login_success"])
 def test_user_get_success(
-        store: Dict,
+    store: Dict,
 ):
     user_dict_default = store["user_dict_default"]
     data = user_login_success(user_dict_default)
     user_token = data["token"]
     user_select_dict = user_get_success(user_token)
-    assert_dict(user_select_dict, user_dict_default, ("username", "email",))
+    assert_dict(
+        user_select_dict,
+        user_dict_default,
+        (
+            "username",
+            "email",
+        ),
+    )
 
 
 @pytest.mark.dependency(depends=["test_user_get_success"])
 def test_user_get_failure_token_incorrect(
-        unique_string_generator: Callable,
+    unique_string_generator: Callable,
 ):
     response = requests.get(
         url=f"{SERVER_API_BASE_URL}/user",
@@ -176,7 +181,7 @@ def test_user_get_failure_token_incorrect(
 
 @pytest.mark.dependency(depends=["test_user_get_success"])
 def test_user_put_success(
-        unique_user_dict_generator: Callable,
+    unique_user_dict_generator: Callable,
 ):
     # 先注册新用户
     new_user_dict = unique_user_dict_generator()

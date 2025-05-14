@@ -5,8 +5,8 @@ from fastapi.responses import JSONResponse
 
 
 def ok(
-        data: Union[str, Dict, List, None] = None,
-        **kwargs,
+    data: Union[str, Dict, List, None] = None,
+    **kwargs,
 ) -> JSONResponse:
     """
     返回成功响应
@@ -31,8 +31,8 @@ def ok(
 
 
 def bad_request(
-        message: str = "N/A",
-        **kwargs,
+    message: str = "N/A",
+    **kwargs,
 ) -> JSONResponse:
     """
     返回错误请求响应
@@ -57,8 +57,8 @@ def bad_request(
 
 
 def forbidden(
-        message: str = "N/A",
-        **kwargs,
+    message: str = "N/A",
+    **kwargs,
 ) -> JSONResponse:
     """
     返回禁止访问响应
@@ -83,8 +83,8 @@ def forbidden(
 
 
 def not_found(
-        message: str = "N/A",
-        **kwargs,
+    message: str = "N/A",
+    **kwargs,
 ) -> JSONResponse:
     """
     返回未找到资源响应
@@ -104,13 +104,13 @@ def not_found(
             "description": "Not Found",
             "message": message,
             **kwargs,
-        }
+        },
     )
 
 
 def internal_server_error(
-        message: str = "N/A",
-        **kwargs,
+    message: str = "N/A",
+    **kwargs,
 ) -> JSONResponse:
     """
     返回服务器内部错误响应
@@ -135,8 +135,8 @@ def internal_server_error(
 
 
 def not_implemented(
-        message: str = "N/A",
-        **kwargs,
+    message: str = "N/A",
+    **kwargs,
 ) -> JSONResponse:
     """
     返回未实现功能响应
@@ -166,14 +166,14 @@ class APIError(Exception):
         forbidden: status.HTTP_403_FORBIDDEN,
         not_found: status.HTTP_404_NOT_FOUND,
         internal_server_error: status.HTTP_500_INTERNAL_SERVER_ERROR,
-        not_implemented: status.HTTP_501_NOT_IMPLEMENTED
+        not_implemented: status.HTTP_501_NOT_IMPLEMENTED,
     }
 
     def __init__(
-            self,
-            func: Callable,
-            message: str = "N/A",
-            **kwargs,
+        self,
+        func: Callable,
+        message: str = "N/A",
+        **kwargs,
     ):
         self._func = func
         self._msg = message

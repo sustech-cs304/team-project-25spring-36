@@ -6,9 +6,9 @@ from fastapi import WebSocket
 class WebSocketManager:
     class WebSocketManagerGroup:
         def __init__(
-                self,
-                name: Optional[Hashable] = None,
-                parent: Optional["WebSocketManager.WebSocketManagerGroup"] = None,
+            self,
+            name: Optional[Hashable] = None,
+            parent: Optional["WebSocketManager.WebSocketManagerGroup"] = None,
         ):
             """
             WebSocket 管理器分组
@@ -29,34 +29,34 @@ class WebSocketManager:
             self.connections: Dict[Hashable, WebSocket] = dict()
 
         def has_child(
-                self,
-                key: Hashable,
+            self,
+            key: Hashable,
         ):
             return key in self.children
 
         def get_child(
-                self,
-                key: Hashable,
+            self,
+            key: Hashable,
         ):
             return self.children[key]
 
         def add_child(
-                self,
-                key: Hashable,
-                value: "WebSocketManager.WebSocketManagerGroup",
+            self,
+            key: Hashable,
+            value: "WebSocketManager.WebSocketManagerGroup",
         ):
             self.children[key] = value
 
         def remove_child(
-                self,
-                key: Hashable,
+            self,
+            key: Hashable,
         ):
             del self.children[key]
 
         def add_connection(
-                self,
-                identifier: Hashable,
-                websocket: WebSocket,
+            self,
+            identifier: Hashable,
+            websocket: WebSocket,
         ):
             """
             添加 WebSocket 连接
@@ -73,8 +73,8 @@ class WebSocketManager:
             self.connections[identifier] = websocket
 
         def remove_connection(
-                self,
-                identifier: Hashable,
+            self,
+            identifier: Hashable,
         ) -> WebSocket:
             """
             移除 WebSocket 连接
@@ -95,10 +95,10 @@ class WebSocketManager:
         self.groups = WebSocketManager.WebSocketManagerGroup()
 
     def add(
-            self,
-            keys: Tuple[Hashable, ...],
-            identifier: Hashable,
-            websocket: WebSocket,
+        self,
+        keys: Tuple[Hashable, ...],
+        identifier: Hashable,
+        websocket: WebSocket,
     ):
         """
         添加 WebSocket 连接到管理器
@@ -118,9 +118,9 @@ class WebSocketManager:
         current.add_connection(identifier, websocket)
 
     def remove(
-            self,
-            keys: Tuple[Hashable, ...],
-            identifier: Hashable,
+        self,
+        keys: Tuple[Hashable, ...],
+        identifier: Hashable,
     ) -> WebSocket:
         """
         移除 WebSocket 连接
@@ -144,8 +144,8 @@ class WebSocketManager:
         return connection
 
     def group(
-            self,
-            keys: Tuple[Hashable, ...],
+        self,
+        keys: Tuple[Hashable, ...],
     ) -> WebSocketManagerGroup:
         """
         获取 WebSocket 分组
@@ -164,9 +164,9 @@ class WebSocketManager:
         return current
 
     async def broadcast_json(
-            self,
-            keys: Tuple[Hashable, ...],
-            content: Any,
+        self,
+        keys: Tuple[Hashable, ...],
+        content: Any,
     ):
         """
         广播 JSON 内容

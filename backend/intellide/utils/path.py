@@ -7,7 +7,7 @@ from intellide.utils.response import APIError, bad_request
 
 
 def path_normalize(
-        path: str,
+    path: str,
 ) -> str:
     """
     验证并规范化文件路径
@@ -29,7 +29,7 @@ def path_normalize(
 
 
 def path_prefix(
-        path: str,
+    path: str,
 ) -> str:
     """
     获取文件路径的父目录
@@ -44,7 +44,7 @@ def path_prefix(
 
 
 def path_dir_base_name(
-        path: str,
+    path: str,
 ) -> Tuple[str, str]:
     """
     分割文件路径为目录和文件名
@@ -59,12 +59,12 @@ def path_dir_base_name(
     idx = path.rfind("/")
     return (
         path[:idx],
-        path[idx + 1:],
+        path[idx + 1 :],
     )
 
 
 def path_base_name(
-        path: str,
+    path: str,
 ) -> str:
     """
     获取文件路径的文件名
@@ -80,8 +80,8 @@ def path_base_name(
 
 
 def path_iterate_parents(
-        path: str,
-        include_self: bool = True,
+    path: str,
+    include_self: bool = True,
 ) -> Iterator[str]:
     def parent(_path):
         idx = _path.rfind("/")
@@ -107,8 +107,8 @@ def path_iterate_parents(
 
 
 def path_parts(
-        path: str,
-        index: int,
+    path: str,
+    index: int,
 ) -> str:
     """
     提取路径中的第 index 个目
@@ -131,8 +131,8 @@ def path_parts(
 
 
 def path_first_n(
-        path: str,
-        n: int,
+    path: str,
+    n: int,
 ) -> str:
     """
     提取路径中的前 n 个目录
@@ -152,8 +152,8 @@ def path_first_n(
 
 
 def path_join(
-        path: str,
-        *paths: str,
+    path: str,
+    *paths: str,
 ) -> str:
     """
     连接多个路径

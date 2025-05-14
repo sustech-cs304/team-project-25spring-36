@@ -2,7 +2,18 @@ from datetime import datetime
 from enum import Enum as PyEnum
 from typing import Dict, List
 
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Index, ForeignKey, Sequence
+from sqlalchemy import (
+    Column,
+    Float,
+    Integer,
+    BigInteger,
+    String,
+    DateTime,
+    Enum,
+    Index,
+    ForeignKey,
+    Sequence,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.event import listen
 from sqlalchemy.ext.declarative import declarative_base
@@ -53,18 +64,42 @@ class User(SQLAlchemyBaseModel, Mixin):
     """
 
     __tablename__ = "users"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    username = Column(String, nullable=False)
-    password = Column(String, nullable=False)
-    email = Column(String, nullable=False, unique=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
-    uid = Column(BigInteger,
-                 users_uid_sequence,
-                 server_default=users_uid_sequence.next_value(),
-                 unique=True,
-                 nullable=False,
-                 )
+    id = Column(
+        BigInteger,
+        primary_key=True,
+        autoincrement=True,
+    )
+    username = Column(
+        String,
+        nullable=False,
+    )
+    password = Column(
+        String,
+        nullable=False,
+    )
+    email = Column(
+        String,
+        nullable=False,
+        unique=True,
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.now,
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.now,
+        onupdate=datetime.now,
+    )
+    uid = Column(
+        BigInteger,
+        users_uid_sequence,
+        server_default=users_uid_sequence.next_value(),
+        unique=True,
+        nullable=False,
+    )
 
 
 class EntryType(EnumClass):
@@ -116,6 +151,7 @@ class CourseDirectoryPermissionType(EnumClass):
     """
     共享条目额外权限类型枚举类
     """
+
     READ: str = "read"  # 用户可以读这个文件夹里的所有文件，对文件来说可以读文件内容
     WRITE: str = "write"  # 用户可以修改这个文件夹里的所有文件，对文件来说可以修改文件内容
     UPLOAD: str = "upload"  # 用户可以上传文件到这个文件夹
@@ -159,11 +195,30 @@ class Course(SQLAlchemyBaseModel, Mixin):
     """
 
     __tablename__ = "courses"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    teacher_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
-    name = Column(String, nullable=False)
-    description = Column(String, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    id = Column(
+        BigInteger,
+        primary_key=True,
+        autoincrement=True,
+    )
+    teacher_id = Column(
+        BigInteger,
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+    name = Column(
+        String,
+        nullable=False,
+    )
+    description = Column(
+        String,
+        nullable=False,
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.now,
+    )
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
 
@@ -173,11 +228,29 @@ class CourseDirectory(SQLAlchemyBaseModel, Mixin):
     """
 
     __tablename__ = "course_directories"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    course_id = Column(BigInteger, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
-    name = Column(String, nullable=False)
-    permission = Column(JSONB)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    id = Column(
+        BigInteger,
+        primary_key=True,
+        autoincrement=True,
+    )
+    course_id = Column(
+        BigInteger,
+        ForeignKey("courses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name = Column(
+        String,
+        nullable=False,
+    )
+    permission = Column(
+        JSONB,
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.now,
+    )
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
 
@@ -185,15 +258,48 @@ class CourseDirectoryEntry(SQLAlchemyBaseModel, Mixin):
     """
     课程共享条目具体类
     """
+
     __tablename__ = "course_directory_entries"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    course_directory_id = Column(BigInteger, ForeignKey("course_directories.id", ondelete="CASCADE"), nullable=False, index=True)
-    author_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
-    path = Column(String, nullable=False, index=True)
-    depth = Column(Integer, nullable=False)
-    type = Column(Enum(EntryType), nullable=False)
-    storage_name = Column(String, unique=True, default=None)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    id = Column(
+        BigInteger,
+        primary_key=True,
+        autoincrement=True,
+    )
+    course_directory_id = Column(
+        BigInteger,
+        ForeignKey("course_directories.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    author_id = Column(
+        BigInteger,
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+    path = Column(
+        String,
+        nullable=False,
+        index=True,
+    )
+    depth = Column(
+        Integer,
+        nullable=False,
+    )
+    type = Column(
+        Enum(EntryType),
+        nullable=False,
+    )
+    storage_name = Column(
+        String,
+        unique=True,
+        default=None,
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.now,
+    )
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
     __table_args__ = (
         Index("idx__course_directory_entries__path", path),  # B-TREE 主索引
@@ -216,11 +322,28 @@ class CourseCollaborativeDirectoryEntry(SQLAlchemyBaseModel, Mixin):
     """
     课程共享可协作条目具体类
     """
+
     __tablename__ = "course_collaborative_directory_entries"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    course_id = Column(BigInteger, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
-    storage_name = Column(String, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    id = Column(
+        BigInteger,
+        primary_key=True,
+        autoincrement=True,
+    )
+    course_id = Column(
+        BigInteger,
+        ForeignKey("courses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    storage_name = Column(
+        String,
+        nullable=False,
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.now,
+    )
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
 
@@ -228,20 +351,54 @@ class CourseCollaborativeDirectoryEntryEditHistory(SQLAlchemyBaseModel, Mixin):
     """
     课程共享可协作条目编辑历史具体类
     """
+
     __tablename__ = "course_collaborative_directory_entries_edit_history"
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    course_collaborative_directory_entry_id = Column(BigInteger,
-                                                     ForeignKey("course_collaborative_directory_entries.id", ondelete="CASCADE"),
-                                                     nullable=False, index=True)
-    operation = Column(String, nullable=False)
-    position = Column(Integer, nullable=False)
-    content = Column(String, nullable=False)
-    editor_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
-    edit_at = Column(DateTime, nullable=False, default=datetime.now)
+    id = Column(
+        BigInteger,
+        primary_key=True,
+        autoincrement=True,
+    )
+    course_collaborative_directory_entry_id = Column(
+        BigInteger,
+        ForeignKey("course_collaborative_directory_entries.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    operation = Column(
+        String,
+        nullable=False,
+    )
+    position = Column(
+        Integer,
+        nullable=False,
+    )
+    content = Column(
+        String,
+        nullable=False,
+    )
+    editor_id = Column(
+        BigInteger,
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+    edit_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.now,
+    )
 
 
-listen(CourseDirectoryEntry, "before_insert", CourseDirectoryEntry.event_before_insert_or_update)
-listen(CourseDirectoryEntry, "before_update", CourseDirectoryEntry.event_before_insert_or_update)
+listen(
+    CourseDirectoryEntry,
+    "before_insert",
+    CourseDirectoryEntry.event_before_insert_or_update,
+)
+listen(
+    CourseDirectoryEntry,
+    "before_update",
+    CourseDirectoryEntry.event_before_insert_or_update,
+)
 
 
 class CourseStudent(SQLAlchemyBaseModel, Mixin):
@@ -251,7 +408,116 @@ class CourseStudent(SQLAlchemyBaseModel, Mixin):
 
     __tablename__ = "course_students"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    course_id = Column(BigInteger, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
-    student_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    course_id = Column(
+        BigInteger,
+        ForeignKey("courses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    student_id = Column(
+        BigInteger,
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.now,
+    )
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+
+
+class CourseHomeworkAssignment(SQLAlchemyBaseModel, Mixin):
+    """
+    作业布置模型
+    """
+
+    __tablename__ = "course_homework_assignments"
+    id = Column(
+        BigInteger,
+        primary_key=True,
+        autoincrement=True,
+    )
+    course_id = Column(
+        BigInteger,
+        ForeignKey("courses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    title = Column(
+        String,
+    )
+    description = Column(
+        String,
+    )
+    deadline = Column(
+        DateTime,
+    )
+    course_directory_entry_ids = Column(
+        JSONB,
+        nullable=False,
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.now,
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.now,
+        onupdate=datetime.now,
+    )
+
+
+class CourseHomeworkSubmission(SQLAlchemyBaseModel, Mixin):
+    """
+    作业提交模型
+    """
+
+    __tablename__ = "homework_submissions"
+    id = Column(
+        BigInteger,
+        primary_key=True,
+        autoincrement=True,
+    )
+    homework_id = Column(
+        BigInteger,
+        ForeignKey("homework_assignments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    student_id = Column(
+        BigInteger,
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+    title = Column(
+        String,
+    )
+    description = Column(
+        String,
+    )
+    course_directory_entry_ids = Column(
+        JSONB,
+        nullable=False,
+    )
+    grade = Column(
+        Float,
+    )
+    feedback = Column(
+        String,
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.now,
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.now,
+        onupdate=datetime.now,
+    )

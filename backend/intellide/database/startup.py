@@ -8,8 +8,8 @@ from intellide.database.model import SQLAlchemyBaseModel
 
 
 async def _create_pg_database(
-        async_engine: AsyncEngine,
-        database_name: str,
+    async_engine: AsyncEngine,
+    database_name: str,
 ):
     """
     创建 PostgreSQL 数据库
@@ -29,8 +29,8 @@ async def _create_pg_database(
 
 
 async def _create_pg_extensions(
-        async_engine: AsyncEngine,
-        extensions: List[str],
+    async_engine: AsyncEngine,
+    extensions: List[str],
 ):
     """
     创建 PostgreSQL 数据库扩展
@@ -50,7 +50,7 @@ async def _create_pg_extensions(
 
 
 async def _create_pg_tables(
-        async_engine: AsyncEngine,
+    async_engine: AsyncEngine,
 ):
     """
     创建 PostgreSQL 数据库表格
