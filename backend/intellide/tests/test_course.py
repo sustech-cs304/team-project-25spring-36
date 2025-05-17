@@ -565,3 +565,298 @@ def course_directory_entry_get_success(
     ).json()
     assert_code(response, status.HTTP_200_OK)
     return response["data"]
+
+def course_homework_assignment_post_success(
+    user_token: str,
+    course_id: int,
+    title: str,
+    description: str,
+    course_directory_entry_ids: List[int],
+) -> Dict:
+    from datetime import datetime, timedelta
+    
+    deadline = (datetime.now() + timedelta(days=7)).isoformat()
+    
+    response = requests.post(
+        url=f"{SERVER_API_BASE_URL}/course/homework/assignment",
+        headers={
+            "Access-Token": user_token,
+        },
+        json={
+            "course_id": course_id,
+            "title": title,
+            "description": description,
+            "deadline": deadline,
+            "course_directory_entry_ids": course_directory_entry_ids,
+        },
+    ).json()
+    
+    if "detail" in response:
+        pytest.fail(f"API请求失败: {response}")
+        
+    assert_code(response, status.HTTP_200_OK)
+    return response["data"]
+
+
+def course_homework_assignment_get_success(
+    user_token: str,
+    course_id: int,
+) -> List[Dict]:
+    response = requests.get(
+        url=f"{SERVER_API_BASE_URL}/course/homework/assignment",
+        headers={
+            "Access-Token": user_token,
+        },
+        params={
+            "course_id": course_id,
+        },
+    ).json()
+    assert_code(response, status.HTTP_200_OK)
+    return response["data"]
+
+
+def course_homework_submission_post_success(
+    user_token: str,
+    assignment_id: int,
+    title: str,
+    description: str,
+    course_directory_entry_ids: List[int],
+) -> Dict:
+    response = requests.post(
+        url=f"{SERVER_API_BASE_URL}/course/homework/submission",
+        headers={
+            "Access-Token": user_token,
+        },
+        json={
+            "assignment_id": assignment_id,
+            "title": title,
+            "description": description,
+            "course_directory_entry_ids": course_directory_entry_ids,
+        },
+    )
+    
+    if response.status_code != 200:
+        pytest.fail(f"API请求失败: {response.status_code}")
+    
+    result = response.json()
+    assert_code(result, status.HTTP_200_OK)
+    return result["data"]
+
+
+def course_homework_submission_get_success(
+    user_token: str,
+    assignment_id: int,
+) -> List[Dict]:
+    response = requests.get(
+        url=f"{SERVER_API_BASE_URL}/course/homework/submission",
+        headers={
+            "Access-Token": user_token,
+        },
+        params={
+            "assignment_id": assignment_id,
+        },
+    ).json()
+    assert_code(response, status.HTTP_200_OK)
+    return response["data"]
+
+
+def course_homework_submission_grade_success(
+    user_token: str,
+    submission_id: int,
+    grade: float,
+    feedback: str,
+) -> Dict:
+    response = requests.put(
+        url=f"{SERVER_API_BASE_URL}/course/homework/submission/grade",
+        headers={
+            "Access-Token": user_token,
+        },
+        json={
+            "submission_id": submission_id,
+            "grade": grade,
+            "feedback": feedback,
+        },
+    ).json()
+    
+    assert_code(response, status.HTTP_200_OK)
+    return response["data"]
+
+
+@pytest.mark.dependency(depends=["test_course_directory_entry_post_success"])
+def test_course_homework_assignment_post_success(
+    store: Dict,
+    unique_string_generator: Callable,
+):
+    user_token_teacher = store["user_token_teacher"]
+    course_id_base = store["course_id_base"]
+    course_directory_entry_id_base = store["course_directory_entry_id_base"]
+    
+    assignment = course_homework_assignment_post_success(
+        user_token=user_token_teacher,
+        course_id=course_id_base,
+        title=unique_string_generator(),
+        description=unique_string_generator(),
+        course_directory_entry_ids=[course_directory_entry_id_base],
+    )
+    
+    assert "id" in assignment
+    store["assignment_id_base"] = assignment["id"]
+
+
+@pytest.mark.dependency(depends=["test_course_homework_assignment_post_success"])
+def test_course_homework_assignment_get_success(
+    store: Dict,
+):
+    user_token_teacher = store["user_token_teacher"]
+    course_id_base = store["course_id_base"]
+    assignment_id_base = store["assignment_id_base"]
+    
+    assignments = course_homework_assignment_get_success(
+        user_token=user_token_teacher,
+        course_id=course_id_base,
+    )
+    
+    assert assignment_id_base in {assignment["id"] for assignment in assignments}
+
+
+@pytest.mark.dependency(depends=["test_course_homework_assignment_post_success"])
+def test_course_homework_submission_post_success(
+    store: Dict,
+    unique_string_generator: Callable,
+    temp_file_path: str,
+):
+    user_token_student = store["user_token_student"]
+    assignment_id_base = store["assignment_id_base"]
+    course_directory_id_base = store["course_directory_id_base"]
+    
+    student_path = f"/student_homework/{unique_string_generator()}.txt"
+    student_entry = course_directory_entry_post_success(
+        user_token=user_token_student,
+        course_directory_id=course_directory_id_base,
+        path=student_path,
+        file_path=temp_file_path,
+    )
+    student_entry_id = student_entry["course_directory_entry_id"]
+    
+    submission = course_homework_submission_post_success(
+        user_token=user_token_student,
+        assignment_id=assignment_id_base,
+        title=unique_string_generator(),
+        description=unique_string_generator(),
+        course_directory_entry_ids=[student_entry_id],
+    )
+    
+    assert "id" in submission
+    store["submission_id_base"] = submission["id"]
+
+
+@pytest.mark.dependency(depends=["test_course_homework_submission_post_success"])
+def test_course_homework_submission_get_success(
+    store: Dict,
+):
+    user_token_teacher = store["user_token_teacher"]
+    assignment_id_base = store["assignment_id_base"]
+    submission_id_base = store["submission_id_base"]
+    
+    submissions = course_homework_submission_get_success(
+        user_token=user_token_teacher,
+        assignment_id=assignment_id_base,
+    )
+    
+    assert submission_id_base in {submission["id"] for submission in submissions}
+
+
+@pytest.mark.dependency(depends=["test_course_homework_submission_post_success"])
+def test_course_homework_submission_grade_success(
+    store: Dict,
+    unique_string_generator: Callable,
+):
+    user_token_teacher = store["user_token_teacher"]
+    submission_id_base = store["submission_id_base"]
+    
+    grade = 85.5
+    feedback = unique_string_generator()
+    graded_submission = course_homework_submission_grade_success(
+        user_token=user_token_teacher,
+        submission_id=submission_id_base,
+        grade=grade,
+        feedback=feedback,
+    )
+    
+    assert float(graded_submission["grade"]) == grade
+    assert graded_submission["feedback"] == feedback
+
+
+@pytest.mark.dependency(depends=["test_course_homework_assignment_post_success"])
+def test_course_homework_assignment_status_success(
+    store: Dict,
+):
+    user_token_student = store["user_token_student"]
+    course_id_base = store["course_id_base"]
+    
+    response = requests.get(
+        url=f"{SERVER_API_BASE_URL}/course/homework/assignment/status",
+        headers={
+            "Access-Token": user_token_student,
+        },
+        params={
+            "course_id": course_id_base,
+        },
+    ).json()
+    
+    assert_code(response, status.HTTP_200_OK)
+    status_list = response["data"]
+    assert isinstance(status_list, list)
+
+
+@pytest.mark.dependency(depends=["test_course_homework_assignment_post_success"])
+def test_course_homework_assignment_update_success(
+    store: Dict,
+    unique_string_generator: Callable,
+):
+    user_token_teacher = store["user_token_teacher"]
+    assignment_id_base = store["assignment_id_base"]
+    
+    new_title = unique_string_generator()
+    response = requests.put(
+        url=f"{SERVER_API_BASE_URL}/course/homework/assignment",
+        headers={
+            "Access-Token": user_token_teacher,
+        },
+        json={
+            "assignment_id": assignment_id_base,
+            "title": new_title,
+        },
+    ).json()
+    
+    assert_code(response, status.HTTP_200_OK)
+    updated_assignment = response["data"]
+    assert updated_assignment["title"] == new_title
+
+
+@pytest.mark.dependency(depends=["test_course_homework_submission_grade_success", "test_course_homework_assignment_update_success"])
+def test_course_homework_assignment_delete_success(
+    store: Dict,
+):
+    user_token_teacher = store["user_token_teacher"]
+    course_id_base = store["course_id_base"]
+    assignment_id_base = store["assignment_id_base"]
+    
+    response = requests.delete(
+        url=f"{SERVER_API_BASE_URL}/course/homework/assignment",
+        headers={
+            "Access-Token": user_token_teacher,
+        },
+        params={
+            "assignment_id": assignment_id_base,
+        },
+    ).json()
+    
+    assert_code(response, status.HTTP_200_OK)
+    
+    assignments = course_homework_assignment_get_success(
+        user_token=user_token_teacher,
+        course_id=course_id_base,
+    )
+    
+    assert assignment_id_base not in {assignment["id"] for assignment in assignments}

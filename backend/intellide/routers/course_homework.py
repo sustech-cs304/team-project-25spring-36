@@ -242,7 +242,7 @@ async def course_homework_submission_create(
 
     # 创建新提交
     new_submission = CourseHomeworkSubmission(
-        homework_id=body.assignment_id,  # 使用assignment_id作为homework_id
+        homework_assignments_id=body.assignment_id,  # 使用assignment_id作为homework_assignments_id
         student_id=user_id,
         title=body.title,
         description=body.description,
@@ -296,7 +296,7 @@ async def course_homework_submission_get(
             return bad_request("Submission not found")
 
         # 查询对应的作业和课程信息
-        result = await db.execute(select(CourseHomeworkAssignment).where(CourseHomeworkAssignment.id == submission.homework_id))
+        result = await db.execute(select(CourseHomeworkAssignment).where(CourseHomeworkAssignment.id == submission.homework_assignments_id))
         assignment = result.scalar()
 
         result = await db.execute(select(Course).where(Course.id == assignment.course_id))
@@ -344,13 +344,13 @@ async def course_homework_submission_get(
                 # 查询指定学生的所有提交
                 result = await db.execute(
                     select(CourseHomeworkSubmission).where(
-                        CourseHomeworkSubmission.homework_id == assignment_id,
+                        CourseHomeworkSubmission.homework_assignments_id == assignment_id,
                         CourseHomeworkSubmission.student_id == student_id,
                     )
                 )
             else:
                 # 查询所有学生的提交
-                result = await db.execute(select(CourseHomeworkSubmission).where(CourseHomeworkSubmission.homework_id == assignment_id))
+                result = await db.execute(select(CourseHomeworkSubmission).where(CourseHomeworkSubmission.homework_assignments_id == assignment_id))
         # 如果是学生
         else:
             # 检查是否在课程中注册
@@ -367,7 +367,7 @@ async def course_homework_submission_get(
             # 学生只能查看自己的提交
             result = await db.execute(
                 select(CourseHomeworkSubmission).where(
-                    CourseHomeworkSubmission.homework_id == assignment_id,
+                    CourseHomeworkSubmission.homework_assignments_id == assignment_id,
                     CourseHomeworkSubmission.student_id == user_id,
                 )
             )
@@ -408,14 +408,14 @@ async def course_homework_submission_grade(
 
     # 查询提交信息
     result = await db.execute(select(CourseHomeworkSubmission).where(CourseHomeworkSubmission.id == body.submission_id))
-    body = result.scalar()
+    submission = result.scalar()
 
     # 检查提交是否存在
-    if not body:
+    if not submission:
         return bad_request("Submission not found")
 
     # 查询作业信息
-    result = await db.execute(select(CourseHomeworkAssignment).where(CourseHomeworkAssignment.id == body.homework_id))
+    result = await db.execute(select(CourseHomeworkAssignment).where(CourseHomeworkAssignment.id == submission.homework_assignments_id))
     assignment = result.scalar()
 
     # 查询课程信息
@@ -427,15 +427,15 @@ async def course_homework_submission_grade(
         return forbidden("Only course teacher can grade submissions")
 
     # 更新分数和反馈
-    body.grade = body.grade
-    body.feedback = body.feedback
-    body.updated_at = datetime.now()
+    submission.grade = body.grade
+    submission.feedback = body.feedback
+    submission.updated_at = datetime.now()
 
     await db.commit()
-    await db.refresh(body)
+    await db.refresh(submission)
 
     # 使用模型的dict方法
-    return ok(data=body.dict())
+    return ok(data=submission.dict())
 
 
 @api.delete("/assignment")
@@ -516,7 +516,7 @@ async def course_homework_submission_delete(
         return bad_request("Submission not found")
 
     # 查询作业信息
-    result = await db.execute(select(CourseHomeworkAssignment).where(CourseHomeworkAssignment.id == submission.homework_id))
+    result = await db.execute(select(CourseHomeworkAssignment).where(CourseHomeworkAssignment.id == submission.homework_assignments_id))
     assignment = result.scalar()
 
     # 查询课程信息
@@ -587,7 +587,7 @@ async def course_homework_assignment_status(
         # 查询该学生对该作业的所有提交
         result = await db.execute(
             select(CourseHomeworkSubmission).where(
-                CourseHomeworkSubmission.homework_id == assignment.id,
+                CourseHomeworkSubmission.homework_assignments_id == assignment.id,
                 CourseHomeworkSubmission.student_id == user_id,
             )
         )
@@ -602,7 +602,7 @@ async def course_homework_assignment_status(
         # 如果有提交，添加最新提交的评分信息
         if len(submissions) > 0:
             # 按创建时间倒序排序，获取最新提交
-            assignment_dict["latest_submission_id"] = sorted(submissions, key=lambda x: x.created_at, reverse=True)[0]
+            assignment_dict["latest_submission_id"] = sorted(submissions, key=lambda x: x.created_at, reverse=True)[0].dict()
         else:
             assignment_dict["latest_submission_id"] = None
 

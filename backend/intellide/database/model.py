@@ -482,9 +482,9 @@ class CourseHomeworkSubmission(SQLAlchemyBaseModel, Mixin):
         primary_key=True,
         autoincrement=True,
     )
-    homework_id = Column(
+    homework_assignments_id = Column(
         BigInteger,
-        ForeignKey("homework_assignments.id", ondelete="CASCADE"),
+        ForeignKey("course_homework_assignments.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
