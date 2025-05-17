@@ -7,6 +7,7 @@ import { LoginInfo } from '../models/LoginInfo';
 import { MyNotebookController } from '../notebook/NotebookController';
 import { MyNotebookSerializer } from '../notebook/NotebookSerializer';
 import { registerCourseCommands } from '../commands/CourseCommands';
+import { getAuthDetails } from '../utils/authUtils';
 
 /**
  * AI-generated-content
@@ -144,17 +145,13 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
             return this.getCourseDirectories(element.itemId as number);
         }
 
-        const loginInfo = this.context.globalState.get('loginInfo') as LoginInfo | undefined;
-        if (!loginInfo) {
-            vscode.window.showWarningMessage('Please log in to view courses.');
-            return [];
+        // For operations requiring auth, call the utility first
+        const authDetails = await getAuthDetails(this.context);
+        if (!authDetails) {
+            return []; // Auth failed, return empty
         }
+        const { token, loginInfo } = authDetails;
 
-        const token = await this.context.secrets.get('authToken');
-        if (!token) {
-            vscode.window.showWarningMessage('Authentication token not found. Please log in again.');
-            return [];
-        }
 
         try {
             if (!element) {
@@ -290,17 +287,13 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
     }
 
     private async getCourses(): Promise<CourseTreeItem[]> {
-        const loginInfo = this.context.globalState.get('loginInfo') as LoginInfo | undefined;
-        if (!loginInfo) {
-            vscode.window.showWarningMessage('Please log in to view courses.');
-            return [];
+        // For operations requiring auth, call the utility first
+        const authDetails = await getAuthDetails(this.context);
+        if (!authDetails) {
+            return []; // Auth failed, return empty
         }
+        const { token, loginInfo } = authDetails;
 
-        const token = await this.context.secrets.get('authToken');
-        if (!token) {
-            vscode.window.showWarningMessage('Authentication token not found. Please log in again.');
-            return [];
-        }
 
         const courses = await courseService.getCourses(token, loginInfo.role);
         return courses.map(course => new CourseTreeItem(
@@ -312,11 +305,12 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
     }
 
     private async getCourseDirectories(courseId: number): Promise<CourseTreeItem[]> {
-        const token = await this.context.secrets.get('authToken');
-        if (!token) {
-            vscode.window.showWarningMessage('Authentication token not found. Please log in again.');
-            return [];
+        const authDetails = await getAuthDetails(this.context);
+        if (!authDetails) {
+            return []; // Auth failed, return empty
         }
+        const { token, loginInfo } = authDetails;
+
 
         const directories = await courseService.getDirectories(token, courseId);
         return directories.map(directory => new CourseTreeItem(

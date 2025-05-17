@@ -7,6 +7,7 @@ import { DirectoryPermissionType } from '../models/CourseModels';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
+import { getAuthDetails } from '../utils/authUtils';
 
 
 export function registerCourseCommands(context: vscode.ExtensionContext, treeDataProvider?: CourseTreeDataProvider): void {
@@ -32,19 +33,12 @@ export function registerCourseCommands(context: vscode.ExtensionContext, treeDat
 function registerCreateCourseCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand('intelligent-ide.course.post', async () => {
         try {
-            // Get login info from global state
-            const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
-            if (!loginInfo) {
-                vscode.window.showErrorMessage('You must log in to create a course.');
-                return;
-            }
 
-            // Get token from secure storage
-            const token = await context.secrets.get('authToken');
-            if (!token) {
-                vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
-                return;
+            const authDetails = await getAuthDetails(context);
+            if (!authDetails) {
+                return []; // Auth failed, return empty
             }
+            const { token, loginInfo } = authDetails;
 
             // Check if user has teacher role
             if (loginInfo.role !== 'teacher') {
@@ -103,19 +97,12 @@ function registerDeleteCourseCommand(context: vscode.ExtensionContext): void {
         'intelligent-ide.course.delete',
         async (courseItem?: { itemId?: number | string, label?: string }) => {
             try {
-                // Get login info from global state
-                const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
-                if (!loginInfo) {
-                    vscode.window.showErrorMessage('You must log in to delete a course.');
-                    return;
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    return []; // Auth failed, return empty
                 }
+                const { token, loginInfo } = authDetails;
 
-                // Get token from secure storage
-                const token = await context.secrets.get('authToken');
-                if (!token) {
-                    vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
-                    return;
-                }
 
                 // Check if user has teacher role
                 if (loginInfo.role !== 'teacher') {
@@ -192,12 +179,11 @@ function registerOpenFileCommand(context: vscode.ExtensionContext): void {
         }
 
         try {
-            const token = await context.secrets.get('authToken');
-            if (!token) {
-                vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
-                return;
+            const authDetails = await getAuthDetails(context);
+            if (!authDetails) {
+                return []; // Auth failed, return empty
             }
-
+            const { token, loginInfo } = authDetails;
             // Show progress while downloading
             await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
@@ -273,18 +259,12 @@ function registerDeleteDirectoryCommand(context: vscode.ExtensionContext): void 
         'intelligent-ide.directory.delete',
         async (directoryItem?: CourseTreeItem) => {
             try {
-                // Get login info and token
-                const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
-                if (!loginInfo) {
-                    vscode.window.showErrorMessage('You must log in to delete a directory.');
-                    return;
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    return []; // Auth failed, return empty
                 }
+                const { token, loginInfo } = authDetails;
 
-                const token = await context.secrets.get('authToken');
-                if (!token) {
-                    vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
-                    return;
-                }
 
                 // Use the passed parameter if available, otherwise prompt
                 let directoryId: number;
@@ -352,18 +332,11 @@ function registerPostDirectoryCommand(context: vscode.ExtensionContext): void {
         'intelligent-ide.directory.post',
         async (courseItem?: CourseTreeItem) => {
             try {
-                // Get login info and token
-                const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
-                if (!loginInfo) {
-                    vscode.window.showErrorMessage('You must log in to create a directory.');
-                    return;
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    return []; // Auth failed, return empty
                 }
-
-                const token = await context.secrets.get('authToken');
-                if (!token) {
-                    vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
-                    return;
-                }
+                const { token, loginInfo } = authDetails;
 
                 // Determine course ID
                 let courseId: number;
@@ -507,11 +480,11 @@ function registerDeleteEntryCommand(context: vscode.ExtensionContext): void {
         'intelligent-ide.entry.delete',
         async (entryItem?: CourseTreeItem) => {
             try {
-                const token = await context.secrets.get('authToken');
-                if (!token) {
-                    vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
-                    return;
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    return []; // Auth failed, return empty
                 }
+                const { token, loginInfo } = authDetails;
 
                 if (!entryItem || !entryItem.entry) {
                     vscode.window.showErrorMessage('No entry selected for deletion');
@@ -550,11 +523,11 @@ function registerUploadFileCommand(context: vscode.ExtensionContext): void {
         'intelligent-ide.entry.upload',
         async (directoryItem?: CourseTreeItem) => {
             try {
-                const token = await context.secrets.get('authToken');
-                if (!token) {
-                    vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
-                    return;
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    return []; // Auth failed, return empty
                 }
+                const { token, loginInfo } = authDetails;
 
                 // Get directory ID from selected item or prompt
                 let directoryId: number;
@@ -656,11 +629,11 @@ function registerMoveEntryCommand(context: vscode.ExtensionContext): void {
         'intelligent-ide.entry.move',
         async (entryItem?: CourseTreeItem) => {
             try {
-                const token = await context.secrets.get('authToken');
-                if (!token) {
-                    vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
-                    return;
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    return []; // Auth failed, return empty
                 }
+                const { token, loginInfo } = authDetails;
 
                 // Determine entry ID from selection or prompt
                 let entryId: number;
@@ -744,16 +717,12 @@ function registerJoinCourseCommand(context: vscode.ExtensionContext): void {
         'intelligent-ide.course.join',
         async () => {
             try {
-                const token = await context.secrets.get('authToken');
-                if (!token) {
-                    vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
-                    return;
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    return []; // Auth failed, return empty
                 }
-                const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
-                if (!loginInfo) {
-                    vscode.window.showErrorMessage('You must log in first.');
-                    return;
-                }
+                const { token, loginInfo } = authDetails;
+
 
                 const courseIdInput = await vscode.window.showInputBox({
                     prompt: 'Enter the Course ID you want to join',
@@ -794,17 +763,11 @@ function registerDeleteStudentCommand(context: vscode.ExtensionContext): void {
         'intelligent-ide.student.delete',
         async (studentItem?: CourseTreeItem) => {
             try {
-                const token = await context.secrets.get('authToken');
-                if (!token) {
-                    vscode.window.showErrorMessage('Authentication token not found. Please log in again.');
-                    return;
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    return []; // Auth failed, return empty
                 }
-
-                const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
-                if (!loginInfo) {
-                    vscode.window.showErrorMessage('You must log in first.');
-                    return;
-                }
+                const { token, loginInfo } = authDetails;
 
                 // Check if user has teacher role
                 if (loginInfo.role !== 'teacher') {
