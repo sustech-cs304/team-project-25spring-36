@@ -3,10 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { courseService } from '../services/CourseService';
 import { ICourseDirectoryEntry } from '../models/CourseModels';
-import { LoginInfo } from '../models/LoginInfo';
 import { MyNotebookController } from '../notebook/NotebookController';
 import { MyNotebookSerializer } from '../notebook/NotebookSerializer';
-import { registerCourseCommands } from '../commands/CourseCommands';
 import { getAuthDetails } from '../utils/authUtils';
 
 /**

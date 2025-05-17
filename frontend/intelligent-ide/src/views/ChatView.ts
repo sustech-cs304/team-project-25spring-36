@@ -127,7 +127,7 @@ function registerChatView(context: vscode.ExtensionContext): void {
 }
 
 function setChatViewHtml(context: vscode.ExtensionContext): void {
-    if (!chatViewPanel) return;
+    if (!chatViewPanel) {return;}
     const webview = chatViewPanel.webview;
     const extensionUri = context.extensionUri;
     const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'src', 'views', 'chatwebview', 'styles.css'));

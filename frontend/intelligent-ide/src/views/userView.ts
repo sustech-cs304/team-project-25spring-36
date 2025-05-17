@@ -12,8 +12,6 @@ let statusBarItem: vscode.StatusBarItem | undefined;
 export function registerUserView(context: vscode.ExtensionContext): void {
     // Initial update of the login view (which creates the status bar item if needed)
     updateLoginView(context);
-    // Ensure login context is set on activation
-    updateLoginContext(context);
 }
 
 /**

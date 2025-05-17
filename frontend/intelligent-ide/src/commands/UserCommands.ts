@@ -191,7 +191,7 @@ function registerLogoutCommand(context: vscode.ExtensionContext): void {
 
             // Clear login info from global state
             await context.globalState.update('loginInfo', undefined);
-
+            context.globalState.update('userRole', undefined);
             // Remove token from secrets
             await context.secrets.delete('authToken');
 

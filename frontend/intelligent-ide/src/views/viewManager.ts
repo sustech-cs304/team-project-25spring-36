@@ -4,7 +4,6 @@ import { updateChatView } from './ChatView';
 import {
     registerUserView,
     updateLoginView,
-    updateLoginContext,
     disposeUserView
 } from './userView';
 
@@ -60,8 +59,6 @@ export async function refreshViews(viewTypes: ViewType[] = [ViewType.ALL]): Prom
 
     try {
         const refreshAll = viewTypes.includes(ViewType.ALL);
-
-        updateLoginContext(context);
 
         if (refreshAll || viewTypes.includes(ViewType.LOGIN)) {
             updateLoginView(context);
