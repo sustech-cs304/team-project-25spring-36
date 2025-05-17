@@ -1,14 +1,16 @@
 import * as vscode from 'vscode';
-import { LoginInfo } from '../models/LoginInfo';
-import { CourseTreeDataProvider } from '../views/CourseView';
+import { createCourseTreeDataProvider, CourseTreeDataProvider } from '../views/CourseView'; // Updated import
+import { updateChatView } from './ChatView';
 import {
-    updateChatView
-} from './ChatView';
+    registerUserView,
+    updateLoginView,
+    updateLoginContext,
+    disposeUserView
+} from './userView';
 
 // Store view providers and UI elements
 let courseTreeDataProvider: CourseTreeDataProvider | undefined;
-let courseTreeView: vscode.TreeView<any> | undefined;
-let statusBarItem: vscode.StatusBarItem | undefined;
+let courseTreeView: vscode.TreeView<any> | undefined; // 'any' can be replaced with CourseTreeItem if preferred
 let context: vscode.ExtensionContext | undefined;
 let chatViewPanel: vscode.WebviewPanel | undefined;
 let qnaViewPanel: vscode.WebviewPanel | undefined;
@@ -34,96 +36,17 @@ export function initializeViewManager(extContext: vscode.ExtensionContext): Cour
     registerUserView(extContext);
 
     // Register course view
-    courseTreeDataProvider = registerCourseView(extContext);
-
-    // Don't automatically create the chat view panel on startup
-    // Just initialize any necessary chat-related setup that doesn't create a panel
-    // registerChatView(extContext);
+    courseTreeDataProvider = createCourseTreeDataProvider(extContext);
+    courseTreeView = vscode.window.createTreeView('courses', {
+        treeDataProvider: courseTreeDataProvider,
+        showCollapseAll: true
+    });
+    extContext.subscriptions.push(courseTreeView);
 
     return courseTreeDataProvider;
 }
 
-/**
- * Register user view components (status bar
- */
-function registerUserView(context: vscode.ExtensionContext): void {
-    updateLoginView(context);
-}
-
-/**
- * Register course tree view
- */
-function registerCourseView(context: vscode.ExtensionContext): CourseTreeDataProvider {
-    // Create tree data provider
-    const treeDataProvider = new CourseTreeDataProvider(context);
-    courseTreeDataProvider = treeDataProvider;
-
-    // Create tree view
-    courseTreeView = vscode.window.createTreeView('courses', {
-        treeDataProvider,
-        showCollapseAll: true
-    });
-
-    context.subscriptions.push(courseTreeView);
-
-    return treeDataProvider;
-}
-
-
-
-/**
- * Updates login-related UI components
- */
-function updateLoginView(context: vscode.ExtensionContext): void {
-    const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
-
-    // Update context variables for when clauses
-    updateLoginContext(context);
-
-    if (loginInfo) {
-        try {
-            // Dispose of previous status bar item if exists
-            if (statusBarItem) {
-                statusBarItem.dispose();
-            }
-
-            // Create and show status bar with login info
-            statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-            statusBarItem.text = `$(account) ${loginInfo.username} (${loginInfo.role})`;
-            statusBarItem.tooltip = "Logged in user info";
-            statusBarItem.command = 'intelligent-ide.switchRole';
-            statusBarItem.show();
-
-            context.subscriptions.push(statusBarItem);
-        } catch (error) {
-            console.error("Error updating status bar:", error);
-            vscode.window.showErrorMessage("Failed to update status bar.");
-        }
-    } else {
-        // Clear the status bar
-        if (statusBarItem) {
-            statusBarItem.dispose();
-            statusBarItem = undefined;
-        }
-    }
-}
-
-/**
- * Update context for when clauses in package.json
- */
-function updateLoginContext(context: vscode.ExtensionContext): void {
-    const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
-
-    // Set login status context
-    vscode.commands.executeCommand('setContext', 'globalState.loginInfo', !!loginInfo);
-
-    // Set user role context for when clauses
-    if (loginInfo) {
-        vscode.commands.executeCommand('setContext', 'globalState.userRole', loginInfo.role);
-    } else {
-        vscode.commands.executeCommand('setContext', 'globalState.userRole', undefined);
-    }
-}
+// Removed the local registerCourseView function from viewManager.ts as its logic is now integrated above.
 
 /**
  * Refresh specified views
@@ -138,10 +61,8 @@ export async function refreshViews(viewTypes: ViewType[] = [ViewType.ALL]): Prom
     try {
         const refreshAll = viewTypes.includes(ViewType.ALL);
 
-        // First update context variables
         updateLoginContext(context);
 
-        // Then update UI components
         if (refreshAll || viewTypes.includes(ViewType.LOGIN)) {
             updateLoginView(context);
         }
@@ -149,9 +70,7 @@ export async function refreshViews(viewTypes: ViewType[] = [ViewType.ALL]): Prom
         if ((refreshAll || viewTypes.includes(ViewType.COURSE)) && courseTreeDataProvider) {
             courseTreeDataProvider.refresh();
         }
-
-        // For chat view, just call updateChatView from ChatView.ts
-        if (refreshAll || viewTypes.includes(ViewType.CHAT)) {
+        if (viewTypes.includes(ViewType.CHAT)) {
             updateChatView(context);
         }
 
@@ -171,22 +90,23 @@ export function refreshAllViews(): Promise<void> {
  * Clean up any resources when extension deactivates
  */
 export function disposeViews(): void {
-    if (statusBarItem) {
-        statusBarItem.dispose();
-        statusBarItem = undefined;
-    }
+    disposeUserView();
+
 
     if (courseTreeView) {
-        courseTreeView.dispose();
         courseTreeView = undefined;
     }
+    courseTreeDataProvider = undefined;
 
     if (chatViewPanel) {
         chatViewPanel.dispose();
         chatViewPanel = undefined;
     }
+    if (qnaViewPanel) {
+        qnaViewPanel.dispose();
+        qnaViewPanel = undefined;
+    }
 
-    courseTreeDataProvider = undefined;
     context = undefined;
 }
 

@@ -532,6 +532,9 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
         });
     }
 }
+export function createCourseTreeDataProvider(context: vscode.ExtensionContext): CourseTreeDataProvider {
+    return new CourseTreeDataProvider(context);
+}
 
 /**
  * Get appropriate icon for file based on extension
