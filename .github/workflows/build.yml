@@ -16,12 +16,13 @@ jobs:
         image: redis
         ports:
           - 6379:6379
-        # 健康检查确保服务已准备就绪
+        # 设置Redis密码
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+          --requirepass "123456"
           
     steps:
     - uses: actions/checkout@v3
@@ -42,6 +43,8 @@ jobs:
 
     - name: 运行测试
       run: python build.py # 通过build.py直接运行测试，它已包含服务初始化和测试流程
+      env:
+        REDIS_PASSWORD: "123456"
         
     - name: 上传测试覆盖率报告
       uses: codecov/codecov-action@v3
@@ -59,9 +62,12 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '20'
-    
+        
+    - name: 安装Xvfb
+      run: sudo apt-get install -y xvfb
+        
     - name: 运行前端构建脚本
-      run: node frontend-build.js # 使用前端构建脚本直接运行所有步骤
+      run: xvfb-run --auto-servernum node frontend-build.js # 使用xvfb-run运行前端构建脚本
     
     - name: 上传测试覆盖率报告
       uses: codecov/codecov-action@v3
