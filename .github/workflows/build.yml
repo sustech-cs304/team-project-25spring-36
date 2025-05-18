@@ -1,0 +1,57 @@
+name: 智能IDE项目构建与测试
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  backend-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: 设置Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: 安装Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+        echo "$HOME/.poetry/bin" >> $GITHUB_PATH
+    
+    - name: 安装依赖
+      run: |
+        poetry install
+
+    - name: 运行测试
+      run: python build.py # 通过build.py直接运行测试，它已包含服务初始化和测试流程
+        
+    - name: 上传测试覆盖率报告
+      uses: codecov/codecov-action@v3
+      with:
+        directory: ./htmlcov  # HTML报告输出目录更改为htmlcov
+        flags: backend
+        name: backend-coverage
+    
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: 设置Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+    
+    - name: 运行前端构建脚本
+      run: node frontend-build.js # 使用前端构建脚本直接运行所有步骤
+    
+    - name: 上传测试覆盖率报告
+      uses: codecov/codecov-action@v3
+      with:
+        directory: ./frontend/intelligent-ide/coverage
+        flags: frontend
+        name: frontend-coverage 

@@ -9,6 +9,7 @@ aiohttp
 asyncpg
 pytest
 pytest-dependency
+pytest-cov
 python-multipart
 passlib
 aiocache[redis]
@@ -16,6 +17,8 @@ redis
 docker
 email-validator
 jwcrypto
+websockets
+simple-websocket
 websocket-client
 bcrypt
 y_py
