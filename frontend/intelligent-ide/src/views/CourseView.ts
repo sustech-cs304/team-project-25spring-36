@@ -116,13 +116,18 @@ export class CourseTreeItem extends vscode.TreeItem {
                     this.tooltip = new vscode.MarkdownString(`**${this.label}**\n\nDue: ${deadline.toLocaleString()}`);
                 }
 
-                // Add attachment count to description but DON'T add command binding
-                if (assignment && assignment.course_directory_entry_ids && assignment.course_directory_entry_ids.length > 0) {
-                    const attachmentCount = assignment.course_directory_entry_ids.length;
-                    if (this.description) {
-                        this.description += ` | ${attachmentCount} attachment${attachmentCount !== 1 ? 's' : ''}`;
-                    } else {
-                        this.description = `${attachmentCount} attachment${attachmentCount !== 1 ? 's' : ''}`;
+                if (assignment && assignment.course_directory_entry_ids) {
+                    let entryIds: number[] = [];
+                    if (typeof assignment.course_directory_entry_ids === 'string') {
+                        entryIds = JSON.parse(assignment.course_directory_entry_ids);
+                    }
+                    const attachmentCount = entryIds.length;
+                    if (attachmentCount > 0) {
+                        if (this.description) {
+                            this.description += ` | ${attachmentCount} attachment${attachmentCount !== 1 ? 's' : ''}`;
+                        } else {
+                            this.description = `${attachmentCount} attachment${attachmentCount !== 1 ? 's' : ''}`;
+                        }
                     }
                 }
                 break;
@@ -147,13 +152,18 @@ export class CourseTreeItem extends vscode.TreeItem {
                     this.tooltip = new vscode.MarkdownString(`**${this.label}**\n\nSubmitted: ${submissionDate.toLocaleString()}`);
                 }
 
-                // Add attachment count to description but DON'T add command binding
-                if (submission && submission.course_directory_entry_ids && submission.course_directory_entry_ids.length > 0) {
-                    const attachmentCount = submission.course_directory_entry_ids.length;
-                    if (this.description) {
-                        this.description += ` | ${attachmentCount} attachment${attachmentCount !== 1 ? 's' : ''}`;
-                    } else {
-                        this.description = `${attachmentCount} attachment${attachmentCount !== 1 ? 's' : ''}`;
+                if (submission && submission.course_directory_entry_ids) {
+                    let entryIds: number[] = [];
+                    if (typeof submission.course_directory_entry_ids === 'string') {
+                        entryIds = JSON.parse(submission.course_directory_entry_ids);
+                    }
+                    const attachmentCount = entryIds.length;
+                    if (attachmentCount > 0) {
+                        if (this.description) {
+                            this.description += ` | ${attachmentCount} attachment${attachmentCount !== 1 ? 's' : ''}`;
+                        } else {
+                            this.description = `${attachmentCount} attachment${attachmentCount !== 1 ? 's' : ''}`;
+                        }
                     }
                 }
                 break;
@@ -325,7 +335,7 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
 
     public addEntryToCache(entry: ICourseDirectoryEntry): void {
         if (entry && entry.id) {
-            this.entryCache.set(entry.id, entry);
+            this.entryCache.set(Number(entry.id), entry);
         }
     }
 

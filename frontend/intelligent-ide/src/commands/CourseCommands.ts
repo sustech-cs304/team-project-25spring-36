@@ -170,7 +170,7 @@ function registerDeleteCourseCommand(context: vscode.ExtensionContext): void {
 
 
 /**
- * Register command to open a course file with smart temporary file cachin
+ * Register command to open a course file with smart temporary file caching
  */
 function registerOpenFileCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand('intelligent-ide.course.openFile', async (item: CourseTreeItem) => {
@@ -223,9 +223,9 @@ function registerOpenFileCommand(context: vscode.ExtensionContext): void {
                         await vscode.workspace.fs.writeFile(vscode.Uri.file(tempFilePath), fileContent);
                     }
 
-                    // Open the file
-                    const document = await vscode.workspace.openTextDocument(tempFilePath);
-                    await vscode.window.showTextDocument(document);
+                    // Open the file using vscode.open for all file types
+                    const fileUri = vscode.Uri.file(tempFilePath);
+                    await vscode.commands.executeCommand('vscode.open', fileUri);
 
                     // Only show "temporary file" warning first time
                     if (shouldDownload) {
@@ -444,7 +444,6 @@ function registerUploadFileCommand(context: vscode.ExtensionContext): void {
                 const { token } = authDetails;
 
                 let directoryId: number;
-                let defaultInputPath = '/';
 
                 if (arg) {
                     if ((arg as CourseTreeItem).type === 'directory' || (arg as CourseTreeItem).type === 'virtual-directory') {
@@ -452,11 +451,9 @@ function registerUploadFileCommand(context: vscode.ExtensionContext): void {
                         directoryId = typeof treeItem.itemId === 'number'
                             ? treeItem.itemId
                             : parseInt(treeItem.itemId.toString(), 10);
-                        defaultInputPath = treeItem.path || '/';
                     } else if ((arg as { directoryId: number }).directoryId !== undefined) {
                         const customArg = arg as { directoryId: number, initialPath?: string };
                         directoryId = customArg.directoryId;
-                        defaultInputPath = customArg.initialPath || '/';
                     } else {
                         // Argument provided but not in expected format, fall through to prompt
                         const directoryIdInput = await vscode.window.showInputBox({
@@ -494,9 +491,9 @@ function registerUploadFileCommand(context: vscode.ExtensionContext): void {
                 const selectedFilename = path.basename(fileUris[0].fsPath);
 
                 let uploadDirectoryPath = await vscode.window.showInputBox({
-                    prompt: 'Enter directory path within the course directory to upload to (e.g., /assignments/ or /)',
+                    prompt: 'Enter directory path',
                     placeHolder: 'e.g., /folder/ or /',
-                    value: defaultInputPath, // Use determined default path
+                    value: '/',
                     validateInput: (input) => {
                         if (!input.startsWith('/')) { return 'Path must start with /'; }
                         return null;

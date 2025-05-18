@@ -453,10 +453,14 @@ function registerViewAttachmentsCommand(context: vscode.ExtensionContext): void 
 
                 // Extract entry IDs from assignment or submission
                 if (item.type === 'assignment' && item.assignment?.course_directory_entry_ids) {
-                    entryIds = item.assignment.course_directory_entry_ids;
+                    if (typeof item.assignment.course_directory_entry_ids === 'string') {
+                        entryIds = JSON.parse(item.assignment.course_directory_entry_ids);
+                    }
                     title = `Attachments for Assignment: ${item.label}`;
                 } else if (item.type === 'submission' && item.submission?.course_directory_entry_ids) {
-                    entryIds = item.submission.course_directory_entry_ids;
+                    if (typeof item.submission.course_directory_entry_ids === 'string') {
+                        entryIds = JSON.parse(item.submission.course_directory_entry_ids);
+                    }
                     title = `Attachments for Submission: ${item.label}`;
                 }
 
