@@ -113,3 +113,8 @@ export function disposeViews(): void {
 export function getChatViewPanel(): vscode.WebviewPanel | undefined {
     return chatViewPanel;
 }
+
+// Add this function
+export function getCourseTreeProvider(): CourseTreeDataProvider | undefined {
+    return courseTreeDataProvider;
+}

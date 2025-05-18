@@ -3,7 +3,8 @@ import { registerUserCommands } from './UserCommands';
 import { registerCourseCommands } from './CourseCommands';
 import { registerChatCommands } from './ChatCommands';
 import { CourseTreeDataProvider } from '../views/CourseView';
-import { ViewType, refreshViews, registerQnAView } from '../views/viewManager';
+import { ViewType, refreshViews } from '../views/viewManager';
+import { registerAssignmentCommands } from './AssignmentCommands';
 
 /**
  * Centralized command registration manager
@@ -26,7 +27,7 @@ export class CommandManager {
         this.registerUserCommands();
         this.registerCourseCommands();
         this.registerChatCommands();
-        this.registerQnACommands(); // Register QnA commands
+        this.registerAssignmentCommands();
     }
 
     /**
@@ -44,19 +45,6 @@ export class CommandManager {
     }
 
     /**
-     * Register QnA-related commands
-     */
-    private registerQnACommands(): void {
-        const qnaDisposable = vscode.commands.registerCommand('intelligent-ide.qna.open', () => {
-            // Delegate to ViewManager to handle the Webview creation
-            registerQnAView(this.context);
-        });
-
-        this.context.subscriptions.push(qnaDisposable);
-    }
-
-
-    /**
      * Register user-related commands
      */
     private registerUserCommands(): void {
@@ -72,5 +60,9 @@ export class CommandManager {
 
     private registerChatCommands(): void {
         registerChatCommands(this.context);
+    }
+
+    private registerAssignmentCommands(): void {
+        registerAssignmentCommands(this.context);
     }
 }

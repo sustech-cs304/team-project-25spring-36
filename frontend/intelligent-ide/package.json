@@ -108,6 +108,54 @@
         "icon": "$(trash)"
       },
       {
+        "command": "intelligent-ide.course.assignment.create",
+        "title": "Create Assignment",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(add)"
+      },
+      {
+        "command": "intelligent-ide.course.assignment.update",
+        "title": "Update Assignment",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "intelligent-ide.course.assignment.delete",
+        "title": "Delete Assignment",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "intelligent-ide.course.assignment.viewSubmissions",
+        "title": "View Submissions for Assignment",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "intelligent-ide.course.assignment.submit",
+        "title": "Submit to Assignment",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "intelligent-ide.course.assignment.viewStatus",
+        "title": "View My Assignment Statuses",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "intelligent-ide.course.submission.grade",
+        "title": "Grade Submission",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(check)"
+      },
+      {
+        "command": "intelligent-ide.course.submission.delete",
+        "title": "Delete Submission",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(trash)"
+      },
+      {
         "command": "intelligent-ide.views.refresh",
         "title": "Refresh Views",
         "category": "Intelligent IDE: View",
@@ -166,6 +214,12 @@
         "title": "Open QnA Interface",
         "category": "Intelligent IDE: QnA",
         "icon": "$(question)"
+      },
+      {
+        "command": "intelligent-ide.course.viewAttachments",
+        "title": "View Attachments",
+        "category": "Intelligent IDE: course",
+        "icon": "$(file-zip)"
       }
     ],
     "viewsContainers": {
@@ -205,37 +259,37 @@
       "view/title": [
         {
           "command": "intelligent-ide.login",
-          "when": "view == loginView && !globalState.loginInfo",
+          "when": "view == loginView && !intelligent-ide.loggedIn",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.register",
-          "when": "view == loginView && !globalState.loginInfo",
+          "when": "view == loginView && !intelligent-ide.loggedIn",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.update",
-          "when": "view == loginView && globalState.loginInfo",
+          "when": "view == loginView && intelligent-ide.loggedIn",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.logout",
-          "when": "view == loginView && globalState.loginInfo",
+          "when": "view == loginView && intelligent-ide.loggedIn",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.course.post",
-          "when": "view == courses && globalState.loginInfo && globalState.userRole == 'teacher'",
+          "when": "view == courses && intelligent-ide.loggedIn && intelligent-ide.userRole == 'teacher'",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.course.join",
-          "when": "view == courses && globalState.loginInfo && globalState.userRole == 'student'",
+          "when": "view == courses && intelligent-ide.loggedIn && intelligent-ide.userRole == 'student'",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.views.refresh",
-          "when": "view == courses && globalState.loginInfo",
+          "when": "view == courses && intelligent-ide.loggedIn",
           "group": "navigation"
         },
         {
@@ -250,34 +304,34 @@
         },
         {
           "command": "intelligent-ide.notebook.new",
-          "when": "view == courses && globalState.loginInfo",
+          "when": "view == courses && intelligent-ide.loggedIn",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.notebook.refresh",
-          "when": "view == courses && globalState.loginInfo",
+          "when": "view == courses && intelligent-ide.loggedIn",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
           "command": "intelligent-ide.course.delete",
-          "when": "viewItem == course && globalState.loginInfo && globalState.userRole == 'teacher'",
+          "when": "viewItem == course && intelligent-ide.loggedIn && intelligent-ide.userRole == 'teacher'",
           "group": "inline"
         },
         {
           "command": "intelligent-ide.directory.delete",
-          "when": "viewItem == directory && globalState.loginInfo&& globalState.userRole == 'teacher'",
+          "when": "viewItem == directory && intelligent-ide.loggedIn && intelligent-ide.userRole == 'teacher'",
           "group": "inline"
         },
         {
           "command": "intelligent-ide.directory.post",
-          "when": "viewItem == course && globalState.loginInfo&& globalState.userRole == 'teacher'",
+          "when": "viewItem == course && intelligent-ide.loggedIn && intelligent-ide.userRole == 'teacher'",
           "group": "inline"
         },
         {
           "command": "intelligent-ide.entry.delete",
-          "when": "viewItem == entry-file || viewItem == entry-directory && globalState.userRole == 'teacher'",
+          "when": "viewItem == entry-file || viewItem == entry-directory && intelligent-ide.userRole == 'teacher'",
           "group": "inline"
         },
         {
@@ -292,7 +346,7 @@
         },
         {
           "command": "intelligent-ide.student.delete",
-          "when": "viewItem == student && globalState.loginInfo && globalState.userRole == 'teacher'",
+          "when": "viewItem == student && intelligent-ide.loggedIn && intelligent-ide.userRole == 'teacher'",
           "group": "inline"
         },
         {
@@ -303,6 +357,56 @@
         {
           "command": "intelligent-ide.notebook.exportToPdf",
           "when": "viewItem == notebookItem",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == assignmentItem && intelligent-ide.userRole == 'teacher'",
+          "command": "intelligent-ide.course.assignment.update",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == assignmentItem && intelligent-ide.userRole == 'teacher'",
+          "command": "intelligent-ide.course.assignment.delete",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == assignmentFolder && viewItem != submissionItem && intelligent-ide.userRole == 'teacher'",
+          "command": "intelligent-ide.course.assignment.create",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == submissionItem && intelligent-ide.userRole == 'teacher'",
+          "command": "intelligent-ide.course.submission.grade",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == submissionItem && intelligent-ide.userRole == 'teacher'",
+          "command": "intelligent-ide.course.submission.grade",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == assignmentItem && intelligent-ide.userRole == 'student'",
+          "command": "intelligent-ide.course.assignment.submit",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == assignmentItem && intelligent-ide.userRole == 'student'",
+          "command": "intelligent-ide.course.assignment.viewStatus",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == submissionItem && intelligent-ide.userRole == 'teacher'",
+          "command": "intelligent-ide.course.submission.delete",
+          "group": "inline"
+        },
+        {
+          "when": "viewItem == assignmentItem && view == courses",
+          "command": "intelligent-ide.course.viewAttachments",
+          "group": "inline"
+        },
+        {
+          "when": "viewItem == submissionItem && view == courses",
+          "command": "intelligent-ide.course.viewAttachments",
           "group": "inline"
         }
       ],

@@ -330,135 +330,50 @@ function registerDeleteDirectoryCommand(context: vscode.ExtensionContext): void 
 function registerPostDirectoryCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand(
         'intelligent-ide.directory.post',
-        async (courseItem?: CourseTreeItem) => {
+        async (courseArg?: number | CourseTreeItem) => { // Modified argument
             try {
                 const authDetails = await getAuthDetails(context);
                 if (!authDetails) {
-                    return []; // Auth failed, return empty
+                    return;
                 }
-                const { token, loginInfo } = authDetails;
+                const { token } = authDetails;
 
-                // Determine course ID
                 let courseId: number;
 
-                if (courseItem && courseItem.itemId && courseItem.type === 'course') {
-                    courseId = typeof courseItem.itemId === 'number'
-                        ? courseItem.itemId
-                        : parseInt(courseItem.itemId.toString(), 10);
+                if (typeof courseArg === 'number') {
+                    courseId = courseArg;
+                } else if (courseArg && courseArg.itemId && courseArg.type === 'course') {
+                    courseId = typeof courseArg.itemId === 'number'
+                        ? courseArg.itemId
+                        : parseInt(courseArg.itemId.toString(), 10);
                 } else {
-                    // Prompt for course ID
                     const courseIdInput = await vscode.window.showInputBox({
                         prompt: 'Enter the Course ID for the new directory',
                         placeHolder: 'e.g., 123',
                         validateInput: (text) => {
-                            if (!text) {
-                                return 'Course ID is required';
-                            }
-                            if (!/^\d+$/.test(text)) {
-                                return 'Course ID must be a number';
-                            }
+                            if (!text) { return 'Course ID is required'; }
+                            if (!/^\d+$/.test(text)) { return 'Course ID must be a number'; }
                             return null;
                         }
                     });
-
-                    if (!courseIdInput) {
-                        return; // User cancelled
-                    }
-
+                    if (!courseIdInput) { return; } // User cancelled
                     courseId = parseInt(courseIdInput, 10);
                 }
 
-                // Prompt for directory name
+                if (isNaN(courseId)) {
+                    vscode.window.showErrorMessage('Invalid Course ID provided.');
+                    return;
+                }
+
                 const name = await vscode.window.showInputBox({
                     prompt: 'Enter directory name',
                     placeHolder: 'e.g., Assignments'
                 });
+                if (!name) { return; } // User cancelled
 
-                if (!name) {
-                    return; // User cancelled
-                }
+                // Permissions handling remains commented out as per your existing code
+                // ...
 
-                // ============================================================
-                // Permission handling is temporarily disabled until requirements are clearer
-                // The following code is commented out:
-                /*
-                // Handle permissions - first ask if user wants to set permissions
-                const setPermissions = await vscode.window.showQuickPick(
-                    ['Yes', 'No'],
-                    { placeHolder: 'Do you want to set permissions for this directory?' }
-                );
-
-                // Initialize permissions as undefined initially
-                let permissions: Record<string, DirectoryPermissionType[]> | undefined = undefined;
-
-                if (setPermissions === 'Yes') {
-                    permissions = {};
-
-                    // Ask for the path to set permissions for
-                    const path = await vscode.window.showInputBox({
-                        prompt: 'Enter path to set permissions for',
-                        placeHolder: 'e.g., /path/to/directory'
-                    });
-
-                    if (path) {
-                        // Show permission options with dependencies
-                        const permissionOptions = [
-                            { label: DirectoryPermissionType.READ, picked: false },
-                            { label: DirectoryPermissionType.WRITE, picked: false },
-                            { label: DirectoryPermissionType.UPLOAD, picked: false },
-                            { label: DirectoryPermissionType.DELETE, picked: false }
-                        ];
-
-                        const selectedPermissions = await vscode.window.showQuickPick(
-                            permissionOptions.map(p => p.label),
-                            {
-                                canPickMany: true,
-                                placeHolder: 'Select permissions (READ is implied by WRITE and UPLOAD)'
-                            }
-                        );
-
-                        if (selectedPermissions && selectedPermissions.length > 0) {
-                            // Process permissions with dependencies
-                            const finalPermissions: DirectoryPermissionType[] = [];
-
-                            // Add base permissions
-                            if (selectedPermissions.includes(DirectoryPermissionType.READ)) {
-                                finalPermissions.push(DirectoryPermissionType.READ);
-                            }
-
-                            // WRITE implies READ
-                            if (selectedPermissions.includes(DirectoryPermissionType.WRITE)) {
-                                if (!finalPermissions.includes(DirectoryPermissionType.READ)) {
-                                    finalPermissions.push(DirectoryPermissionType.READ);
-                                }
-                                finalPermissions.push(DirectoryPermissionType.WRITE);
-                            }
-
-                            // UPLOAD implies READ
-                            if (selectedPermissions.includes(DirectoryPermissionType.UPLOAD)) {
-                                if (!finalPermissions.includes(DirectoryPermissionType.READ)) {
-                                    finalPermissions.push(DirectoryPermissionType.READ);
-                                }
-                                finalPermissions.push(DirectoryPermissionType.UPLOAD);
-                            }
-
-                            // DELETE highest permission
-                            if (selectedPermissions.includes(DirectoryPermissionType.DELETE)) {
-                                if (!finalPermissions.includes(DirectoryPermissionType.READ)) {
-                                    finalPermissions.push(DirectoryPermissionType.READ);
-                                }
-                                finalPermissions.push(DirectoryPermissionType.DELETE);
-                            }
-
-                            // Assign permissions to path
-                            permissions[path] = finalPermissions;
-                        }
-                    }
-                }
-                */
-                // ============================================================
-
-                // Create directory with undefined permissions (skipping permission handling for now)
                 const directoryId = await courseService.postDirectory(token, courseId, name, undefined);
                 vscode.window.showInformationMessage(`Directory "${name}" created with ID: ${directoryId}`);
                 refreshViews([ViewType.COURSE]);
@@ -468,7 +383,6 @@ function registerPostDirectoryCommand(context: vscode.ExtensionContext): void {
             }
         }
     );
-
     context.subscriptions.push(disposable);
 }
 
@@ -521,94 +435,95 @@ function registerDeleteEntryCommand(context: vscode.ExtensionContext): void {
 function registerUploadFileCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand(
         'intelligent-ide.entry.upload',
-        async (directoryItem?: CourseTreeItem) => {
+        async (arg?: CourseTreeItem | { directoryId: number, initialPath?: string }) => { // Modified argument
             try {
                 const authDetails = await getAuthDetails(context);
                 if (!authDetails) {
-                    return []; // Auth failed, return empty
+                    return;
                 }
-                const { token, loginInfo } = authDetails;
+                const { token } = authDetails;
 
-                // Get directory ID from selected item or prompt
                 let directoryId: number;
+                let defaultInputPath = '/';
 
-                if (directoryItem && directoryItem.itemId &&
-                    (directoryItem.type === 'directory' || directoryItem.type === 'virtual-directory')) {
-                    directoryId = typeof directoryItem.itemId === 'number'
-                        ? directoryItem.itemId
-                        : parseInt(directoryItem.itemId.toString(), 10);
+                if (arg) {
+                    if ((arg as CourseTreeItem).type === 'directory' || (arg as CourseTreeItem).type === 'virtual-directory') {
+                        const treeItem = arg as CourseTreeItem;
+                        directoryId = typeof treeItem.itemId === 'number'
+                            ? treeItem.itemId
+                            : parseInt(treeItem.itemId.toString(), 10);
+                        defaultInputPath = treeItem.path || '/';
+                    } else if ((arg as { directoryId: number }).directoryId !== undefined) {
+                        const customArg = arg as { directoryId: number, initialPath?: string };
+                        directoryId = customArg.directoryId;
+                        defaultInputPath = customArg.initialPath || '/';
+                    } else {
+                        // Argument provided but not in expected format, fall through to prompt
+                        const directoryIdInput = await vscode.window.showInputBox({
+                            prompt: 'Enter directory ID to upload to',
+                            placeHolder: 'e.g., 123',
+                            validateInput: (text) => /^\d+$/.test(text) ? null : 'Directory ID must be a number'
+                        });
+                        if (!directoryIdInput) { return; }
+                        directoryId = parseInt(directoryIdInput, 10);
+                    }
                 } else {
-                    // Prompt for directory ID
+                    // No argument, prompt for directory ID
                     const directoryIdInput = await vscode.window.showInputBox({
                         prompt: 'Enter directory ID to upload to',
                         placeHolder: 'e.g., 123',
-                        validateInput: (text) => {
-                            return /^\d+$/.test(text) ? null : 'Directory ID must be a number';
-                        }
+                        validateInput: (text) => /^\d+$/.test(text) ? null : 'Directory ID must be a number'
                     });
-
-                    if (!directoryIdInput) {
-                        return;
-                    }
-
+                    if (!directoryIdInput) { return; }
                     directoryId = parseInt(directoryIdInput, 10);
                 }
-                // Open file picker dialog
+
+                if (isNaN(directoryId)) {
+                    vscode.window.showErrorMessage('Invalid Directory ID provided.');
+                    return;
+                }
+
                 const fileUris = await vscode.window.showOpenDialog({
                     canSelectFiles: true,
                     canSelectFolders: false,
                     canSelectMany: false,
                     openLabel: 'Select File to Upload'
                 });
+                if (!fileUris || fileUris.length === 0) { return; }
 
-                if (!fileUris || fileUris.length === 0) {
-                    return;
-                }
-                // Get the selected filename
                 const selectedFilename = path.basename(fileUris[0].fsPath);
 
-                // Prompt for just the directory pat
-                let directoryPath = await vscode.window.showInputBox({
-                    prompt: 'Enter directory path to upload to (without filename)',
+                let uploadDirectoryPath = await vscode.window.showInputBox({
+                    prompt: 'Enter directory path within the course directory to upload to (e.g., /assignments/ or /)',
                     placeHolder: 'e.g., /folder/ or /',
-                    value: directoryItem?.path || '/',
+                    value: defaultInputPath, // Use determined default path
                     validateInput: (input) => {
-                        // Ensure path starts with /
-                        if (!input.startsWith('/')) {
-                            return 'Path must start with /';
-                        }
+                        if (!input.startsWith('/')) { return 'Path must start with /'; }
                         return null;
                     }
                 });
+                if (uploadDirectoryPath === undefined) { return; } // User cancelled
 
-                if (!directoryPath) {
-                    return;
+                // Ensure path ends with a slash if it's not just "/"
+                if (uploadDirectoryPath !== '/' && !uploadDirectoryPath.endsWith('/')) {
+                    uploadDirectoryPath += '/';
                 }
+                // Append filename
+                const finalPathInDirectory = uploadDirectoryPath === '/' ? `/${selectedFilename}` : `${uploadDirectoryPath}${selectedFilename}`;
 
-                directoryPath = directoryPath === '/'
-                    ? '/'
-                    : directoryPath.endsWith('/') ? directoryPath : `${directoryPath}/`;
 
-                // Then append the filename directly to directoryPath
-                directoryPath = directoryPath === '/'
-                    ? `/${selectedFilename}`
-                    : `${directoryPath}${selectedFilename}`;
-
-                // Show progress notification
-                vscode.window.withProgress({
+                await vscode.window.withProgress({
                     location: vscode.ProgressLocation.Notification,
                     title: 'Uploading file...',
                     cancellable: false
-                }, async (progress) => {
-                    // Upload the selected file using the modified directoryPath
+                }, async () => {
                     const entryId = await courseService.uploadFile(
                         token,
                         directoryId,
-                        directoryPath, // Using the directoryPath directly
+                        finalPathInDirectory,
                         fileUris[0]
                     );
-
-                    vscode.window.showInformationMessage(`File uploaded successfully with ID: ${entryId}`);
+                    vscode.window.showInformationMessage(`File uploaded successfully with ID: ${entryId}. Path: ${finalPathInDirectory}`);
                     refreshViews([ViewType.COURSE]);
                 });
 
@@ -617,7 +532,6 @@ function registerUploadFileCommand(context: vscode.ExtensionContext): void {
             }
         }
     );
-
     context.subscriptions.push(disposable);
 }
 
