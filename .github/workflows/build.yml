@@ -22,7 +22,8 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-          --requirepass "123456"
+        # 使用命令参数方式设置密码
+        command: redis-server --requirepass 123456
           
     steps:
     - uses: actions/checkout@v3
