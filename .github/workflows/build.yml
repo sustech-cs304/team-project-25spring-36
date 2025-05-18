@@ -16,14 +16,11 @@ jobs:
         image: redis
         ports:
           - 6379:6379
-        # 设置Redis密码
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-        # 使用命令参数方式设置密码
-        command: redis-server --requirepass 123456
           
     steps:
     - uses: actions/checkout@v3
@@ -38,6 +35,10 @@ jobs:
         curl -sSL https://install.python-poetry.org | python3 -
         echo "$HOME/.poetry/bin" >> $GITHUB_PATH
     
+    - name: 配置Redis密码
+      run: |
+        docker exec ${{ job.services.redis.id }} redis-cli config set requirepass 123456
+    
     - name: 安装依赖
       run: |
         poetry install
@@ -46,6 +47,7 @@ jobs:
       run: python build.py # 通过build.py直接运行测试，它已包含服务初始化和测试流程
       env:
         REDIS_PASSWORD: "123456"
+        DOCKER_ENABLE: "false" # 禁用Docker容器管理，使用GitHub Actions提供的服务
         
     - name: 上传测试覆盖率报告
       uses: codecov/codecov-action@v3
