@@ -7,19 +7,18 @@ from typing import Callable, Optional
 
 import pytest
 import requests
-from sqlalchemy import create_engine, text
-
 from intellide.config import (
     DATABASE_ENGINE,
-    DATABASE_USER,
-    DATABASE_PASSWORD,
     DATABASE_HOST,
-    DATABASE_PORT,
     DATABASE_NAME,
+    DATABASE_PASSWORD,
+    DATABASE_PORT,
+    DATABASE_USER,
     SERVER_HOST,
     SERVER_PORT,
     STORAGE_PATH,
 )
+from sqlalchemy import create_engine, text
 
 WORK_DIRECTORY = os.path.join(os.path.dirname(__file__), "..", "..")
 
@@ -29,8 +28,12 @@ DATABASE_TEST_BASE_URL = f"{DATABASE_ENGINE}+psycopg2://{DATABASE_USER}:{DATABAS
 DATABASE_TEST_ADMIN_URL = f"{DATABASE_ENGINE}+psycopg2://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/postgres"
 DATABASE_TEST_URL = f"{DATABASE_ENGINE}+psycopg2://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
 
-SERVER_API_BASE_URL = f"http://{SERVER_HOST if SERVER_HOST != '0.0.0.0' else '127.0.0.1'}:{SERVER_PORT}/api"
-SERVER_WS_BASE_URL = f"ws://{SERVER_HOST if SERVER_HOST != '0.0.0.0' else '127.0.0.1'}:{SERVER_PORT}/ws"
+SERVER_API_BASE_URL = (
+    f"http://{SERVER_HOST if SERVER_HOST != '0.0.0.0' else '127.0.0.1'}:{SERVER_PORT}/api"
+)
+SERVER_WS_BASE_URL = (
+    f"ws://{SERVER_HOST if SERVER_HOST != '0.0.0.0' else '127.0.0.1'}:{SERVER_PORT}/ws"
+)
 
 
 # 清理数据库
@@ -138,7 +141,11 @@ def unique_path_generator(unique_string_generator: Callable) -> Callable:
     ) -> str:
         if depth <= 0:
             raise ValueError("depth must be greater than 0")
-        return "/" + "/".join(unique_string_generator() for _ in range(depth)) + (f".{suffix}" if suffix else "")
+        return (
+            "/"
+            + "/".join(unique_string_generator() for _ in range(depth))
+            + (f".{suffix}" if suffix else "")
+        )
 
     return _unique_path_generator
 
@@ -154,7 +161,10 @@ def temp_file_content(
 def temp_file_path(
     temp_file_content: bytes,
 ) -> str:
-    test_file = os.path.join(os.path.dirname(__file__), "..", "..", "temp", "file.txt")
+    temp_dir = os.path.join(os.path.dirname(__file__), "..", "..", "temp")
+    # 确保temp目录存在
+    os.makedirs(temp_dir, exist_ok=True)
+    test_file = os.path.join(temp_dir, "file.txt")
     # 写入测试文件
     with open(test_file, "wb") as fp:
         fp.write(temp_file_content)
