@@ -261,7 +261,7 @@
 
     // Update the attachments panel in the UI
     function updateAttachmentsPanel() {
-        if (!attachmentsPanel) return;
+        if (!attachmentsPanel) {return;}
 
         attachmentsPanel.innerHTML = '';
 
