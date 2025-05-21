@@ -63,7 +63,7 @@ function buildPackage() {
  */
 function generateCoverageReport() {
   console.log('生成测试覆盖率报告...');
-  return runCommand('npm run test', frontendPath);
+  return runCommand('npm run test -- --coverage', frontendPath);
 }
 
 /**
