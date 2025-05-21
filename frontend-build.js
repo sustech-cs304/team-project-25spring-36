@@ -63,19 +63,7 @@ function buildPackage() {
  */
 function generateCoverageReport() {
   console.log('生成测试覆盖率报告...');
-  // 为测试覆盖率创建一个简单的配置文件
-  const coverageConfig = path.join(frontendPath, 'nyc.config.js');
-  if (!fs.existsSync(coverageConfig)) {
-    fs.writeFileSync(coverageConfig, `module.exports = {
-      all: true,
-      include: ["src/**/*.ts"],
-      exclude: ["src/test/**"],
-      reporter: ["html", "text"],
-      "report-dir": "./coverage"
-    };`);
-  }
-  
-  return runCommand('npx nyc npm run test', frontendPath);
+  return runCommand('npm run test', frontendPath);
 }
 
 /**
