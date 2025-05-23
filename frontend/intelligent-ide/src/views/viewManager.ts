@@ -125,7 +125,9 @@ export function registerQnAView(context: vscode.ExtensionContext): void {
 }
 
 function updateQnAView(context: vscode.ExtensionContext): void {
-    if (!qnaViewPanel) return;
+    if (!qnaViewPanel) {
+        return;
+    }
 
     try {
         const webviewFolder = 'qnaWebView';
