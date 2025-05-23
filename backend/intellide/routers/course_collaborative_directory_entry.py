@@ -13,7 +13,7 @@ from fastapi import (
     WebSocketDisconnect,
     WebSocketException,
 )
-from fastapi.responses import FileResponse
+from fastapi.responses import Response, FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -79,11 +79,17 @@ async def course_collaborative_directory_entry_post(
     # 目前先支持文本的协作
     text_file_content = file_content.decode("utf-8", errors="replace")
     crdt_doc = y_py.YDoc()
-    crdt_doc.get_text("text").insert(0, text_file_content)
-    crdt_doc_pickle = pickle.dumps(crdt_doc)
+    text = crdt_doc.get_text("text")
+    
+    # 创建事务并在事务中执行插入操作
+    with crdt_doc.begin_transaction() as txn:
+        text.insert(txn, 0, text_file_content)
+    
+    # 使用 y_py 的模块级函数进行序列化
+    crdt_doc_bytes = y_py.encode_state_as_update(crdt_doc)
     await storage_write_file(
         storage_name=storage_name,
-        content=crdt_doc_pickle,
+        content=crdt_doc_bytes,
     )
     course_collaborative_directory_entry = CourseCollaborativeDirectoryEntry(
         course_id=course_id,
@@ -121,7 +127,7 @@ async def course_collaborative_directory_entry_get(
     user_role, course = await course_user_info(course_id=course_id, user_id=user_id, db=db)
 
     # 检查用户是否是课程成员
-    if user_role != None:
+    if user_role is None:
         return forbidden("Only users who have joined this course can get collaborative directory entries")
 
     # 获取协作条目
@@ -162,7 +168,7 @@ async def course_collaborative_directory_entry_edit_history_get(
     user_role, course = await course_user_info(course_id=course_id, user_id=user_id, db=db)
 
     # 检查用户是否是课程成员
-    if user_role != None:
+    if user_role is None:
         return forbidden("Only users who have joined this course can get collaborative directory entry edit history")
 
     # 获取协作条目历史
@@ -193,7 +199,7 @@ async def course_collaborative_directory_entry_download(
     user_role, course = await course_user_info(course_id=course_id, user_id=user_id, db=db)
 
     # 检查用户是否是课程成员
-    if user_role != None:
+    if user_role is None:
         return forbidden("Only users who have joined this course can download collaborative directory entry")
 
     # 获取协作条目
@@ -207,22 +213,51 @@ async def course_collaborative_directory_entry_download(
     if course_collaborative_directory_entry is None:
         return bad_request("no such collaborative directory entry")
     # 下载协作条目
-    # 读取存储的pickle文件
-    content = await storage_read_file(course_collaborative_directory_entry.storage_name)
-    ydoc = pickle.loads(content)
-    # 从ydoc中提取ytext内容
-    ytext_content = ydoc.get_text("text").to_string()
+    # 读取存储的字节
+    print(f"[DEBUG] Downloading collab entry ID: {course_collaborative_directory_entry_id}, storage_name: {course_collaborative_directory_entry.storage_name}")
+    update_bytes = await storage_read_file(course_collaborative_directory_entry.storage_name)
+    print(f"[DEBUG] Read {len(update_bytes) if update_bytes else 0} bytes from storage for download.")
+    
+    ydoc = y_py.YDoc()
+    try:
+        if not update_bytes:
+            print(f"[WARNING] update_bytes for doc ID {course_collaborative_directory_entry_id} is empty or None. YDoc will be empty.")
+            # apply_update might fail with empty bytes, or do nothing.
+            # If it's None, it will definitely fail. Let's ensure it's bytes.
+            update_bytes = b'' 
+        y_py.apply_update(ydoc, update_bytes)
+        print(f"[DEBUG] Successfully applied update to YDoc for download (ID: {course_collaborative_directory_entry_id}).")
+    except Exception as e:
+        print(f"[ERROR] Failed to apply update to YDoc for download (ID: {course_collaborative_directory_entry_id}): {e}")
+        import traceback
+        print(traceback.format_exc())
+        raise 
+        
+    ytext_obj = ydoc.get_text("text")
+    if ytext_obj is None:
+        print(f"[ERROR] ydoc.get_text('text') returned None for doc ID {course_collaborative_directory_entry_id} during download.")
+        ytext_content = "" # Default to empty string
+    else:
+        # 使用 str() 来获取 YText 的内容
+        ytext_content = str(ytext_obj)
+        if not isinstance(ytext_content, str):
+            print(f"[ERROR] str(ytext_obj) did not return a string (got {type(ytext_content)}) for doc ID {course_collaborative_directory_entry_id}. Content: {str(ytext_content)[:200]}")
+            
+    print(f"[DEBUG] Extracted text content for download (length: {len(ytext_content)}). Preview: {ytext_content[:200]}...")
 
-    # 创建临时文件名
     file_name = f"{course_collaborative_directory_entry.storage_name}.txt"
-
-    # 返回文本文件响应
-    return FileResponse(
-        # 使用io.BytesIO创建一个内存中的临时文件对象
-        io.BytesIO(ytext_content.encode("utf-8")),
-        media_type="text/plain",
-        headers={"Content-Disposition": f"attachment; filename={file_name}"},
-    )
+    
+    try:
+        content_bytes = ytext_content.encode("utf-8")
+        print(f"[DEBUG] Encoded ytext_content to {len(content_bytes)} bytes for Response (download).")
+        # 使用 Response 而不是 FileResponse
+        return Response(
+            content=content_bytes,
+            media_type="text/plain",
+            headers={"Content-Disposition": f"attachment; filename={file_name}"},
+        )
+    except Exception as e:
+        print(f"[ERROR] Failed to create or return Response for download (ID: {course_collaborative_directory_entry_id}): {e}")
 
 
 @api.delete("")
@@ -274,7 +309,11 @@ async def broadcast_editors(course_collaborative_directory_entry_id: int):
     广播编辑者更新
     """
     keys = (course_collaborative_directory_entry_id,)
-    await manager.broadcast_json(keys=keys, content={"type": "user_updated", "editors": list(editors[keys])})
+    if course_collaborative_directory_entry_id in editors:
+        await manager.broadcast_json(keys=keys, content={"type": "user_updated", "editors": list(editors[course_collaborative_directory_entry_id])})
+    else:
+        await manager.broadcast_json(keys=keys, content={"type": "user_updated", "editors": []})
+
 
 
 async def add_user_to_editors(collab_id: int, user_id: int):
@@ -284,7 +323,7 @@ async def add_user_to_editors(collab_id: int, user_id: int):
     if collab_id not in editors:
         editors[collab_id] = []
     editors[collab_id].append(user_id)
-    broadcast_editors(collab_id)
+    await broadcast_editors(collab_id)
 
 
 async def remove_user_from_editors(collab_id: int, user_id: int):
@@ -295,7 +334,7 @@ async def remove_user_from_editors(collab_id: int, user_id: int):
         editors[collab_id].remove(user_id)
         if not editors[collab_id]:
             del editors[collab_id]
-        broadcast_editors(collab_id)
+        await broadcast_editors(collab_id)
 
 
 async def get_crdt_doc_from_storage_or_memory(
@@ -307,8 +346,22 @@ async def get_crdt_doc_from_storage_or_memory(
     """
     # 如果CRDT文档在内存中，则返回内存中的CRDT文档, 否则从存储中读取CRDT文档
     if course_collaborative_directory_entry_id not in crdt_docs:
-        crdt_doc: y_py.YDoc = pickle.loads(await storage_read_file(entry.storage_name))
+        print(f"[DEBUG] CRDT Doc {course_collaborative_directory_entry_id} not in memory. Loading from storage: {entry.storage_name}")
+        update_bytes = await storage_read_file(entry.storage_name)
+        print(f"[DEBUG] Read {len(update_bytes) if update_bytes else 0} bytes from storage for doc {course_collaborative_directory_entry_id}.")
+        crdt_doc = y_py.YDoc()
+        try:
+            # 使用 y_py 的方法进行反序列化
+            y_py.apply_update(crdt_doc, update_bytes)
+            print(f"[DEBUG] Successfully applied update to YDoc {course_collaborative_directory_entry_id} from storage.")
+        except Exception as e:
+            print(f"[ERROR] Failed to apply update to YDoc {course_collaborative_directory_entry_id} from storage: {e}")
+            # 考虑是否应该在这里抛出异常，或者返回一个空的/错误状态的文档
+            # 目前，如果加载失败，后续代码可能会因为crdt_doc未正确初始化而出错
+            raise # 暂时重新抛出，以便追踪问题
         crdt_docs[course_collaborative_directory_entry_id] = crdt_doc
+    else:
+        print(f"[DEBUG] CRDT Doc {course_collaborative_directory_entry_id} found in memory.")
     return crdt_docs[course_collaborative_directory_entry_id]
 
 
@@ -359,20 +412,19 @@ async def collaborative_join(
         websocket=websocket,
     )
 
-    # 将当前用户添加到编辑者列表, 并广播编辑者更新
-    add_user_to_editors(course_collaborative_directory_entry_id, user_id)
-
-    crdt_doc = get_crdt_doc_from_storage_or_memory(course_collaborative_directory_entry_id, entry)
+    # 先获取并发送初始内容
+    crdt_doc = await get_crdt_doc_from_storage_or_memory(course_collaborative_directory_entry_id, entry)
     crdt_text = crdt_doc.get_text("text")
-
-    # 获取初始内容
     await websocket.send_json(
         {
             "type": "content",
-            "content": crdt_text.to_string(),
+            "content": str(crdt_text),
             "user_id": user_id,
         }
     )
+
+    # 然后将当前用户添加到编辑者列表, 并广播编辑者更新
+    await add_user_to_editors(course_collaborative_directory_entry_id, user_id)
 
     try:
         # 处理消息
@@ -388,16 +440,21 @@ async def collaborative_join(
                 content = message.get("content", "")
 
                 if operation == "insert":
-                    crdt_text.insert(position, content)
+                    # 创建事务并在事务中执行插入操作
+                    with crdt_doc.begin_transaction() as txn:
+                        crdt_text.insert(txn, position, content)
                 elif operation == "delete":
-                    crdt_text.delete(position, position + len(content))
+                    # 删除操作也应该在事务中执行
+                    with crdt_doc.begin_transaction() as txn:
+                        # delete方法通常需要 txn, index, length
+                        crdt_text.delete(txn, position, len(content))
 
                 # 广播更新
                 await manager.broadcast_json(
                     keys=(course_collaborative_directory_entry_id,),
                     content={
                         "type": "content",
-                        "content": crdt_text.to_string(),
+                        "content": str(crdt_text),
                         "user_id": user_id,
                     },
                 )
@@ -415,13 +472,13 @@ async def collaborative_join(
     except (WebSocketDisconnect, WebSocketException):
         await websocket.close()
     finally:
-        crdt_doc_pickle = pickle.dumps(crdt_doc)
+        crdt_doc_bytes = y_py.encode_state_as_update(crdt_doc)
         await storage_write_file(
             storage_name=entry.storage_name,
-            content=crdt_doc_pickle,
+            content=crdt_doc_bytes,
         )
         manager.remove(keys=(course_collaborative_directory_entry_id,), identifier=user_id)
-        remove_user_from_editors(course_collaborative_directory_entry_id, user_id)
+        await remove_user_from_editors(course_collaborative_directory_entry_id, user_id)
 
         # 如果发现编辑者列表为空，则从内存中删除CRDT文档
         if course_collaborative_directory_entry_id not in editors:

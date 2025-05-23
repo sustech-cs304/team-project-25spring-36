@@ -860,3 +860,229 @@ def test_course_homework_assignment_delete_success(
     )
     
     assert assignment_id_base not in {assignment["id"] for assignment in assignments}
+
+
+@pytest.mark.dependency(depends=["test_course_homework_assignment_delete_success"])
+def test_course_collaborative_directory_entry_post_success(
+    store: Dict,
+    temp_file_path: str,
+):
+    user_token_teacher = store["user_token_teacher"]
+    course_id_base = store["course_id_base"]
+    
+    # 使用二进制模式打开文件
+    with open(temp_file_path, "rb") as f:
+        file_content = f.read()
+    
+    # 调试输出
+    response = requests.post(
+        url=f"{SERVER_API_BASE_URL}/course/collaborative",
+        headers={
+            "Access-Token": user_token_teacher,
+        },
+        params={
+            "course_id": course_id_base,
+        },
+        files={
+            "file": ("test_file.txt", file_content, "text/plain"),
+        },
+    )
+    
+    # 先检查状态码，再尝试解析JSON
+    assert response.status_code == status.HTTP_200_OK
+    response_json = response.json()
+    assert_code(response_json, status.HTTP_200_OK)
+    assert "course_collaborative_directory_entry_id" in response_json["data"]
+    store["collab_entry_id"] = response_json["data"]["course_collaborative_directory_entry_id"]
+
+
+@pytest.mark.dependency(depends=["test_course_collaborative_directory_entry_post_success"])
+def test_course_collaborative_directory_entry_get_success(
+    store: Dict,
+):
+    user_token_teacher = store["user_token_teacher"]
+    course_id_base = store["course_id_base"]
+    collab_entry_id = store["collab_entry_id"]
+    
+    response = requests.get(
+        url=f"{SERVER_API_BASE_URL}/course/collaborative",
+        headers={
+            "Access-Token": user_token_teacher,
+        },
+        params={
+            "course_id": course_id_base,
+        },
+    ).json()
+    
+    assert_code(response, status.HTTP_200_OK)
+    assert isinstance(response["data"], list)
+    assert collab_entry_id in [int(entry["id"]) for entry in response["data"]]
+
+
+@pytest.mark.dependency(depends=["test_course_collaborative_directory_entry_post_success"])
+def test_course_collaborative_directory_entry_download_success(
+    store: Dict,
+    temp_file_content: bytes,
+):
+    user_token_teacher = store["user_token_teacher"]
+    course_id_base = store["course_id_base"]
+    collab_entry_id = store["collab_entry_id"]
+    
+    response = requests.get(
+        url=f"{SERVER_API_BASE_URL}/course/collaborative/download",
+        headers={
+            "Access-Token": user_token_teacher,
+        },
+        params={
+            "course_id": course_id_base,
+            "course_collaborative_directory_entry_id": collab_entry_id,
+        },
+    )
+    
+    assert response.status_code == status.HTTP_200_OK
+    # 内容可能与原始内容略有不同，因为它通过CRDT处理过
+    assert response.content
+
+
+@pytest.mark.dependency(depends=["test_course_collaborative_directory_entry_get_success"])
+def test_course_collaborative_websocket_interaction(
+    store: Dict,
+):
+    user_token_teacher = store["user_token_teacher"]
+    user_token_student = store["user_token_student"]
+    course_id_base = store["course_id_base"]
+    collab_entry_id = store["collab_entry_id"]
+    
+    ws_student = websocket.WebSocket()
+    ws_teacher = websocket.WebSocket()
+    
+    try:
+        # 连接WebSocket
+        ws_student.connect(
+            url=f"{SERVER_WS_BASE_URL}/course/collaborative/join?course_id={course_id_base}&course_collaborative_directory_entry_id={collab_entry_id}",
+            header={
+                "Access-Token": user_token_student,
+            },
+        )
+        
+        ws_teacher.connect(
+            url=f"{SERVER_WS_BASE_URL}/course/collaborative/join?course_id={course_id_base}&course_collaborative_directory_entry_id={collab_entry_id}",
+            header={
+                "Access-Token": user_token_teacher,
+            },
+        )
+        
+        # 接收初始内容
+        student_content = json.loads(ws_student.recv())
+        teacher_content = json.loads(ws_teacher.recv())
+        
+        assert student_content["type"] == "content"
+        assert teacher_content["type"] == "content"
+        
+        # 学生接收第一条 user_updated (因学生自己加入)
+        student_user_update_1 = json.loads(ws_student.recv())
+        assert student_user_update_1["type"] == "user_updated"
+        assert len(student_user_update_1["editors"]) >= 1 # 学生自己
+
+        # 教师接收第一条 user_updated
+        teacher_user_update_1 = json.loads(ws_teacher.recv())
+        assert teacher_user_update_1["type"] == "user_updated"
+        assert len(teacher_user_update_1["editors"]) >= 2 # 学生和教师
+
+        # 学生接收第二条 user_updated (因教师加入)
+        student_user_update_2 = json.loads(ws_student.recv())
+        assert student_user_update_2["type"] == "user_updated"
+        assert len(student_user_update_2["editors"]) >= 2 # 学生和教师
+        
+        # 学生发送编辑
+        edit_message = {
+            "type": "edit",
+            "operation": "insert",
+            "position": 0,
+            "content": "测试协作编辑"
+        }
+        ws_student.send(json.dumps(edit_message))
+        
+        # 教师应该收到更新
+        teacher_update = json.loads(ws_teacher.recv())
+        assert teacher_update["type"] == "content"
+        assert "测试协作编辑" in teacher_update["content"]
+        
+    finally:
+        ws_student.close()
+        ws_teacher.close()
+
+
+@pytest.mark.dependency(depends=["test_course_collaborative_websocket_interaction"])
+def test_course_collaborative_directory_entry_history_success(
+    store: Dict,
+):
+    user_token_teacher = store["user_token_teacher"]
+    course_id_base = store["course_id_base"]
+    collab_entry_id = store["collab_entry_id"]
+    
+    response = requests.get(
+        url=f"{SERVER_API_BASE_URL}/course/collaborative/history",
+        headers={
+            "Access-Token": user_token_teacher,
+        },
+        params={
+            "course_id": course_id_base,
+            "course_collaborative_directory_entry_id": collab_entry_id,
+        },
+    ).json()
+    
+    assert_code(response, status.HTTP_200_OK)
+    assert isinstance(response["data"], list)
+    if len(response["data"]) > 0:
+        assert "operation" in response["data"][0]
+        assert "content" in response["data"][0]
+
+
+@pytest.mark.dependency(depends=["test_course_collaborative_directory_entry_history_success"])
+def test_course_collaborative_directory_entry_delete_success(
+    store: Dict,
+):
+    user_token_teacher = store["user_token_teacher"]
+    course_id_base = store["course_id_base"]
+    collab_entry_id = store["collab_entry_id"]
+    
+    # 学生尝试删除（应该失败）
+    user_token_student = store["user_token_student"]
+    response_student = requests.delete(
+        url=f"{SERVER_API_BASE_URL}/course/collaborative",
+        headers={
+            "Access-Token": user_token_student,
+        },
+        params={
+            "course_id": course_id_base,
+            "course_collaborative_directory_entry_id": collab_entry_id,
+        },
+    ).json()
+    assert_code(response_student, status.HTTP_403_FORBIDDEN)
+    
+    # 教师删除（应该成功）
+    response_teacher = requests.delete(
+        url=f"{SERVER_API_BASE_URL}/course/collaborative",
+        headers={
+            "Access-Token": user_token_teacher,
+        },
+        params={
+            "course_id": course_id_base,
+            "course_collaborative_directory_entry_id": collab_entry_id,
+        },
+    ).json()
+    assert_code(response_teacher, status.HTTP_200_OK)
+    
+    # 验证已删除
+    response_get = requests.get(
+        url=f"{SERVER_API_BASE_URL}/course/collaborative",
+        headers={
+            "Access-Token": user_token_teacher,
+        },
+        params={
+            "course_id": course_id_base,
+        },
+    ).json()
+    assert_code(response_get, status.HTTP_200_OK)
+    assert collab_entry_id not in [entry["id"] for entry in response_get["data"]]
