@@ -85,7 +85,7 @@
     // Send message to extension
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (text || attachments.length > 0) {
+        if (text) {
             addUserMessage(text, attachments);
             vscode.postMessage({
                 command: 'sendMessage',
@@ -423,12 +423,12 @@
                     filePaths.push(text);
                 }
             }
+            const uniqueFilePaths = [...new Set(filePaths)];
 
-            // Send collected paths to extension
-            if (filePaths.length > 0) {
+            if (uniqueFilePaths.length > 0) {
                 vscode.postMessage({
                     command: 'dropFiles',
-                    filePaths: filePaths
+                    filePaths: uniqueFilePaths
                 });
             }
         }
