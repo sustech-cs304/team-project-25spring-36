@@ -32,7 +32,6 @@ export class CommandManager {
         this.registerChatCommands();
         this.registerAssignmentCommands();
         this.registerQnACommands();
-        this.registerNotebookCommands();
     }
 
 
@@ -83,47 +82,5 @@ export class CommandManager {
 
     private registerAssignmentCommands(): void {
         registerAssignmentCommands(this.context);
-    }
-
-    /**
-     * Register notebook-related commands
-     */
-    private registerNotebookCommands(): void {
-        const exportToPdfDisposable = vscode.commands.registerCommand('intelligent-ide.notebook.exportToPdf', async () => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor) {
-                vscode.window.showErrorMessage('No active notebook to export.');
-                return;
-            }
-
-            const content = editor.document.getText();
-            const saveUri = await vscode.window.showSaveDialog({
-                filters: { 'PDF Files': ['pdf'] },
-                defaultUri: vscode.Uri.file(path.join(this.context.extensionPath, 'notebook.pdf')),
-            });
-
-            if (!saveUri) {
-                vscode.window.showInformationMessage('Export canceled.');
-                return;
-            }
-
-            try {
-                const pdfDoc = new PDFDocument();
-                const writeStream = fs.createWriteStream(saveUri.fsPath);
-                pdfDoc.pipe(writeStream);
-
-                pdfDoc.text(content, { align: 'left' });
-                pdfDoc.end();
-
-                writeStream.on('finish', () => {
-                    vscode.window.showInformationMessage(`Notebook exported to PDF: ${saveUri.fsPath}`);
-                });
-            } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                vscode.window.showErrorMessage(`Failed to export notebook: ${errorMessage}`);
-            }
-        });
-
-        this.context.subscriptions.push(exportToPdfDisposable);
     }
 }
