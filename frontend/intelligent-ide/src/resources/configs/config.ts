@@ -1,5 +1,7 @@
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:8081/api',
+  BASE_URL: 'http://localhost:8080/api',
+  //BASE_URL: 'http://localhost:8081/api',
+
   // User endpoints
   USER: {
     LOGIN: '/user/login',

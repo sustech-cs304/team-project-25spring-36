@@ -8,6 +8,7 @@ import { MyNotebookSerializer } from '../notebook/NotebookSerializer';
 import { getAuthDetails } from '../utils/authUtils';
 import { ICourseHomeworkAssignment, ICourseHomeworkSubmission } from '../models/AssignmentModels';
 import { assignmentService } from '../services/AssignmentService';
+import PDFDocument from 'pdfkit';
 
 /**
  * AI-generated-content
@@ -589,6 +590,82 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
             this.loadNotebooksFromDefaultPath();
             this.refresh();
             vscode.window.showInformationMessage('Notebook Explorer refreshed.');
+        });
+
+        vscode.commands.registerCommand('intelligent-ide.notebook.exportToPdf', async (item: CourseTreeItem) => {
+            const uri = vscode.Uri.file(item.path || '');
+            if (!uri || !uri.fsPath) {
+                vscode.window.showErrorMessage('Invalid notebook file.');
+                return;
+            }
+
+            // Read and parse the notebook content
+            const rawContent = fs.readFileSync(uri.fsPath, 'utf8');
+
+            let parsedContent;
+            try {
+                parsedContent = JSON.parse(rawContent); // Parse the JSON content
+            } catch (error) {
+                vscode.window.showErrorMessage('Failed to parse notebook content.');
+                return;
+            }
+
+            // Extract and format the content from cells
+            const cells = parsedContent.cells || [];
+            const formattedContent = cells
+                .map((cell: any) => cell.value || '') // Extract the "value" field from each cell
+                .join('\n\n'); // Separate cells with double newlines
+
+            // Prompt user to select the export path
+            const saveUri = await vscode.window.showSaveDialog({
+                filters: { 'PDF Files': ['pdf'] },
+                saveLabel: 'Export as PDF',
+                defaultUri: vscode.Uri.file(uri.fsPath.replace(/\.ipynb$/, '.pdf'))
+            });
+
+            if (!saveUri) {
+                vscode.window.showInformationMessage('Export cancelled.');
+                return;
+            }
+
+            const pdfPath = saveUri.fsPath;
+
+            // Check if the file already exists
+            if (fs.existsSync(pdfPath)) {
+                const overwrite = await vscode.window.showWarningMessage(
+                    `The file ${pdfPath} already exists. Do you want to overwrite it?`,
+                    { modal: true },
+                    'Yes',
+                    'No'
+                );
+
+                if (overwrite !== 'Yes') {
+                    vscode.window.showInformationMessage('Export cancelled.');
+                    return;
+                }
+            }
+
+            try {
+                const doc = new PDFDocument();
+                const writeStream = fs.createWriteStream(pdfPath);
+
+                doc.pipe(writeStream);
+
+                doc.font('Times-Roman'); // Use built-in font
+                doc.text(formattedContent, { align: 'left' }); // Write formatted content to PDF
+
+                doc.end();
+
+                writeStream.on('finish', () => {
+                    vscode.window.showInformationMessage(`Notebook exported successfully to: ${pdfPath}`);
+                });
+
+                writeStream.on('error', (error) => {
+                    vscode.window.showErrorMessage(`Failed to write PDF: ${error.message}`);
+                });
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to export notebook as PDF: ${(error as Error).message}`);
+            }
         });
     }
 

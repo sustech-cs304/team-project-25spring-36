@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
-import { createCourseTreeDataProvider, CourseTreeDataProvider } from '../views/CourseView'; // Updated import
-import { updateChatView } from './ChatView';
+import * as path from 'path';
+import * as fs from 'fs';
+import { LoginInfo } from '../models/LoginInfo';
+import { createCourseTreeDataProvider, CourseTreeDataProvider } from '../views/CourseView'; // 合并导入
+import { getNonce, updateChatView } from './ChatView';
 import {
     registerUserView,
     updateLoginView,
@@ -9,14 +12,11 @@ import {
 
 // Store view providers and UI elements
 let courseTreeDataProvider: CourseTreeDataProvider | undefined;
-let courseTreeView: vscode.TreeView<any> | undefined; // 'any' can be replaced with CourseTreeItem if preferred
+let courseTreeView: vscode.TreeView<any> | undefined;
 let context: vscode.ExtensionContext | undefined;
 let chatViewPanel: vscode.WebviewPanel | undefined;
 let qnaViewPanel: vscode.WebviewPanel | undefined;
 
-/**
- * View types that can be refreshed
- */
 export enum ViewType {
     LOGIN,
     COURSE,
@@ -25,16 +25,13 @@ export enum ViewType {
     ALL
 }
 
-/**
- * Initialize the view manager with required context and providers
- */
 export function initializeViewManager(extContext: vscode.ExtensionContext): CourseTreeDataProvider {
     context = extContext;
 
-    // Register user view (status bar)
+    // 合并用户视图注册
     registerUserView(extContext);
 
-    // Register course view
+    // 使用新的创建方法
     courseTreeDataProvider = createCourseTreeDataProvider(extContext);
     courseTreeView = vscode.window.createTreeView('courses', {
         treeDataProvider: courseTreeDataProvider,
@@ -45,12 +42,6 @@ export function initializeViewManager(extContext: vscode.ExtensionContext): Cour
     return courseTreeDataProvider;
 }
 
-// Removed the local registerCourseView function from viewManager.ts as its logic is now integrated above.
-
-/**
- * Refresh specified views
- * @param viewTypes Array of view types to refresh, defaults to ALL
- */
 export async function refreshViews(viewTypes: ViewType[] = [ViewType.ALL]): Promise<void> {
     if (!context) {
         console.error('View manager not initialized with context');
@@ -60,6 +51,7 @@ export async function refreshViews(viewTypes: ViewType[] = [ViewType.ALL]): Prom
     try {
         const refreshAll = viewTypes.includes(ViewType.ALL);
 
+        // 合并登录视图更新
         if (refreshAll || viewTypes.includes(ViewType.LOGIN)) {
             updateLoginView(context);
         }
@@ -76,19 +68,13 @@ export async function refreshViews(viewTypes: ViewType[] = [ViewType.ALL]): Prom
     }
 }
 
-/**
- * Convenience method to refresh all views
- */
 export function refreshAllViews(): Promise<void> {
     return refreshViews([ViewType.ALL]);
 }
 
-/**
- * Clean up any resources when extension deactivates
- */
 export function disposeViews(): void {
+    // 合并用户视图清理
     disposeUserView();
-
 
     if (courseTreeView) {
         courseTreeView = undefined;
@@ -107,14 +93,69 @@ export function disposeViews(): void {
     context = undefined;
 }
 
-/**
- * Add this function to export access to the chat panel
- */
 export function getChatViewPanel(): vscode.WebviewPanel | undefined {
     return chatViewPanel;
 }
 
-// Add this function
+// 保留 QnA 视图相关功能
+export function registerQnAView(context: vscode.ExtensionContext): void {
+    if (qnaViewPanel) {
+        qnaViewPanel.reveal(vscode.ViewColumn.One);
+        return;
+    }
+
+    qnaViewPanel = vscode.window.createWebviewPanel(
+        'qnaWebView',
+        'QnA Interface',
+        vscode.ViewColumn.One,
+        {
+            enableScripts: true,
+            retainContextWhenHidden: true,
+            localResourceRoots: [
+                vscode.Uri.joinPath(context.extensionUri, 'src', 'views', 'qnaWebView')
+            ]
+        }
+    );
+
+    updateQnAView(context);
+
+    qnaViewPanel.onDidDispose(() => {
+        qnaViewPanel = undefined;
+    });
+}
+
+function updateQnAView(context: vscode.ExtensionContext): void {
+    if (!qnaViewPanel) {
+        return;
+    }
+
+    try {
+        const webviewFolder = 'qnaWebView';
+        const htmlPath = path.join(context.extensionUri.fsPath, 'src', 'views', webviewFolder, 'index.html');
+        let htmlContent = fs.readFileSync(htmlPath, 'utf8');
+
+        const webview = qnaViewPanel.webview;
+        const stylesUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(context.extensionUri, 'src', 'views', webviewFolder, 'style.css')
+        );
+        const scriptUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(context.extensionUri, 'src', 'views', webviewFolder, 'main.js')
+        );
+        const nonce = getNonce();
+
+        htmlContent = htmlContent
+            .replace('{{cspSource}}', webview.cspSource)
+            .replace(/{{nonce}}/g, nonce)
+            .replace('{{stylesUri}}', stylesUri.toString())
+            .replace('{{scriptUri}}', scriptUri.toString());
+
+        qnaViewPanel.webview.html = htmlContent;
+    } catch (error) {
+        console.error('Error updating QnA view:', error);
+    }
+}
+
+// 保留新增的获取课程树方法
 export function getCourseTreeProvider(): CourseTreeDataProvider | undefined {
     return courseTreeDataProvider;
 }

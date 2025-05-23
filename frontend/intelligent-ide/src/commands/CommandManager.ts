@@ -1,9 +1,12 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import PDFDocument from 'pdfkit';
 import { registerUserCommands } from './UserCommands';
 import { registerCourseCommands } from './CourseCommands';
 import { registerChatCommands } from './ChatCommands';
 import { CourseTreeDataProvider } from '../views/CourseView';
-import { ViewType, refreshViews } from '../views/viewManager';
+import { ViewType, refreshViews, registerQnAView } from '../views/viewManager';
 import { registerAssignmentCommands } from './AssignmentCommands';
 
 /**
@@ -28,7 +31,22 @@ export class CommandManager {
         this.registerCourseCommands();
         this.registerChatCommands();
         this.registerAssignmentCommands();
+        this.registerQnACommands();
     }
+
+
+    /**
+    * Register QnA-related commands
+    */
+    private registerQnACommands(): void {
+        const qnaDisposable = vscode.commands.registerCommand('intelligent-ide.qna.open', () => {
+            // Delegate to ViewManager to handle the Webview creation
+            registerQnAView(this.context);
+        });
+
+        this.context.subscriptions.push(qnaDisposable);
+    }
+
 
     /**
      * Register global/utility commands
