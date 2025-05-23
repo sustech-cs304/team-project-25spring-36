@@ -940,8 +940,7 @@ def test_course_collaborative_directory_entry_download_success(
     )
     
     assert response.status_code == status.HTTP_200_OK
-    # 内容可能与原始内容略有不同，因为它通过CRDT处理过
-    assert response.content
+    assert response.content == temp_file_content
 
 
 @pytest.mark.dependency(depends=["test_course_collaborative_directory_entry_get_success"])
