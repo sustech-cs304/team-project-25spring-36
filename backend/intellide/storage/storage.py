@@ -74,7 +74,8 @@ async def storage_read_file(
     async with aiofiles.open(storage_path(storage_name), "rb") as fp:
         return await fp.read()
 
-
+# TODO
+# 不支持非英文文件名
 def storage_get_file_response(
     storage_name: str,
     file_name: str,

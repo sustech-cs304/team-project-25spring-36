@@ -1,0 +1,66 @@
+[tool.poetry]
+name = "team-project-25spring-36"
+version = "0.1.0"
+description = "intellide"
+authors = ["Your Team <team@example.com>"]
+readme = "README.md"
+packages = [{include = "intellide", from = "backend"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "*"
+uvicorn = "*"
+sqlalchemy = "*"
+psycopg2 = "*"
+pydantic = "*"
+pathvalidate = "*"
+aiofiles = "*"
+aiohttp = "*"
+asyncpg = "*"
+python-multipart = "*"
+passlib = "*"
+aiocache = {extras = ["redis"], version = "*"}
+aiosmtplib = "*"
+redis = "*"
+docker = "*"
+email-validator = "*"
+jwcrypto = "*"
+websockets = "*"
+simple-websocket = "*"
+websocket-client = "*"
+bcrypt = "*"
+y_py = "*"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+pytest-dependency = "*"
+pytest-cov = "*"
+black = "*"
+isort = "*"
+flake8 = "*"
+mypy = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "session"
+testpaths = ["backend/intellide/tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true 

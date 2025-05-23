@@ -108,6 +108,54 @@
         "icon": "$(trash)"
       },
       {
+        "command": "intelligent-ide.course.assignment.create",
+        "title": "Create Assignment",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(add)"
+      },
+      {
+        "command": "intelligent-ide.course.assignment.update",
+        "title": "Update Assignment",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "intelligent-ide.course.assignment.delete",
+        "title": "Delete Assignment",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "intelligent-ide.course.assignment.viewSubmissions",
+        "title": "View Submissions for Assignment",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "intelligent-ide.course.assignment.submit",
+        "title": "Submit to Assignment",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "intelligent-ide.course.assignment.viewStatus",
+        "title": "View My Assignment Statuses",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "intelligent-ide.course.submission.grade",
+        "title": "Grade Submission",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(check)"
+      },
+      {
+        "command": "intelligent-ide.course.submission.delete",
+        "title": "Delete Submission",
+        "category": "Intelligent IDE: Assignment",
+        "icon": "$(trash)"
+      },
+      {
         "command": "intelligent-ide.views.refresh",
         "title": "Refresh Views",
         "category": "Intelligent IDE: View",
@@ -166,6 +214,12 @@
         "title": "Open QnA Interface",
         "category": "Intelligent IDE: QnA",
         "icon": "$(question)"
+      },
+      {
+        "command": "intelligent-ide.course.viewAttachments",
+        "title": "View Attachments",
+        "category": "Intelligent IDE: course",
+        "icon": "$(file-zip)"
       }
     ],
     "viewsContainers": {
@@ -173,12 +227,12 @@
         {
           "id": "intelligent-ide",
           "title": "Intelligent IDE",
-          "icon": "src/resources/images/icon.svg"
+          "icon": "./src/resources/images/icon.svg"
         },
         {
           "id": "notebookView",
           "title": "Notebooks",
-          "icon": "src/resources/images/notebook-icon.svg"
+          "icon": "./src/resources/images/notebook-icon.svg"
         }
       ]
     },
@@ -205,37 +259,37 @@
       "view/title": [
         {
           "command": "intelligent-ide.login",
-          "when": "view == loginView && !globalState.loginInfo",
+          "when": "view == loginView && !intelligent-ide.loggedIn",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.register",
-          "when": "view == loginView && !globalState.loginInfo",
+          "when": "view == loginView && !intelligent-ide.loggedIn",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.update",
-          "when": "view == loginView && globalState.loginInfo",
+          "when": "view == loginView && intelligent-ide.loggedIn",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.logout",
-          "when": "view == loginView && globalState.loginInfo",
+          "when": "view == loginView && intelligent-ide.loggedIn",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.course.post",
-          "when": "view == courses && globalState.loginInfo && globalState.userRole == 'teacher'",
+          "when": "view == courses && intelligent-ide.loggedIn && intelligent-ide.userRole == 'teacher'",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.course.join",
-          "when": "view == courses && globalState.loginInfo && globalState.userRole == 'student'",
+          "when": "view == courses && intelligent-ide.loggedIn && intelligent-ide.userRole == 'student'",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.views.refresh",
-          "when": "view == courses && globalState.loginInfo",
+          "when": "view == courses && intelligent-ide.loggedIn",
           "group": "navigation"
         },
         {
@@ -250,34 +304,34 @@
         },
         {
           "command": "intelligent-ide.notebook.new",
-          "when": "view == courses && globalState.loginInfo",
+          "when": "view == courses && intelligent-ide.loggedIn",
           "group": "navigation"
         },
         {
           "command": "intelligent-ide.notebook.refresh",
-          "when": "view == courses && globalState.loginInfo",
+          "when": "view == courses && intelligent-ide.loggedIn",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
           "command": "intelligent-ide.course.delete",
-          "when": "viewItem == course && globalState.loginInfo && globalState.userRole == 'teacher'",
+          "when": "viewItem == course && intelligent-ide.loggedIn && intelligent-ide.userRole == 'teacher'",
           "group": "inline"
         },
         {
           "command": "intelligent-ide.directory.delete",
-          "when": "viewItem == directory && globalState.loginInfo&& globalState.userRole == 'teacher'",
+          "when": "viewItem == directory && intelligent-ide.loggedIn && intelligent-ide.userRole == 'teacher'",
           "group": "inline"
         },
         {
           "command": "intelligent-ide.directory.post",
-          "when": "viewItem == course && globalState.loginInfo&& globalState.userRole == 'teacher'",
+          "when": "viewItem == course && intelligent-ide.loggedIn && intelligent-ide.userRole == 'teacher'",
           "group": "inline"
         },
         {
           "command": "intelligent-ide.entry.delete",
-          "when": "viewItem == entry-file || viewItem == entry-directory && globalState.userRole == 'teacher'",
+          "when": "viewItem == entry-file || viewItem == entry-directory && intelligent-ide.userRole == 'teacher'",
           "group": "inline"
         },
         {
@@ -292,7 +346,7 @@
         },
         {
           "command": "intelligent-ide.student.delete",
-          "when": "viewItem == student && globalState.loginInfo && globalState.userRole == 'teacher'",
+          "when": "viewItem == student && intelligent-ide.loggedIn && intelligent-ide.userRole == 'teacher'",
           "group": "inline"
         },
         {
@@ -303,6 +357,56 @@
         {
           "command": "intelligent-ide.notebook.exportToPdf",
           "when": "viewItem == notebookItem",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == assignmentItem && intelligent-ide.userRole == 'teacher'",
+          "command": "intelligent-ide.course.assignment.update",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == assignmentItem && intelligent-ide.userRole == 'teacher'",
+          "command": "intelligent-ide.course.assignment.delete",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == assignmentFolder && viewItem != submissionItem && intelligent-ide.userRole == 'teacher'",
+          "command": "intelligent-ide.course.assignment.create",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == submissionItem && intelligent-ide.userRole == 'teacher'",
+          "command": "intelligent-ide.course.submission.grade",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == submissionItem && intelligent-ide.userRole == 'teacher'",
+          "command": "intelligent-ide.course.submission.grade",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == assignmentItem && intelligent-ide.userRole == 'student'",
+          "command": "intelligent-ide.course.assignment.submit",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == assignmentItem && intelligent-ide.userRole == 'student'",
+          "command": "intelligent-ide.course.assignment.viewStatus",
+          "group": "inline"
+        },
+        {
+          "when": "view == courses && viewItem == submissionItem && intelligent-ide.userRole == 'teacher'",
+          "command": "intelligent-ide.course.submission.delete",
+          "group": "inline"
+        },
+        {
+          "when": "viewItem == assignmentItem && view == courses",
+          "command": "intelligent-ide.course.viewAttachments",
+          "group": "inline"
+        },
+        {
+          "when": "viewItem == submissionItem && view == courses",
+          "command": "intelligent-ide.course.viewAttachments",
           "group": "inline"
         }
       ],
@@ -329,6 +433,63 @@
           }
         ]
       }
+    ],
+    "walkthroughs": [
+      {
+        "id": "intelligent-ide-walkthrough",
+        "title": "Getting Started with Intelligent IDE",
+        "description": "Learn how to use the key features of Intelligent IDE for a productive learning experience.",
+        "steps": [
+          {
+            "id": "user-registration",
+            "title": "1. Register and Login",
+            "description": "Create an account or log in to access all features of Intelligent IDE. \n\n[Register Now](command:intelligent-ide.register)",
+            "media": { 
+              "markdown": "./src/resources/walkthrough/registration.md"
+            }
+          },
+          {
+            "id": "course-management",
+            "title": "2. Manage Courses",
+            "description": "View, join, and create courses based on your role.",
+            "media": { 
+              "markdown": "./src/resources/walkthrough/course.md"
+            }
+          },
+          {
+            "id": "assignments",
+            "title": "3. Complete Assignments",
+            "description": "Submit and manage course assignments.",
+            "media": { 
+              "markdown": "./src/resources/walkthrough/assignments.md"
+            }
+          },
+          {
+            "id": "ai-assistant",
+            "title": "4. AI Chat Assistant",
+            "description": "Get help with coding and learning concepts. \n\n[Open Chat](command:intelligent-ide.chat.open)",
+            "media": { 
+              "markdown": "./src/resources/walkthrough/ai-chat.md"
+            }
+          },
+          {
+            "id": "collaborative-coding",
+            "title": "5. Collaborative Coding",
+            "description": "Work together with classmates in real-time. (Coming Soon)",
+            "media": { 
+              "markdown": "./src/resources/walkthrough/collaborative.md"
+            }
+          },
+          {
+            "id": "custom-notebook",
+            "title": "6. Interactive Notebooks",
+            "description": "Create interactive notebooks with executable code. \n\n[Create Notebook](command:intelligent-ide.notebook.new)",
+            "media": { 
+              "markdown": "./src/resources/walkthrough/notebook.md"
+            }
+          }
+        ]
+      }
     ]
   },
   "scripts": {
@@ -342,12 +503,14 @@
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
-    "lint": "eslint src",
-    "test": "vscode-test"
+    "lint": "eslint ./src",
+    "test": "vscode-test",
+    "test:coverage": "nyc npm run test"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
+    "@types/sinon": "^17.0.4",
     "@types/vscode": "^1.97.0",
     "@typescript-eslint/eslint-plugin": "^8.22.0",
     "@typescript-eslint/parser": "^8.22.0",
@@ -356,15 +519,16 @@
     "esbuild": "^0.24.2",
     "eslint": "^9.19.0",
     "npm-run-all": "^4.1.5",
+    "nyc": "^15.1.0",
+    "sinon": "^20.0.0",
     "typescript": "^5.7.3"
   },
   "dependencies": {
     "@types/pdfkit": "^0.13.9",
     "axios": "^1.8.1",
     "form-data": "^4.0.2",
-    "openai": "^4.93.0",
+    "openai": "^4.103.0",
     "pdfkit": "^0.17.0",
-    "showdown": "^2.1.0",
-    "sinon": "^19.0.2"
+    "showdown": "^2.1.0"
   }
 }

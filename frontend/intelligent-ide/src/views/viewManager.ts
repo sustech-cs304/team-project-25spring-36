@@ -2,20 +2,21 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { LoginInfo } from '../models/LoginInfo';
-import { CourseTreeDataProvider } from '../views/CourseView';
+import { createCourseTreeDataProvider, CourseTreeDataProvider } from '../views/CourseView'; // 合并导入
 import { getNonce, updateChatView } from './ChatView';
+import {
+    registerUserView,
+    updateLoginView,
+    disposeUserView
+} from './userView';
 
 // Store view providers and UI elements
 let courseTreeDataProvider: CourseTreeDataProvider | undefined;
 let courseTreeView: vscode.TreeView<any> | undefined;
-let statusBarItem: vscode.StatusBarItem | undefined;
 let context: vscode.ExtensionContext | undefined;
 let chatViewPanel: vscode.WebviewPanel | undefined;
 let qnaViewPanel: vscode.WebviewPanel | undefined;
 
-/**
- * View types that can be refreshed
- */
 export enum ViewType {
     LOGIN,
     COURSE,
@@ -24,111 +25,23 @@ export enum ViewType {
     ALL
 }
 
-/**
- * Initialize the view manager with required context and providers
- */
 export function initializeViewManager(extContext: vscode.ExtensionContext): CourseTreeDataProvider {
     context = extContext;
 
-    // Register user view (status bar)
+    // 合并用户视图注册
     registerUserView(extContext);
 
-    // Register course view
-    courseTreeDataProvider = registerCourseView(extContext);
-
-    // Don't automatically create the chat view panel on startup
-    // Just initialize any necessary chat-related setup that doesn't create a panel
-    // registerChatView(extContext);
+    // 使用新的创建方法
+    courseTreeDataProvider = createCourseTreeDataProvider(extContext);
+    courseTreeView = vscode.window.createTreeView('courses', {
+        treeDataProvider: courseTreeDataProvider,
+        showCollapseAll: true
+    });
+    extContext.subscriptions.push(courseTreeView);
 
     return courseTreeDataProvider;
 }
 
-/**
- * Register user view components (status bar
- */
-function registerUserView(context: vscode.ExtensionContext): void {
-    updateLoginView(context);
-}
-
-/**
- * Register course tree view
- */
-function registerCourseView(context: vscode.ExtensionContext): CourseTreeDataProvider {
-    // Create tree data provider
-    const treeDataProvider = new CourseTreeDataProvider(context);
-    courseTreeDataProvider = treeDataProvider;
-
-    // Create tree view
-    courseTreeView = vscode.window.createTreeView('courses', {
-        treeDataProvider,
-        showCollapseAll: true
-    });
-
-    context.subscriptions.push(courseTreeView);
-
-    return treeDataProvider;
-}
-
-
-
-/**
- * Updates login-related UI components
- */
-function updateLoginView(context: vscode.ExtensionContext): void {
-    const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
-
-    // Update context variables for when clauses
-    updateLoginContext(context);
-
-    if (loginInfo) {
-        try {
-            // Dispose of previous status bar item if exists
-            if (statusBarItem) {
-                statusBarItem.dispose();
-            }
-
-            // Create and show status bar with login info
-            statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-            statusBarItem.text = `$(account) ${loginInfo.username} (${loginInfo.role})`;
-            statusBarItem.tooltip = "Logged in user info";
-            statusBarItem.command = 'intelligent-ide.switchRole';
-            statusBarItem.show();
-
-            context.subscriptions.push(statusBarItem);
-        } catch (error) {
-            console.error("Error updating status bar:", error);
-            vscode.window.showErrorMessage("Failed to update status bar.");
-        }
-    } else {
-        // Clear the status bar
-        if (statusBarItem) {
-            statusBarItem.dispose();
-            statusBarItem = undefined;
-        }
-    }
-}
-
-/**
- * Update context for when clauses in package.json
- */
-function updateLoginContext(context: vscode.ExtensionContext): void {
-    const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
-
-    // Set login status context
-    vscode.commands.executeCommand('setContext', 'globalState.loginInfo', !!loginInfo);
-
-    // Set user role context for when clauses
-    if (loginInfo) {
-        vscode.commands.executeCommand('setContext', 'globalState.userRole', loginInfo.role);
-    } else {
-        vscode.commands.executeCommand('setContext', 'globalState.userRole', undefined);
-    }
-}
-
-/**
- * Refresh specified views
- * @param viewTypes Array of view types to refresh, defaults to ALL
- */
 export async function refreshViews(viewTypes: ViewType[] = [ViewType.ALL]): Promise<void> {
     if (!context) {
         console.error('View manager not initialized with context');
@@ -138,10 +51,7 @@ export async function refreshViews(viewTypes: ViewType[] = [ViewType.ALL]): Prom
     try {
         const refreshAll = viewTypes.includes(ViewType.ALL);
 
-        // First update context variables
-        updateLoginContext(context);
-
-        // Then update UI components
+        // 合并登录视图更新
         if (refreshAll || viewTypes.includes(ViewType.LOGIN)) {
             updateLoginView(context);
         }
@@ -149,9 +59,7 @@ export async function refreshViews(viewTypes: ViewType[] = [ViewType.ALL]): Prom
         if ((refreshAll || viewTypes.includes(ViewType.COURSE)) && courseTreeDataProvider) {
             courseTreeDataProvider.refresh();
         }
-
-        // For chat view, just call updateChatView from ChatView.ts
-        if (refreshAll || viewTypes.includes(ViewType.CHAT)) {
+        if (viewTypes.includes(ViewType.CHAT)) {
             updateChatView(context);
         }
 
@@ -160,83 +68,64 @@ export async function refreshViews(viewTypes: ViewType[] = [ViewType.ALL]): Prom
     }
 }
 
-/**
- * Convenience method to refresh all views
- */
 export function refreshAllViews(): Promise<void> {
     return refreshViews([ViewType.ALL]);
 }
 
-/**
- * Clean up any resources when extension deactivates
- */
 export function disposeViews(): void {
-    if (statusBarItem) {
-        statusBarItem.dispose();
-        statusBarItem = undefined;
-    }
+    // 合并用户视图清理
+    disposeUserView();
 
     if (courseTreeView) {
-        courseTreeView.dispose();
         courseTreeView = undefined;
     }
+    courseTreeDataProvider = undefined;
 
     if (chatViewPanel) {
         chatViewPanel.dispose();
         chatViewPanel = undefined;
     }
+    if (qnaViewPanel) {
+        qnaViewPanel.dispose();
+        qnaViewPanel = undefined;
+    }
 
-    courseTreeDataProvider = undefined;
     context = undefined;
 }
 
-/**
- * Add this function to export access to the chat panel
- */
 export function getChatViewPanel(): vscode.WebviewPanel | undefined {
     return chatViewPanel;
 }
 
-/**
- * Register QnA Webview
- */
+// 保留 QnA 视图相关功能
 export function registerQnAView(context: vscode.ExtensionContext): void {
-    // If the panel already exists, reveal it
     if (qnaViewPanel) {
         qnaViewPanel.reveal(vscode.ViewColumn.One);
         return;
     }
 
-    // Create a new Webview panel
     qnaViewPanel = vscode.window.createWebviewPanel(
-        'qnaWebView', // Internal identifier
-        'QnA Interface', // Title of the panel
-        vscode.ViewColumn.One, // Show in the first column
+        'qnaWebView',
+        'QnA Interface',
+        vscode.ViewColumn.One,
         {
-            enableScripts: true, // Allow JavaScript in the Webview
-            retainContextWhenHidden: true, // Keep the Webview state when hidden
+            enableScripts: true,
+            retainContextWhenHidden: true,
             localResourceRoots: [
                 vscode.Uri.joinPath(context.extensionUri, 'src', 'views', 'qnaWebView')
             ]
         }
     );
 
-    // Set the initial HTML content
     updateQnAView(context);
 
-    // Handle panel disposal
     qnaViewPanel.onDidDispose(() => {
         qnaViewPanel = undefined;
     });
 }
 
-/**
- * Update QnA Webview content
- */
 function updateQnAView(context: vscode.ExtensionContext): void {
-    if (!qnaViewPanel) {
-        return;
-    }
+    if (!qnaViewPanel) return;
 
     try {
         const webviewFolder = 'qnaWebView';
@@ -252,17 +141,19 @@ function updateQnAView(context: vscode.ExtensionContext): void {
         );
         const nonce = getNonce();
 
-        // Replace placeholders in the HTML
         htmlContent = htmlContent
             .replace('{{cspSource}}', webview.cspSource)
             .replace(/{{nonce}}/g, nonce)
             .replace('{{stylesUri}}', stylesUri.toString())
             .replace('{{scriptUri}}', scriptUri.toString());
 
-        // Set the Webview HTML content
         qnaViewPanel.webview.html = htmlContent;
     } catch (error) {
         console.error('Error updating QnA view:', error);
     }
 }
 
+// 保留新增的获取课程树方法
+export function getCourseTreeProvider(): CourseTreeDataProvider | undefined {
+    return courseTreeDataProvider;
+}

@@ -3,10 +3,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { courseService } from '../services/CourseService';
 import { ICourseDirectoryEntry } from '../models/CourseModels';
-import { LoginInfo } from '../models/LoginInfo';
 import { MyNotebookController } from '../notebook/NotebookController';
 import { MyNotebookSerializer } from '../notebook/NotebookSerializer';
-import { registerCourseCommands } from '../commands/CourseCommands';
+import { getAuthDetails } from '../utils/authUtils';
+import { ICourseHomeworkAssignment, ICourseHomeworkSubmission } from '../models/AssignmentModels';
+import { assignmentService } from '../services/AssignmentService';
 
 /**
  * AI-generated-content
@@ -18,7 +19,8 @@ import { registerCourseCommands } from '../commands/CourseCommands';
  */
 
 // Define tree item types
-type TreeItemType = 'course' | 'directory' | 'entry' | 'virtual-directory' | 'student' | 'notebook';
+type TreeItemType = 'course' | 'directory' | 'entry' | 'virtual-directory' | 'student' | 'notebook' |
+    'assignment' | 'submission' | 'assignment-folder' | 'submission-folder';
 
 // Define a class for tree items
 export class CourseTreeItem extends vscode.TreeItem {
@@ -33,7 +35,9 @@ export class CourseTreeItem extends vscode.TreeItem {
         public readonly path?: string,
         public readonly isDirectory?: boolean,
         public readonly entry?: ICourseDirectoryEntry,
-        public readonly created_at?: string  // Add created_at paramete
+        public readonly created_at?: string,
+        public readonly assignment?: ICourseHomeworkAssignment,
+        public readonly submission?: ICourseHomeworkSubmission
     ) {
         super(label, collapsibleState);
 
@@ -79,6 +83,90 @@ export class CourseTreeItem extends vscode.TreeItem {
                     arguments: [vscode.Uri.file(path || ''), 'my-notebook']
                 };
                 break;
+            case 'assignment-folder':
+                this.iconPath = new vscode.ThemeIcon('folder');
+                this.contextValue = 'assignmentFolder';
+                break;
+            case 'assignment':
+                // Use different icons based on deadline status
+                if (assignment?.deadline) {
+                    const now = new Date();
+                    const deadline = new Date(assignment.deadline);
+                    const daysUntilDeadline = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 3600 * 24));
+
+                    if (daysUntilDeadline < 0) {
+                        // Overdue
+                        this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('errorForeground'));
+                    } else if (daysUntilDeadline <= 2) {
+                        // Due soon
+                        this.iconPath = new vscode.ThemeIcon('clock', new vscode.ThemeColor('editorWarning.foreground'));
+                    } else {
+                        // Plenty of time
+                        this.iconPath = new vscode.ThemeIcon('notebook');
+                    }
+                } else {
+                    this.iconPath = new vscode.ThemeIcon('notebook');
+                }
+                this.contextValue = 'assignmentItem';
+
+                // Add deadline in the description if available
+                if (assignment?.deadline) {
+                    const deadline = new Date(assignment.deadline);
+                    this.description = `Due: ${deadline.toLocaleDateString()}`;
+                    this.tooltip = new vscode.MarkdownString(`**${this.label}**\n\nDue: ${deadline.toLocaleString()}`);
+                }
+
+                if (assignment && assignment.course_directory_entry_ids) {
+                    let entryIds: number[] = [];
+                    if (typeof assignment.course_directory_entry_ids === 'string') {
+                        entryIds = JSON.parse(assignment.course_directory_entry_ids);
+                    }
+                    const attachmentCount = entryIds.length;
+                    if (attachmentCount > 0) {
+                        if (this.description) {
+                            this.description += ` | ${attachmentCount} attachment${attachmentCount !== 1 ? 's' : ''}`;
+                        } else {
+                            this.description = `${attachmentCount} attachment${attachmentCount !== 1 ? 's' : ''}`;
+                        }
+                    }
+                }
+                break;
+            case 'submission-folder':
+                this.iconPath = new vscode.ThemeIcon('repo-push');
+                this.contextValue = 'submissionFolder';
+                break;
+            case 'submission':
+                // Use different icons based on grade status
+                if (submission?.grade !== undefined) {
+                    this.iconPath = new vscode.ThemeIcon('check', new vscode.ThemeColor('editor.foreground'));
+                    this.description = `Grade: ${submission.grade}`;
+                } else {
+                    this.iconPath = new vscode.ThemeIcon('circle-outline');
+                    this.description = 'Not graded';
+                }
+                this.contextValue = 'submissionItem';
+
+                // Add submission date in tooltip
+                if (submission?.submission_date) {
+                    const submissionDate = new Date(submission.submission_date);
+                    this.tooltip = new vscode.MarkdownString(`**${this.label}**\n\nSubmitted: ${submissionDate.toLocaleString()}`);
+                }
+
+                if (submission && submission.course_directory_entry_ids) {
+                    let entryIds: number[] = [];
+                    if (typeof submission.course_directory_entry_ids === 'string') {
+                        entryIds = JSON.parse(submission.course_directory_entry_ids);
+                    }
+                    const attachmentCount = entryIds.length;
+                    if (attachmentCount > 0) {
+                        if (this.description) {
+                            this.description += ` | ${attachmentCount} attachment${attachmentCount !== 1 ? 's' : ''}`;
+                        } else {
+                            this.description = `${attachmentCount} attachment${attachmentCount !== 1 ? 's' : ''}`;
+                        }
+                    }
+                }
+                break;
         }
 
         const timestamp = created_at
@@ -109,6 +197,9 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
     private readonly notebookFiles: vscode.Uri[] = [];
     private readonly defaultNotebookPath = "C:\\Users\\Lenovo\\Desktop";
 
+    // Add a cache for entries
+    private entryCache: Map<number, ICourseDirectoryEntry> = new Map();
+
     constructor(private context: vscode.ExtensionContext) {
         this.registerNotebookSerializer();
         this.registerNotebookController();
@@ -125,6 +216,11 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
     }
 
     async getChildren(element?: CourseTreeItem): Promise<CourseTreeItem[]> {
+        // For operations requiring auth, call the utility first
+        const authDetails = await getAuthDetails(this.context);
+        if (!authDetails) {
+            return [];
+        }
         if (!element) {
             // Root level: Show notebooks and courses
             const notebooks = this.notebookFiles.map(uri => new CourseTreeItem(
@@ -141,139 +237,82 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
         }
 
         if (element.type === 'course') {
-            return this.getCourseDirectories(element.itemId as number);
+            // For a course, show both directories and an assignments folder
+            const directoryItems = await this.getCourseDirectories(element.itemId as number);
+
+            // Add assignments folder
+            const assignmentsFolder = new CourseTreeItem(
+                'Assignments',
+                vscode.TreeItemCollapsibleState.Collapsed,
+                'assignment-folder',
+                `assignments-${element.itemId}`,
+                element.itemId as number
+            );
+
+            return [assignmentsFolder, ...directoryItems];
         }
 
-        const loginInfo = this.context.globalState.get('loginInfo') as LoginInfo | undefined;
-        if (!loginInfo) {
-            vscode.window.showWarningMessage('Please log in to view courses.');
-            return [];
+        if (element.type === 'assignment-folder' && authDetails) {
+            // Show assignments for this course
+            const courseId = element.parentId as number;
+            return await this.getAssignments(courseId, authDetails.token);
         }
 
-        const token = await this.context.secrets.get('authToken');
-        if (!token) {
-            vscode.window.showWarningMessage('Authentication token not found. Please log in again.');
-            return [];
-        }
+        if (element.type === 'assignment' && authDetails) {
+            const assignmentId = element.itemId as number;
 
-        try {
-            if (!element) {
-                // Root level: Fetch courses
-                const courses = await courseService.getCourses(token, loginInfo.role);
-                if (courses.length === 0) {
-                    vscode.window.showInformationMessage(`No courses found for ${loginInfo.role} role.`);
-                    return [];
-                }
-
-                return courses.map(course => new CourseTreeItem(
-                    course.name,
-                    vscode.TreeItemCollapsibleState.Collapsed,
-                    'course',
-                    course.id,
-                    undefined,
-                    undefined,
-                    undefined,
-                    undefined,
-                    course.created_at
-                ));
-            } else if ((element.type as TreeItemType) === 'course') {
-                // Second level: Fetch directories for the selected course
-                const courseId = typeof element.itemId === 'number' ? element.itemId : parseInt(element.itemId.toString());
-
-                // Get directories
-                const directories = await courseService.getDirectories(token, courseId);
-                const directoryItems = directories.map(directory => new CourseTreeItem(
-                    directory.name,
-                    vscode.TreeItemCollapsibleState.Collapsed,
-                    'directory',
-                    directory.id,
-                    courseId,
-                    undefined,
-                    true,
-                    undefined,
-                    directory.created_at
-                ));
-
-                // Only show students folder for teacher role
-                if (loginInfo.role === 'teacher') {
-                    // Create a students folder
-                    const studentsFolder = new CourseTreeItem(
-                        'students',
+            // For teachers: show submissions folder
+            // For students: show their submissions (or option to submit)
+            if (authDetails.loginInfo.role === 'teacher') {
+                return [
+                    new CourseTreeItem(
+                        'Submissions',
                         vscode.TreeItemCollapsibleState.Collapsed,
-                        'virtual-directory',
-                        `students-${courseId}`,
-                        courseId,
-                        undefined,
-                        true
-                    );
+                        'submission-folder',
+                        `submissions-${assignmentId}`,
+                        assignmentId
+                    )
+                ];
+            } else {
+                // For students - get their submissions or show "Submit" option
+                return await this.getStudentSubmissions(assignmentId, authDetails.token);
+            }
+        }
 
-                    // Get students
-                    try {
-                        const students = await courseService.getStudents(token, courseId);
-                        if (students && students.length > 0) {
-                            // Create student items
-                            (studentsFolder as any).children = students.map(student => new CourseTreeItem(
-                                `${student.username} (${student.email})`,
-                                vscode.TreeItemCollapsibleState.None,
-                                'student',
-                                student.id,
-                                courseId,
-                                undefined,
-                                false
-                            ));
-                        }
-                        // Return both directories and students folder
-                        return [...directoryItems, studentsFolder];
-                    } catch (error) {
-                        console.error('Error fetching students:', error);
-                        // Still return directories and students folder even if students fail to load
-                        (studentsFolder as any).children = [
-                            new CourseTreeItem(
-                                'Error loading students',
-                                vscode.TreeItemCollapsibleState.None,
-                                'virtual-directory',
-                                'error-students',
-                                courseId,
-                                undefined,
-                                false
-                            )
-                        ];
-                        return [...directoryItems, studentsFolder];
-                    }
-                } else {
-                    // For students, only return the directories
-                    return directoryItems;
-                }
-            } else if (element.type === 'directory') {
-                try {
-                    // Convert itemId to number if it's a string
-                    const directoryId = typeof element.itemId === 'number'
-                        ? element.itemId
-                        : parseInt(element.itemId.toString(), 10);
+        if (element.type === 'submission-folder' && authDetails) {
+            // Show all submissions for this assignment (teacher view)
+            const assignmentId = element.parentId as number;
+            return await this.getAllSubmissions(assignmentId, authDetails.token);
+        }
 
-                    // Check if conversion was successful
-                    if (isNaN(directoryId)) {
-                        vscode.window.showErrorMessage('Invalid directory ID');
-                        return [];
-                    }
+        // Keep the rest of the existing structure
+        try {
+            if (element.type === 'directory') {
+                // Convert itemId to number if it's a string
+                const directoryId = typeof element.itemId === 'number'
+                    ? element.itemId
+                    : parseInt(element.itemId.toString(), 10);
 
-                    // Use the root path "/" and fuzzy=true to get all entries in this directory
-                    const entries = await courseService.getEntries(token, directoryId, "/", true);
-
-                    // If no entries, just return empty array without error message
-                    if (entries.length === 0) {
-                        return [];
-                    }
-
-                    return this.organizeEntriesByPath(entries, directoryId);
-                } catch (error: any) {
-                    // If this is a "no entries" error, return empty array silently
-                    if (error.message?.includes('No entries found')) {
-                        return [];
-                    }
-                    vscode.window.showErrorMessage(`Error getting entries: ${error.message}`);
+                // Check if conversion was successful
+                if (isNaN(directoryId)) {
+                    vscode.window.showErrorMessage('Invalid directory ID');
                     return [];
                 }
+
+                // Use the root path "/" and fuzzy=true to get all entries in this directory
+                const entries = await courseService.getEntries(authDetails.token, directoryId, "/", true);
+
+                // If no entries, just return empty array without error message
+                if (entries.length === 0) {
+                    return [];
+                }
+
+                // When processing entries from the API response:
+                entries.forEach(entry => {
+                    this.addEntryToCache(entry); // Add this line
+                });
+
+                return this.organizeEntriesByPath(entries, directoryId);
             } else if (element.type === 'virtual-directory') {
                 // Return the children of this virtual directory
                 if ((element as any).children && Array.isArray((element as any).children)) {
@@ -289,20 +328,34 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
         return [];
     }
 
-    private async getCourses(): Promise<CourseTreeItem[]> {
-        const loginInfo = this.context.globalState.get('loginInfo') as LoginInfo | undefined;
-        if (!loginInfo) {
-            vscode.window.showWarningMessage('Please log in to view courses.');
-            return [];
-        }
+    // Expose methods to access and manage the entry cache
+    public findEntryById(entryId: number): ICourseDirectoryEntry | undefined {
+        return this.entryCache.get(entryId);
+    }
 
-        const token = await this.context.secrets.get('authToken');
-        if (!token) {
-            vscode.window.showWarningMessage('Authentication token not found. Please log in again.');
-            return [];
+    public addEntryToCache(entry: ICourseDirectoryEntry): void {
+        if (entry && entry.id) {
+            this.entryCache.set(Number(entry.id), entry);
         }
+    }
+
+    private async getCourses(): Promise<CourseTreeItem[]> {
+        // For operations requiring auth, call the utility first
+        const authDetails = await getAuthDetails(this.context);
+        if (!authDetails) {
+            return []; // Auth failed, return empty
+        }
+        const { token, loginInfo } = authDetails;
 
         const courses = await courseService.getCourses(token, loginInfo.role);
+
+        // Start preloading all entries for each course in the background
+        for (const course of courses) {
+            this.preloadAllCourseEntries(token, course.id).catch(err => {
+                console.error(`Error preloading entries for course ${course.id}:`, err);
+            });
+        }
+
         return courses.map(course => new CourseTreeItem(
             course.name,
             vscode.TreeItemCollapsibleState.Collapsed,
@@ -312,11 +365,12 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
     }
 
     private async getCourseDirectories(courseId: number): Promise<CourseTreeItem[]> {
-        const token = await this.context.secrets.get('authToken');
-        if (!token) {
-            vscode.window.showWarningMessage('Authentication token not found. Please log in again.');
-            return [];
+        const authDetails = await getAuthDetails(this.context);
+        if (!authDetails) {
+            return []; // Auth failed, return empty
         }
+        const { token, loginInfo } = authDetails;
+
 
         const directories = await courseService.getDirectories(token, courseId);
         return directories.map(directory => new CourseTreeItem(
@@ -537,6 +591,129 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
             vscode.window.showInformationMessage('Notebook Explorer refreshed.');
         });
     }
+
+    private async getAssignments(courseId: number, token: string): Promise<CourseTreeItem[]> {
+        try {
+            const assignments = await assignmentService.getAssignments(token, courseId);
+
+            return assignments.map(assignment => new CourseTreeItem(
+                assignment.title || `Assignment ${assignment.id}`,
+                vscode.TreeItemCollapsibleState.Collapsed,
+                'assignment',
+                assignment.id,
+                courseId,
+                undefined,
+                undefined,
+                undefined,
+                assignment.created_at,
+                assignment
+            ));
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Error loading assignments: ${error.message}`);
+            return [];
+        }
+    }
+
+    private async getAllSubmissions(assignmentId: number, token: string): Promise<CourseTreeItem[]> {
+        try {
+            const submissions = await assignmentService.getSubmissions(token, { assignment_id: assignmentId });
+
+            return submissions.map(submission => new CourseTreeItem(
+                submission.title || `Submission by Student ${submission.student_id}`,
+                vscode.TreeItemCollapsibleState.None,
+                'submission',
+                submission.id,
+                assignmentId,
+                undefined,
+                undefined,
+                undefined,
+                submission.created_at,
+                undefined,
+                submission
+            ));
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Error loading submissions: ${error.message}`);
+            return [];
+        }
+    }
+
+    private async getStudentSubmissions(assignmentId: number, token: string): Promise<CourseTreeItem[]> {
+        try {
+            const authDetails = await getAuthDetails(this.context);
+            if (!authDetails) {
+                return [];
+            }
+
+            // For student role, we only fetch their own submissions
+            const submissions = await assignmentService.getSubmissions(token, {
+                assignment_id: assignmentId,
+            });
+
+            if (submissions.length === 0) {
+                // If no submissions, show a "Submit Assignment" item
+                return [
+                    new CourseTreeItem(
+                        "Submit Assignment",
+                        vscode.TreeItemCollapsibleState.None,
+                        'entry', // Using entry type but with special context
+                        `submit-${assignmentId}`,
+                        assignmentId
+                    )
+                ];
+            }
+
+            return submissions.map(submission => new CourseTreeItem(
+                submission.title || `Your submission (${new Date(submission.submission_date).toLocaleDateString()})`,
+                vscode.TreeItemCollapsibleState.None,
+                'submission',
+                submission.id,
+                assignmentId,
+                undefined,
+                undefined,
+                undefined,
+                submission.created_at,
+                undefined,
+                submission
+            ));
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Error loading your submissions: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Preload all entries from all directories for a course
+     * to ensure attachments are available in the cache
+     */
+    private async preloadAllCourseEntries(token: string, courseId: number): Promise<void> {
+        console.log(`Preloading entries for course ${courseId}`);
+
+        try {
+            // First get all directories for this course
+            const directories = await courseService.getDirectories(token, courseId);
+
+            // For each directory, load all its entries
+            for (const directory of directories) {
+                try {
+                    const entries = await courseService.getEntries(token, directory.id, "/", true);
+
+                    // Add all entries to the cache
+                    entries.forEach(entry => {
+                        this.addEntryToCache(entry);
+                    });
+
+                    console.log(`Loaded ${entries.length} entries from directory ${directory.name}`);
+                } catch (error) {
+                    console.error(`Failed to load entries for directory ${directory.id}:`, error);
+                }
+            }
+        } catch (error) {
+            console.error(`Failed to preload entries for course ${courseId}:`, error);
+        }
+    }
+}
+export function createCourseTreeDataProvider(context: vscode.ExtensionContext): CourseTreeDataProvider {
+    return new CourseTreeDataProvider(context);
 }
 
 /**

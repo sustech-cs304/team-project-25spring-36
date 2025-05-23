@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { authenticationService } from '../services/userService';
 import { ViewType, refreshAllViews, refreshViews } from '../views/viewManager';
+import { getAuthDetails } from '../utils/authUtils';
 /**
  * Register all user-related commands
  */
@@ -137,9 +138,8 @@ function registerRegisterCommand(context: vscode.ExtensionContext): void {
  */
 function registerUpdateCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand('intelligent-ide.update', async () => {
-        // Load the login info from global state
-        const loginInfo = context.globalState.get('loginInfo');
-        if (!loginInfo) {
+        const authDetails = await getAuthDetails(context);
+        if (!authDetails) {
             const continueUpdate = await vscode.window.showWarningMessage(
                 'You are not logged in. Do you want to log in before updating?',
                 'Yes',
@@ -154,13 +154,6 @@ function registerUpdateCommand(context: vscode.ExtensionContext): void {
             }
         }
 
-        // Retrieve stored token from VS Code secret storage
-        const storedToken = await context.secrets.get('authToken');
-        if (!storedToken) {
-            vscode.window.showErrorMessage('You must log in before updating.');
-            return;
-        }
-
         const username = await vscode.window.showInputBox({ prompt: 'Enter new username' });
         const password = await vscode.window.showInputBox({ prompt: 'Enter your password', password: true });
 
@@ -171,7 +164,7 @@ function registerUpdateCommand(context: vscode.ExtensionContext): void {
 
         // Call the update method with the stored token included
         try {
-            const token = await authenticationService.update(username, password, storedToken);
+            const token = await authenticationService.update(username, password, authDetails.token);
             await authenticationService.getUserInfo(token, context);
             await context.secrets.store('authToken', token);
             refreshViews([ViewType.LOGIN]);
@@ -190,16 +183,15 @@ function registerUpdateCommand(context: vscode.ExtensionContext): void {
 function registerLogoutCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand('intelligent-ide.logout', async () => {
         try {
-            const loginInfo = context.globalState.get('loginInfo');
-            if (!loginInfo) {
-                await vscode.window.showWarningMessage(
-                    'You are not logged in.'
-                );
+            const authDetails = await getAuthDetails(context);
+            if (!authDetails) {
+                return [];
             }
+
 
             // Clear login info from global state
             await context.globalState.update('loginInfo', undefined);
-
+            context.globalState.update('userRole', undefined);
             // Remove token from secrets
             await context.secrets.delete('authToken');
 
@@ -220,12 +212,12 @@ function registerLogoutCommand(context: vscode.ExtensionContext): void {
 function registerSwitchRoleCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand('intelligent-ide.switchRole', async () => {
         try {
-            const loginInfo = context.globalState.get('loginInfo');
-
-            if (!loginInfo) {
-                vscode.window.showErrorMessage('You must be logged in to switch roles.');
-                return;
+            const authDetails = await getAuthDetails(context);
+            if (!authDetails) {
+                return []; // Auth failed
             }
+            const { token, loginInfo } = authDetails;
+
 
             // Show a quick pick menu to select role
             const selectedRole = await vscode.window.showQuickPick(

@@ -275,7 +275,7 @@ def test_course_directory_entry_download_success(
     assert response.content == temp_file_content
 
 
-@pytest.mark.dependecy(depends=["test_course_directory_entry_get_success"])
+@pytest.mark.dependency(depends=["test_course_directory_entry_get_success"])
 def test_course_directory_entry_delete_success_and_fail(
     store: Dict,
     unique_path_generator: Callable,
@@ -328,7 +328,7 @@ def test_course_directory_entry_delete_success_and_fail(
     assert course_directory_entry_id not in course_directory_entry_ids
 
 
-@pytest.mark.dependecy(depends=["test_course_directory_entry_get_success"])
+@pytest.mark.dependency(depends=["test_course_directory_entry_get_success"])
 def test_course_directory_entry_move_success_and_fail(
     store: Dict,
     unique_path_generator: Callable,
@@ -384,7 +384,7 @@ def test_course_directory_entry_move_success_and_fail(
     assert path_join(dst_path, path_parts(path, 2), path_parts(path, 3)) in course_directory_entry_paths
 
 
-@pytest.mark.dependecy(depends=["test_course_post_success"])
+@pytest.mark.dependency(depends=["test_course_post_success"])
 def test_course_chat_success(
     store: Dict,
     unique_string_generator: Callable,
