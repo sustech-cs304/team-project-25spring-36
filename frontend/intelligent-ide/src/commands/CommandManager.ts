@@ -3,8 +3,8 @@ import { registerUserCommands } from './UserCommands';
 import { registerCourseCommands } from './CourseCommands';
 import { registerChatCommands } from './ChatCommands';
 import { CourseTreeDataProvider } from '../views/CourseView';
-import { ViewType, refreshViews, registerQnAView } from '../views/viewManager';
-
+import { registerQnAView } from '../views/viewManager';
+import { ViewType, refreshViews } from '../views/viewManager';
 /**
  * Centralized command registration manager
  * Handles all command registrations in the extension
