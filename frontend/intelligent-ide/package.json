@@ -227,12 +227,12 @@
         {
           "id": "intelligent-ide",
           "title": "Intelligent IDE",
-          "icon": "src/resources/images/icon.svg"
+          "icon": "./src/resources/images/icon.svg"
         },
         {
           "id": "notebookView",
           "title": "Notebooks",
-          "icon": "src/resources/images/notebook-icon.svg"
+          "icon": "./src/resources/images/notebook-icon.svg"
         }
       ]
     },
@@ -433,6 +433,63 @@
           }
         ]
       }
+    ],
+    "walkthroughs": [
+      {
+        "id": "intelligent-ide-walkthrough",
+        "title": "Getting Started with Intelligent IDE",
+        "description": "Learn how to use the key features of Intelligent IDE for a productive learning experience.",
+        "steps": [
+          {
+            "id": "user-registration",
+            "title": "1. Register and Login",
+            "description": "Create an account or log in to access all features of Intelligent IDE. \n\n[Register Now](command:intelligent-ide.register)",
+            "media": { 
+              "markdown": "./src/resources/walkthrough/registration.md"
+            }
+          },
+          {
+            "id": "course-management",
+            "title": "2. Manage Courses",
+            "description": "View, join, and create courses based on your role.",
+            "media": { 
+              "markdown": "./src/resources/walkthrough/course.md"
+            }
+          },
+          {
+            "id": "assignments",
+            "title": "3. Complete Assignments",
+            "description": "Submit and manage course assignments.",
+            "media": { 
+              "markdown": "./src/resources/walkthrough/assignments.md"
+            }
+          },
+          {
+            "id": "ai-assistant",
+            "title": "4. AI Chat Assistant",
+            "description": "Get help with coding and learning concepts. \n\n[Open Chat](command:intelligent-ide.chat.open)",
+            "media": { 
+              "markdown": "./src/resources/walkthrough/ai-chat.md"
+            }
+          },
+          {
+            "id": "collaborative-coding",
+            "title": "5. Collaborative Coding",
+            "description": "Work together with classmates in real-time. (Coming Soon)",
+            "media": { 
+              "markdown": "./src/resources/walkthrough/collaborative.md"
+            }
+          },
+          {
+            "id": "custom-notebook",
+            "title": "6. Interactive Notebooks",
+            "description": "Create interactive notebooks with executable code. \n\n[Create Notebook](command:intelligent-ide.notebook.new)",
+            "media": { 
+              "markdown": "./src/resources/walkthrough/notebook.md"
+            }
+          }
+        ]
+      }
     ]
   },
   "scripts": {
@@ -446,7 +503,7 @@
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
-    "lint": "eslint src",
+    "lint": "eslint ./src",
     "test": "vscode-test",
     "test:coverage": "nyc npm run test"
   },
