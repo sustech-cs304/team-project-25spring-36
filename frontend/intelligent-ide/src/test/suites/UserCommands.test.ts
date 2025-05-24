@@ -7,9 +7,9 @@ import * as authUtils from '../../utils/authUtils';
 import { registerUserCommands } from '../../commands/UserCommands';
 
 suite('User Commands Test Suite', () => {
-    // Context and state mocks with proper types
     let mockContext: vscode.ExtensionContext;
     let mockGlobalState: Map<string, any>;
+    let mockWorkspaceState: Map<string, any>;
     let mockSecrets: {
         store: sinon.SinonStub<[string, string], Promise<void>>;
         get: sinon.SinonStub<[string], Promise<string | undefined>>;
@@ -17,13 +17,14 @@ suite('User Commands Test Suite', () => {
     };
     let mockCommands: Record<string, (...args: any[]) => any>;
     let globalStateUpdateStub: sinon.SinonStub<[string, any], Promise<void>>;
+    let workspaceStateUpdateStub: sinon.SinonStub<[string, any], Promise<void>>;
 
-    // VS Code API stubs with proper return types
-    let showInputBoxStub: sinon.SinonStub<Parameters<typeof vscode.window.showInputBox>, ReturnType<typeof vscode.window.showInputBox>>;
-    let showQuickPickStub: sinon.SinonStub<Parameters<typeof vscode.window.showQuickPick>, ReturnType<typeof vscode.window.showQuickPick>>;
-    let showInfoMessageStub: sinon.SinonStub<Parameters<typeof vscode.window.showInformationMessage>, ReturnType<typeof vscode.window.showInformationMessage>>;
-    let showErrorMessageStub: sinon.SinonStub<Parameters<typeof vscode.window.showErrorMessage>, ReturnType<typeof vscode.window.showErrorMessage>>;
-    let showWarningMessageStub: sinon.SinonStub<Parameters<typeof vscode.window.showWarningMessage>, ReturnType<typeof vscode.window.showWarningMessage>>;
+    // VS Code API stubs
+    let showInputBoxStub: sinon.SinonStub;
+    let showQuickPickStub: sinon.SinonStub;
+    let showInfoMessageStub: sinon.SinonStub;
+    let showErrorMessageStub: sinon.SinonStub;
+    let showWarningMessageStub: sinon.SinonStub;
 
     // View manager stubs
     let refreshAllViewsStub: sinon.SinonStub;
@@ -32,7 +33,7 @@ suite('User Commands Test Suite', () => {
     // Auth utils stub
     let getAuthDetailsStub: sinon.SinonStub;
 
-    // Service stubs with proper return types
+    // Service stubs
     let loginStub: sinon.SinonStub<[string, string], Promise<string>>;
     let registerStub: sinon.SinonStub<[string, string, string, string], Promise<string>>;
     let updateStub: sinon.SinonStub<[string, string, string], Promise<string>>;
@@ -49,25 +50,29 @@ suite('User Commands Test Suite', () => {
     };
 
     setup(() => {
-        // Reset mocks before each test
         sinon.restore();
 
-        // Setup mock global state
         mockGlobalState = new Map<string, any>();
+        mockWorkspaceState = new Map<string, any>();
 
-        // Setup mock secrets with proper typings
         mockSecrets = {
             store: sinon.stub<[string, string], Promise<void>>().resolves(),
             get: sinon.stub<[string], Promise<string | undefined>>().resolves(mockToken),
             delete: sinon.stub<[string], Promise<void>>().resolves()
         };
 
-        // Setup mock commands registry
         mockCommands = {};
-        // Mock vscode extension context
+
         globalStateUpdateStub = sinon.stub<[string, any], Promise<void>>().callsFake(
             async (key: string, value: any) => {
                 mockGlobalState.set(key, value);
+                return Promise.resolve();
+            }
+        );
+
+        workspaceStateUpdateStub = sinon.stub<[string, any], Promise<void>>().callsFake(
+            async (key: string, value: any) => {
+                mockWorkspaceState.set(key, value);
                 return Promise.resolve();
             }
         );
@@ -78,10 +83,13 @@ suite('User Commands Test Suite', () => {
                 get: (key: string) => mockGlobalState.get(key),
                 update: globalStateUpdateStub
             } as any,
+            workspaceState: {
+                get: (key: string) => mockWorkspaceState.get(key),
+                update: workspaceStateUpdateStub
+            } as any,
             secrets: mockSecrets
         } as unknown as vscode.ExtensionContext;
 
-        // Mock vscode commands with proper return types
         sinon.stub(vscode.commands, 'registerCommand').callsFake((commandId, handler) => {
             mockCommands[commandId] = handler;
             return { dispose: () => { } };
@@ -94,7 +102,7 @@ suite('User Commands Test Suite', () => {
             return Promise.resolve(undefined);
         });
 
-        // Mock vscode window with proper return types
+        // VS Code window stubs
         showInputBoxStub = sinon.stub(vscode.window, 'showInputBox');
         showQuickPickStub = sinon.stub(vscode.window, 'showQuickPick');
         showInfoMessageStub = sinon.stub(vscode.window, 'showInformationMessage').resolves(undefined);
@@ -105,7 +113,7 @@ suite('User Commands Test Suite', () => {
         showInputBoxStub.resolves('test-input');
         showQuickPickStub.resolves({ label: 'teacher' });
 
-        // Mock auth service with proper parameter and return types
+        // Service stubs
         loginStub = sinon.stub(authenticationService, 'login').resolves(mockToken);
         registerStub = sinon.stub(authenticationService, 'register').resolves(mockToken);
         updateStub = sinon.stub(authenticationService, 'update').resolves(mockToken);
@@ -116,11 +124,11 @@ suite('User Commands Test Suite', () => {
         });
         getVerificationCodeStub = sinon.stub(authenticationService, 'getVerificationCode').resolves('123456');
 
-        // Mock view management
+        // View manager stubs
         refreshAllViewsStub = sinon.stub(viewManager, 'refreshAllViews');
         refreshViewsStub = sinon.stub(viewManager, 'refreshViews');
 
-        // Mock auth utils
+        // Auth utils stub
         getAuthDetailsStub = sinon.stub(authUtils, 'getAuthDetails')
             .resolves({ token: mockToken, loginInfo: mockLoginInfo });
 
@@ -133,102 +141,78 @@ suite('User Commands Test Suite', () => {
     });
 
     test('Login command - successful login', async () => {
-        // Setup with more specific control
         showInputBoxStub.onFirstCall().resolves('user@example.com');
         showInputBoxStub.onSecondCall().resolves('password123');
 
-        // Execute
         await vscode.commands.executeCommand('intelligent-ide.login');
 
-        // Verify
         assert.ok(loginStub.calledWith('user@example.com', 'password123'));
-        assert.ok(mockSecrets.store.calledWith('authToken', mockToken));
+        assert.ok(getUserInfoStub.called);
         assert.ok(refreshAllViewsStub.called);
         assert.ok(showInfoMessageStub.calledWith('Login successful!'));
     });
 
     test('Login command - missing credentials', async () => {
-        // Setup: Only email entered, no password
         showInputBoxStub.onFirstCall().resolves('user@example.com');
         showInputBoxStub.onSecondCall().resolves(undefined);
 
-        // Execute
         await vscode.commands.executeCommand('intelligent-ide.login');
 
-        // Verify
         assert.ok(!loginStub.called);
         assert.ok(showErrorMessageStub.calledWith('Username and password are required.'));
     });
 
     test('Register command - successful registration', async () => {
-        // Setup
-        showInputBoxStub.onCall(0).resolves('newusername'); // username
-        showInputBoxStub.onCall(1).resolves('new@example.com'); // email
-        showInputBoxStub.onCall(2).resolves('123456'); // verification code
-        showInputBoxStub.onCall(3).resolves('password123'); // password
+        showInputBoxStub.onCall(0).resolves('newusername');
+        showInputBoxStub.onCall(1).resolves('new@example.com');
+        showInputBoxStub.onCall(2).resolves('123456');
+        showInputBoxStub.onCall(3).resolves('password123');
 
-        // Execute
         await vscode.commands.executeCommand('intelligent-ide.register');
 
-        // Verify
         assert.ok(getVerificationCodeStub.calledWith('new@example.com'));
         assert.ok(registerStub.calledWith('newusername', 'new@example.com', 'password123', '123456'));
-        assert.ok(mockSecrets.store.calledWith('authToken', mockToken));
         assert.ok(getUserInfoStub.called);
         assert.ok(showInfoMessageStub.calledWith('Registration successful for newusername !'));
     });
 
     test('Logout command - successful logout', async () => {
-        // Execute
         await vscode.commands.executeCommand('intelligent-ide.logout');
-        // Verify
-        assert.ok(globalStateUpdateStub.calledWith('loginInfo', undefined));
-        assert.ok(mockSecrets.delete.calledWith('authToken'));
+
+        assert.ok(workspaceStateUpdateStub.calledWith('loginInfo', undefined));
         assert.ok(refreshAllViewsStub.called);
-        assert.ok(showInfoMessageStub.calledWith('Logout successful!'));
         assert.ok(showInfoMessageStub.calledWith('Logout successful!'));
     });
 
     test('SwitchRole command - successful role switch', async () => {
-        // Setup
-        mockGlobalState.set('loginInfo', { ...mockLoginInfo }); // Set initial login info
+        mockWorkspaceState.set('loginInfo', { ...mockLoginInfo });
         showQuickPickStub.resolves({ label: 'teacher' });
 
-        // Execute
         await vscode.commands.executeCommand('intelligent-ide.switchRole');
 
-        // Verify
-        assert.ok(mockGlobalState.has('loginInfo'));
-        const updatedLoginInfo = mockGlobalState.get('loginInfo');
+        assert.ok(mockWorkspaceState.has('loginInfo'));
         assert.ok(refreshViewsStub.called);
     });
 
     test('Update command - successful update', async () => {
-        // Setup
         showInputBoxStub.onFirstCall().resolves('updatedusername');
         showInputBoxStub.onSecondCall().resolves('newpassword123');
 
-        // Execute
         await vscode.commands.executeCommand('intelligent-ide.update');
 
-        // Verify
         assert.ok(updateStub.calledWith('updatedusername', 'newpassword123', mockToken));
         assert.ok(showInfoMessageStub.calledWith('Updated successfully!'));
     });
 
     test('Error handling in commands', async () => {
-        // Setup - cause login to throw an error
         const errorMessage = 'Authentication failed';
         loginStub.rejects(new Error(errorMessage));
 
-        // Setup inputs
         showInputBoxStub.onFirstCall().resolves('user@example.com');
         showInputBoxStub.onSecondCall().resolves('password123');
 
-        // Execute
         await vscode.commands.executeCommand('intelligent-ide.login');
 
-        // Verify
         assert.ok(showErrorMessageStub.calledWith(`Login failed: ${errorMessage}`));
     });
 });

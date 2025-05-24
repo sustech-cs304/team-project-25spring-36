@@ -9,6 +9,7 @@ import { registerCourseCommands } from '../../commands/CourseCommands';
 suite('Course Commands Test Suite', () => {
     let mockContext: vscode.ExtensionContext;
     let mockGlobalState: Map<string, any>;
+    let mockWorkspaceState: Map<string, any>;
     let mockSecrets: {
         store: sinon.SinonStub<[string, string], Promise<void>>;
         get: sinon.SinonStub<[string], Promise<string | undefined>>;
@@ -16,6 +17,7 @@ suite('Course Commands Test Suite', () => {
     };
     let mockCommands: Record<string, (...args: any[]) => any>;
     let globalStateUpdateStub: sinon.SinonStub<[string, any], Promise<void>>;
+    let workspaceStateUpdateStub: sinon.SinonStub<[string, any], Promise<void>>;
 
     // VS Code API stubs
     let showInputBoxStub: sinon.SinonStub;
@@ -64,14 +66,22 @@ suite('Course Commands Test Suite', () => {
     setup(() => {
         sinon.restore();
         mockGlobalState = new Map<string, any>();
+        mockWorkspaceState = new Map<string, any>();
+        
         mockSecrets = {
             store: sinon.stub<[string, string], Promise<void>>().resolves(),
             get: sinon.stub<[string], Promise<string | undefined>>().resolves(mockToken),
             delete: sinon.stub<[string], Promise<void>>().resolves()
         };
         mockCommands = {};
+
         globalStateUpdateStub = sinon.stub<[string, any], Promise<void>>().callsFake(async (key: string, value: any) => {
             mockGlobalState.set(key, value);
+            return Promise.resolve();
+        });
+
+        workspaceStateUpdateStub = sinon.stub<[string, any], Promise<void>>().callsFake(async (key: string, value: any) => {
+            mockWorkspaceState.set(key, value);
             return Promise.resolve();
         });
 
@@ -80,6 +90,10 @@ suite('Course Commands Test Suite', () => {
             globalState: {
                 get: (key: string) => mockGlobalState.get(key),
                 update: globalStateUpdateStub
+            } as any,
+            workspaceState: {
+                get: (key: string) => mockWorkspaceState.get(key),
+                update: workspaceStateUpdateStub
             } as any,
             secrets: mockSecrets
         } as unknown as vscode.ExtensionContext;
@@ -151,19 +165,17 @@ suite('Course Commands Test Suite', () => {
     });
 
     test('Create course command - role switch', async () => {
-        // Set current role to student
         const studentInfo = { ...mockLoginInfo, role: 'student' as 'student' };
         getAuthDetailsStub.resolves({ token: mockToken, loginInfo: studentInfo });
         
-        // Simulate clicking "Yes" to switch role
         showWarningMessageStub.resolves('Yes');
         showInputBoxStub.onFirstCall().resolves('Course Name');
         showInputBoxStub.onSecondCall().resolves('Course Description');
         
         await vscode.commands.executeCommand('intelligent-ide.course.post');
         
-        // Should update role to teacher
-        assert.ok(globalStateUpdateStub.calledWith('loginInfo', { ...studentInfo, role: 'teacher' }));
+        // Should update role to teacher in workspace state
+        assert.ok(workspaceStateUpdateStub.calledWith('loginInfo', { ...studentInfo, role: 'teacher' }));
         assert.ok(refreshAllViewsStub.called);
         assert.ok(createCourseStub.calledWith(mockToken, 'Course Name', 'Course Description'));
     });

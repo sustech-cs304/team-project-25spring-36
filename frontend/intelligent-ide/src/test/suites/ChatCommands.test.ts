@@ -30,20 +30,17 @@ suite('Chat Commands Test Suite', () => {
     setup(() => {
         sinon.restore();
         
-        // Set up mock context
         mockContext = {
             subscriptions: []
         } as unknown as vscode.ExtensionContext;
         
         mockCommands = {};
         
-        // Set up command registration stub
         sinon.stub(vscode.commands, 'registerCommand').callsFake((commandId, handler) => {
             mockCommands[commandId] = handler;
             return { dispose: () => { } };
         });
         
-        // Set up command execution stub
         sinon.stub(vscode.commands, 'executeCommand').callsFake((commandId, ...args) => {
             if (mockCommands[commandId]) {
                 return Promise.resolve(mockCommands[commandId](...args));
@@ -87,7 +84,6 @@ suite('Chat Commands Test Suite', () => {
     });
     
     test('Open chat command - error handling', async () => {
-        // Simulate an error
         const error = new Error('View refresh failed');
         refreshViewsStub.rejects(error);
         
@@ -111,7 +107,6 @@ suite('Chat Commands Test Suite', () => {
     });
     
     test('Clear conversation command - without open panel', async () => {
-        // Mock no active panel
         getChatViewPanelStub.returns(undefined);
         
         await vscode.commands.executeCommand('intelligent-ide.chat.clear');
@@ -125,7 +120,6 @@ suite('Chat Commands Test Suite', () => {
     });
     
     test('Clear conversation command - error handling', async () => {
-        // Simulate an error
         const error = new Error('Failed to clear AI state');
         clearConversationStub.throws(error);
         
