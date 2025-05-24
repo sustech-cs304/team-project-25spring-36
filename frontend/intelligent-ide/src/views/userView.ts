@@ -19,7 +19,7 @@ export function registerUserView(context: vscode.ExtensionContext): void {
  * @param context vscode.ExtensionContext
  */
 export function updateLoginView(context: vscode.ExtensionContext): void {
-    const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
+    const loginInfo: LoginInfo | undefined = context.workspaceState.get('loginInfo');
 
     // Update context variables for when clauses first
     updateLoginContext(context);
@@ -56,7 +56,7 @@ export function updateLoginView(context: vscode.ExtensionContext): void {
  * @param context vscode.ExtensionContext
  */
 export function updateLoginContext(context: vscode.ExtensionContext): void {
-    const loginInfo: LoginInfo | undefined = context.globalState.get('loginInfo');
+    const loginInfo: LoginInfo | undefined = context.workspaceState.get('loginInfo');
 
     vscode.commands.executeCommand('setContext', 'intelligent-ide.loggedIn', !!loginInfo);
     if (loginInfo) {
