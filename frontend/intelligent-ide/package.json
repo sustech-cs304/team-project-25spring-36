@@ -4,7 +4,7 @@
   "displayName": "intelligent-ide",
   "description": "a course-aware intelligent VScode plugin",
   "publisher": "MillerShi",
-  "version": "0.0.1",
+  "version": "1.2.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/sustech-cs304/team-project-25spring-36.git"
@@ -518,6 +518,7 @@
     "form-data": "^4.0.2",
     "openai": "^4.103.0",
     "pdfkit": "^0.17.0",
-    "showdown": "^2.1.0"
+    "showdown": "^2.1.0",
+    "vsce": "^2.15.0"
   }
 }
