@@ -314,7 +314,6 @@
         // Add drop zone indicator
         const dropZone = document.createElement('div');
         dropZone.id = 'drop-zone';
-        dropZone.innerHTML = '<div class="drop-message">Drop files here to attach</div>';
         document.body.appendChild(dropZone);
 
         // Track drag state
