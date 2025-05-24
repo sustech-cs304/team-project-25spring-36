@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { courseService } from '../services/CourseService';
 import { ICourseDirectoryEntry } from '../models/CourseModels';
 import { MyNotebookController } from '../notebook/NotebookController';
@@ -89,7 +90,6 @@ export class CourseTreeItem extends vscode.TreeItem {
                 this.contextValue = 'assignmentFolder';
                 break;
             case 'assignment':
-                // Use different icons based on deadline status
                 if (assignment?.deadline) {
                     const now = new Date();
                     const deadline = new Date(assignment.deadline);
@@ -194,9 +194,23 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
         new vscode.EventEmitter<CourseTreeItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<CourseTreeItem | undefined | null | void> =
         this._onDidChangeTreeData.event;
-
+    //===================================TODO========================================
+    //现在就完善三个命令
+    //1. 创建/删除/上传新的notebook
+    //  -创建notebook时，只在本地创建完全没有意义。你现在只实现了本地储存这个notebook，现在改进一下。
+    //  -仿照"registerUploadFileCommand"的方法，你创建好notebook之后，可以直接上传到课程文件里之类。
+    //2. 打开notebook
+    //  -现在你已经有了"vscode.openwith"来处理notebook了。
+    //  -当用户点击notebook时，使用"vscode.openWith"打开它。
+    //3. 输出为pdf
+    //  -这个自己测试一下
+    //===================================TODO========================================
+    //TODO
+    //为什么要单独有这个数组
+    //我们不是已经有 “vscode.openwith”来处理notebook了吗？
     private readonly notebookFiles: vscode.Uri[] = [];
-    private readonly defaultNotebookPath = "C:\\Users\\Lenovo\\Desktop";
+    private readonly defaultNotebookPath = path.join(os.tmpdir(), 'intelligent-ide-notebooks');
+
 
     // Add a cache for entries
     private entryCache: Map<number, ICourseDirectoryEntry> = new Map();
@@ -519,11 +533,14 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
     }
 
     private loadNotebooksFromDefaultPath() {
-        if (!fs.existsSync(this.defaultNotebookPath)) {
-            console.error(`Default notebook path does not exist: ${this.defaultNotebookPath}`);
-            return;
+       try {
+            if (!fs.existsSync(this.defaultNotebookPath)) {
+                fs.mkdirSync(this.defaultNotebookPath, { recursive: true });
+            }
+        } catch (error) {
+            console.error(`Failed to create notebook directory at ${this.defaultNotebookPath}:`, error);
+            return ;
         }
-
         const files = fs.readdirSync(this.defaultNotebookPath);
         files.forEach(file => {
             if (file.endsWith('.ipynb')) {
@@ -538,9 +555,9 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
     private registerNotebookCommands() {
         vscode.commands.registerCommand('intelligent-ide.notebook.new', async () => {
             const uri = await vscode.window.showSaveDialog({
-                filters: { 'My Notebook': ['ipynb'] },
+                filters: { 'My Notebook': ['myipynb'], 'Jupyter Notebook': ['ipynb'] },
                 saveLabel: 'Create Notebook',
-                defaultUri: vscode.Uri.file(path.join(this.defaultNotebookPath, 'Untitled.ipynb'))
+                defaultUri: vscode.Uri.file(path.join(this.defaultNotebookPath, 'Untitled.myipynb'))
             });
 
             if (!uri) {
@@ -548,15 +565,30 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
                 return;
             }
 
-            const initialContent = JSON.stringify({ cells: [] }, null, 2);
-            await vscode.workspace.fs.writeFile(uri, Buffer.from(initialContent, 'utf8'));
+            // Create initial notebook structure compatible with your custom format
+            const initialContent = {
+                cells: [{
+                    type: 'markdown',
+                    value: '# New Notebook\n\nStart writing your content here...'
+                }],
+                metadata: {
+                    kernelspec: {
+                        display_name: 'Custom Kernel',
+                        language: 'javascript',
+                        name: 'custom'
+                    }
+                }
+            };
+
+            await vscode.workspace.fs.writeFile(uri, Buffer.from(JSON.stringify(initialContent, null, 2), 'utf8'));
 
             this.notebookFiles.push(uri);
             this.refresh();
 
-            vscode.window.showInformationMessage(`Notebook created: ${uri.fsPath}`);
+            vscode.window.showInformationMessage(`Notebook created: ${path.basename(uri.fsPath)}`);
         });
 
+        // Register Delete Notebook command (keep existing)
         vscode.commands.registerCommand('intelligent-ide.notebook.delete', async (item: CourseTreeItem) => {
             const uri = vscode.Uri.file(item.path || '');
             if (!uri || !uri.fsPath) {
@@ -572,19 +604,23 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
 
             if (confirmed === 'Yes') {
                 try {
-                    fs.unlinkSync(uri.fsPath);
+                    // Use VS Code's file system API for better compatibility
+                    await vscode.workspace.fs.delete(uri);
+                    
                     const index = this.notebookFiles.findIndex(file => file.fsPath === uri.fsPath);
                     if (index !== -1) {
                         this.notebookFiles.splice(index, 1);
                         this.refresh();
                     }
-                    vscode.window.showInformationMessage(`Notebook deleted: ${uri.fsPath}`);
+                    
+                    vscode.window.showInformationMessage(`Notebook deleted: ${path.basename(uri.fsPath)}`);
                 } catch (error) {
                     vscode.window.showErrorMessage(`Failed to delete notebook: ${(error as Error).message}`);
                 }
             }
         });
-
+        //TODO: is it really needed?
+        // Register Refresh Notebook command (keep existing)
         vscode.commands.registerCommand('intelligent-ide.notebook.refresh', () => {
             this.notebookFiles.length = 0;
             this.loadNotebooksFromDefaultPath();
@@ -592,6 +628,7 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
             vscode.window.showInformationMessage('Notebook Explorer refreshed.');
         });
 
+        // Register Export to PDF command (keep existing)
         vscode.commands.registerCommand('intelligent-ide.notebook.exportToPdf', async (item: CourseTreeItem) => {
             const uri = vscode.Uri.file(item.path || '');
             if (!uri || !uri.fsPath) {
@@ -600,11 +637,12 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
             }
 
             // Read and parse the notebook content
-            const rawContent = fs.readFileSync(uri.fsPath, 'utf8');
+            const rawContent = await vscode.workspace.fs.readFile(uri);
+            const contentString = Buffer.from(rawContent).toString('utf8');
 
             let parsedContent;
             try {
-                parsedContent = JSON.parse(rawContent); // Parse the JSON content
+                parsedContent = JSON.parse(contentString);
             } catch (error) {
                 vscode.window.showErrorMessage('Failed to parse notebook content.');
                 return;
@@ -613,14 +651,18 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
             // Extract and format the content from cells
             const cells = parsedContent.cells || [];
             const formattedContent = cells
-                .map((cell: any) => cell.value || '') // Extract the "value" field from each cell
-                .join('\n\n'); // Separate cells with double newlines
+                .map((cell: any) => {
+                    const cellType = cell.type || 'code';
+                    const cellValue = cell.value || cell.source || '';
+                    return `[${cellType.toUpperCase()}]\n${cellValue}`;
+                })
+                .join('\n\n' + '='.repeat(50) + '\n\n');
 
             // Prompt user to select the export path
             const saveUri = await vscode.window.showSaveDialog({
                 filters: { 'PDF Files': ['pdf'] },
                 saveLabel: 'Export as PDF',
-                defaultUri: vscode.Uri.file(uri.fsPath.replace(/\.ipynb$/, '.pdf'))
+                defaultUri: vscode.Uri.file(uri.fsPath.replace(/\.(ipynb|myipynb)$/, '.pdf'))
             });
 
             if (!saveUri) {
@@ -631,9 +673,10 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
             const pdfPath = saveUri.fsPath;
 
             // Check if the file already exists
-            if (fs.existsSync(pdfPath)) {
+            try {
+                await vscode.workspace.fs.stat(saveUri);
                 const overwrite = await vscode.window.showWarningMessage(
-                    `The file ${pdfPath} already exists. Do you want to overwrite it?`,
+                    `The file ${path.basename(pdfPath)} already exists. Do you want to overwrite it?`,
                     { modal: true },
                     'Yes',
                     'No'
@@ -643,21 +686,37 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
                     vscode.window.showInformationMessage('Export cancelled.');
                     return;
                 }
+            } catch {
+                // File doesn't exist, which is fine
             }
 
             try {
-                const doc = new PDFDocument();
+                const doc = new PDFDocument({ margin: 50 });
                 const writeStream = fs.createWriteStream(pdfPath);
 
                 doc.pipe(writeStream);
 
-                doc.font('Times-Roman'); // Use built-in font
-                doc.text(formattedContent, { align: 'left' }); // Write formatted content to PDF
+                // Add title
+                doc.fontSize(20).font('Helvetica-Bold').text(path.basename(uri.fsPath), { align: 'center' });
+                doc.moveDown(2);
+
+                // Add content
+                doc.fontSize(12).font('Helvetica');
+                
+                // Split content into lines to handle long text
+                const lines = formattedContent.split('\n');
+                for (const line of lines) {
+                    if (line.trim()) {
+                        doc.text(line, { align: 'left', continued: false });
+                    } else {
+                        doc.moveDown(0.5);
+                    }
+                }
 
                 doc.end();
 
                 writeStream.on('finish', () => {
-                    vscode.window.showInformationMessage(`Notebook exported successfully to: ${pdfPath}`);
+                    vscode.window.showInformationMessage(`Notebook exported successfully to: ${path.basename(pdfPath)}`);
                 });
 
                 writeStream.on('error', (error) => {
