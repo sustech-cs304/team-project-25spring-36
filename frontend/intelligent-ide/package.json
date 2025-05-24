@@ -3,7 +3,12 @@
   "name": "intelligent-ide",
   "displayName": "intelligent-ide",
   "description": "a course-aware intelligent VScode plugin",
+  "publisher": "MillerShi",
   "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sustech-cs304/team-project-25spring-36.git"
+  },
   "engines": {
     "vscode": "^1.97.0"
   },
