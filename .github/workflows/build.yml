@@ -90,7 +90,7 @@ jobs:
     - name: 发布到 VS Code Marketplace
       run: | 
         npm install vsce
-        vsce publish -p ${{ secrets.VSCE_PAT }}
+        npx vsce publish -p ${{ secrets.VSCE_PAT }}
       working-directory: ./frontend/intelligent-ide
       env:
         VSCE_PAT: ${{ secrets.VSCE_PAT }}
