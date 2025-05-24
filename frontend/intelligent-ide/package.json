@@ -167,30 +167,6 @@
         "icon": "$(refresh)"
       },
       {
-        "command": "intelligent-ide.notebook.new",
-        "title": "New Notebook",
-        "category": "Intelligent IDE: Notebook",
-        "icon": "$(new-file)"
-      },
-      {
-        "command": "intelligent-ide.notebook.delete",
-        "title": "Delete Notebook",
-        "category": "Intelligent IDE: Notebook",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "intelligent-ide.notebook.refresh",
-        "title": "Refresh Notebook Explorer",
-        "category": "Intelligent IDE: Notebook",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "intelligent-ide.notebook.exportToPdf",
-        "title": "Export to PDF",
-        "category": "Intelligent IDE: Notebook",
-        "icon": "$(file-pdf)"
-      },
-      {
         "command": "intelligent-ide.chat.open",
         "title": "Open AI Chat Assistant",
         "category": "Intelligent IDE: Chat",
@@ -213,6 +189,36 @@
         "title": "View Attachments",
         "category": "Intelligent IDE: course",
         "icon": "$(file-zip)"
+      },
+      {
+        "command": "intelligent-ide.notebook.createForCourse",
+        "title": "Create Notebook for Course",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "intelligent-ide.notebook.new",
+        "title": "New Notebook",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "intelligent-ide.notebook.refresh",
+        "title": "Refresh Notebook Explorer",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "intelligent-ide.notebook.exportToPdf",
+        "title": "Export to PDF",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(file-pdf)"
+      },
+      {
+        "command": "intelligent-ide.notebook.delete",
+        "title": "Delete Notebook",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(trash)"
       }
     ],
     "viewsContainers": {
@@ -316,13 +322,13 @@
           "group": "inline"
         },
         {
-          "command": "intelligent-ide.notebook.delete",
-          "when": "viewItem == notebookItem",
+          "command": "intelligent-ide.notebook.exportToPdf",
+          "when": "viewItem == courseNotebookItem",
           "group": "inline"
         },
         {
-          "command": "intelligent-ide.notebook.exportToPdf",
-          "when": "viewItem == notebookItem",
+          "command": "intelligent-ide.notebook.delete",
+          "when": "viewItem == courseNotebookItem",
           "group": "inline"
         },
         {
@@ -384,6 +390,11 @@
           "command": "intelligent-ide.notebook.refresh",
           "when": " intelligent-ide.loggedIn && (viewItem == entry-directory || viewItem == directory) ",
           "group": "2_workspace"
+        },
+        {
+          "command": "intelligent-ide.notebook.createForCourse",
+          "when": "viewItem == course && intelligent-ide.loggedIn && intelligent-ide.userRole == 'teacher'",
+          "group": "2_workspace"
         }
       ],
       "commandPalette": [
@@ -400,8 +411,15 @@
         "displayName": "My Notebook",
         "selector": [
           {
-            "filenamePattern": "*.myipynb"
+            "filenamePattern": "*.ipynb"
           }
+        ],
+        "languages": [
+          "javascript",
+          "python",
+          "java",
+          "c",
+          "markdown"
         ]
       }
     ],
@@ -415,7 +433,7 @@
             "id": "user-registration",
             "title": "1. Register and Login",
             "description": "Create an account or log in to access all features of Intelligent IDE. \n\n[Register Now](command:intelligent-ide.register)",
-            "media": { 
+            "media": {
               "markdown": "./src/resources/walkthrough/registration.md"
             }
           },
@@ -423,7 +441,7 @@
             "id": "course-management",
             "title": "2. Manage Courses",
             "description": "View, join, and create courses based on your role.",
-            "media": { 
+            "media": {
               "markdown": "./src/resources/walkthrough/course.md"
             }
           },
@@ -431,7 +449,7 @@
             "id": "assignments",
             "title": "3. Complete Assignments",
             "description": "Submit and manage course assignments.",
-            "media": { 
+            "media": {
               "markdown": "./src/resources/walkthrough/assignments.md"
             }
           },
@@ -439,7 +457,7 @@
             "id": "ai-assistant",
             "title": "4. AI Chat Assistant",
             "description": "Get help with coding and learning concepts. \n\n[Open Chat](command:intelligent-ide.chat.open)",
-            "media": { 
+            "media": {
               "markdown": "./src/resources/walkthrough/ai-chat.md"
             }
           },
@@ -447,7 +465,7 @@
             "id": "collaborative-coding",
             "title": "5. Collaborative Coding",
             "description": "Work together with classmates in real-time. (Coming Soon)",
-            "media": { 
+            "media": {
               "markdown": "./src/resources/walkthrough/collaborative.md"
             }
           },
@@ -455,7 +473,7 @@
             "id": "custom-notebook",
             "title": "6. Interactive Notebooks",
             "description": "Create interactive notebooks with executable code. \n\n[Create Notebook](command:intelligent-ide.notebook.new)",
-            "media": { 
+            "media": {
               "markdown": "./src/resources/walkthrough/notebook.md"
             }
           }
