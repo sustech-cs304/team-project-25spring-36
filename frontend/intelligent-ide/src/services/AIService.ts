@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import OpenAI from 'openai';
-import { OPENAI_API_KEY, OPENAI_API_MODEL } from '../resources/configs/config';
+import {  OPENAI_API_MODEL } from '../resources/configs/config';
 
 // Store conversation history
 let conversationHistory: { role: 'system' | 'user' | 'assistant', content: string }[] = [
@@ -32,8 +32,7 @@ export function initializeAIService(apiKey: string): void {
  * Get API key from config, extension settings, or prompt user to enter it
  */
 export async function getOpenAIKey(context: vscode.ExtensionContext): Promise<string> {
-    // First try to get from config
-    let apiKey: string | undefined = OPENAI_API_KEY;
+    let apiKey: string | undefined ;
 
     // If not found, try to get from settings
     if (!apiKey) {
