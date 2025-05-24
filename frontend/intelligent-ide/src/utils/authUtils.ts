@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { LoginInfo } from '../models/LoginInfo'; // Adjust the path as necessary
+import { LoginInfo } from '../models/LoginInfo';
 
 export interface AuthDetails {
     token: string;
@@ -13,17 +13,11 @@ export interface AuthDetails {
  * @returns AuthDetails object or null if authentication fails.
  */
 export async function getAuthDetails(context: vscode.ExtensionContext): Promise<AuthDetails | null> {
-    const loginInfo = context.globalState.get<LoginInfo>('loginInfo');
+    const loginInfo = context.workspaceState.get<LoginInfo>('loginInfo');
     if (!loginInfo) {
         vscode.window.showWarningMessage('Please log in to proceed.');
         return null;
     }
 
-    const token = await context.secrets.get('authToken');
-    if (!token) {
-        vscode.window.showWarningMessage('Authentication token not found. Please log in again.');
-        return null;
-    }
-
-    return { token, loginInfo };
+    return {  token: loginInfo.token, loginInfo };
 }

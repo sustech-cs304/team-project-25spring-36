@@ -19,7 +19,7 @@ function registerLoginCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand('intelligent-ide.login', async () => {
         try {
             // Load the login info from global state
-            const loginInfo = context.globalState.get('loginInfo');
+            const loginInfo = context.workspaceState.get('loginInfo');
 
             if (loginInfo) {
                 const changeAccount = await vscode.window.showWarningMessage(
@@ -41,8 +41,7 @@ function registerLoginCommand(context: vscode.ExtensionContext): void {
                 const token = await authenticationService.login(email, password);
                 await authenticationService.getUserInfo(token, context);
 
-                // Store token securely as login certificate
-                await context.secrets.store('authToken', token);
+ 
                 vscode.window.showInformationMessage('Login successful!');
 
                 refreshAllViews();
@@ -64,7 +63,7 @@ function registerLoginCommand(context: vscode.ExtensionContext): void {
 function registerRegisterCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand('intelligent-ide.register', async () => {
         // Load the login info from global state
-        const loginInfo = context.globalState.get('loginInfo');
+        const loginInfo = context.workspaceState.get('loginInfo');
 
         if (loginInfo) {
             const continueRegistration = await vscode.window.showWarningMessage(
@@ -119,8 +118,6 @@ function registerRegisterCommand(context: vscode.ExtensionContext): void {
             const token = await authenticationService.register(username, email, password, verificationCode.toUpperCase());
             await authenticationService.getUserInfo(token, context);
 
-            // Store token securely as login certificate
-            await context.secrets.store("authToken", token);
             vscode.window.showInformationMessage(`Registration successful for ${username} !`);
 
             refreshAllViews();
@@ -166,7 +163,6 @@ function registerUpdateCommand(context: vscode.ExtensionContext): void {
         try {
             const token = await authenticationService.update(username, password, authDetails.token);
             await authenticationService.getUserInfo(token, context);
-            await context.secrets.store('authToken', token);
             refreshViews([ViewType.LOGIN]);
             vscode.window.showInformationMessage(`Updated successfully!`);
         } catch (error: any) {
@@ -190,10 +186,8 @@ function registerLogoutCommand(context: vscode.ExtensionContext): void {
 
 
             // Clear login info from global state
-            await context.globalState.update('loginInfo', undefined);
-            context.globalState.update('userRole', undefined);
-            // Remove token from secrets
-            await context.secrets.delete('authToken');
+            await context.workspaceState.update('loginInfo', undefined);
+            context.workspaceState.update('userRole', undefined);
 
             refreshAllViews();
 
@@ -239,7 +233,7 @@ function registerSwitchRoleCommand(context: vscode.ExtensionContext): void {
             };
 
             // Save updated login info
-            await context.globalState.update('loginInfo', updatedLoginInfo);
+            await context.workspaceState.update('loginInfo', updatedLoginInfo);
 
             refreshViews([ViewType.LOGIN, ViewType.COURSE]);
 

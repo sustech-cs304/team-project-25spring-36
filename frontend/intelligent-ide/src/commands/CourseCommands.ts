@@ -50,7 +50,7 @@ function registerCreateCourseCommand(context: vscode.ExtensionContext): void {
 
                 if (switchToTeacher === 'Yes') {
                     // Update role to teacher
-                    await context.globalState.update('loginInfo', {
+                    await context.workspaceState.update('loginInfo', {
                         ...loginInfo,
                         role: 'teacher'
                     });

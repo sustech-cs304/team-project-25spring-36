@@ -64,8 +64,7 @@ export const authenticationService = {
         email: userInfo.email,
         role: "student",
       };
-      await context.globalState.update('loginInfo', newLoginInfo);
-
+      await context.workspaceState.update('loginInfo', newLoginInfo);
       return userInfo;
     } catch (error: any) {
       console.error('Get user info error:', error);
