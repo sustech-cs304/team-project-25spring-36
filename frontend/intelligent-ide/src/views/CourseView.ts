@@ -726,19 +726,6 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
                 assignment_id: assignmentId,
             });
 
-            if (submissions.length === 0) {
-                // If no submissions, show a "Submit Assignment" item
-                return [
-                    new CourseTreeItem(
-                        "Submit Assignment",
-                        vscode.TreeItemCollapsibleState.None,
-                        'entry', // Using entry type but with special context
-                        `submit-${assignmentId}`,
-                        assignmentId
-                    )
-                ];
-            }
-
             return submissions.map(submission => new CourseTreeItem(
                 submission.title || `Your submission (${new Date(submission.submission_date).toLocaleDateString()})`,
                 vscode.TreeItemCollapsibleState.None,
