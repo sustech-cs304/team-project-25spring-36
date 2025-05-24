@@ -139,7 +139,7 @@ function registerUpdateAssignmentCommand(context: vscode.ExtensionContext): void
         }
 
 
-        if (newSelectedFileIds !== undefined) {
+        if (newSelectedFileIds !== undefined && newSelectedFileIds.length > 0) {
 
             // Convert the string representation to an array
             let existingEntryIds: number[] = [];
@@ -254,7 +254,7 @@ function registerSubmitToAssignmentCommand(context: vscode.ExtensionContext): vo
         if (description === undefined) { return; }
 
         const selectedFileIds = await selectCourseFiles(auth.token, courseId);
-        if (selectedFileIds === undefined || selectedFileIds.length === 0) {
+        if (selectedFileIds === undefined ) {
             vscode.window.showInformationMessage("Submission cancelled: No files selected or file selection failed.");
             return;
         }
@@ -377,8 +377,6 @@ function registerGradeSubmissionCommand(context: vscode.ExtensionContext): void 
             submissionId = await getSubmissionId(auth.token, assignmentId, item);
         }
         if (!submissionId) { return; }
-        // TODO
-        // teacher should be able to review the attachments of the submission
 
         const gradeStr = await vscode.window.showInputBox({
             prompt: "Enter Grade (numeric)",
@@ -388,7 +386,6 @@ function registerGradeSubmissionCommand(context: vscode.ExtensionContext): void 
         const grade = parseFloat(gradeStr);
 
         const feedback = await vscode.window.showInputBox({ prompt: "Enter Feedback (optional)" });
-        if (feedback === undefined) { return; }
 
         const gradeData: ICourseHomeworkSubmissionGradeRequest = {
             submission_id: submissionId,
@@ -713,7 +710,9 @@ async function selectCourseFiles(token: string, courseId: number, preselectedIds
         const actionItems: (vscode.QuickPickItem & { action?: string })[] = [
             { label: "$(files) Select Files", description: "Choose files to attach" },
             { label: "$(cloud-upload) Upload New File", description: "Upload a file to the course", action: "upload" },
-            { label: "$(new-folder) Create Directory", description: "Create a new directory in the course", action: "create" }
+            { label: "$(new-folder) Create Directory", description: "Create a new directory in the course", action: "create" },
+            { label: "$(text-size) No Attachment", description: "Continue without attaching any files", action: "text-only" },
+
         ];
 
         const actionSelection = await vscode.window.showQuickPick(actionItems, {
@@ -750,6 +749,8 @@ async function selectCourseFiles(token: string, courseId: number, preselectedIds
         } else if (actionSelection.action === "create") {
             await vscode.commands.executeCommand('intelligent-ide.directory.post', courseId);
             return selectCourseFiles(token, courseId, preselectedIds);
+        }else if (actionSelection.action === "text-only") {
+            return []; 
         }
 
         if (allEntries.length === 0) {
