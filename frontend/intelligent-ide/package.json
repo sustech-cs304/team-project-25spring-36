@@ -4,7 +4,7 @@
   "displayName": "intelligent-ide",
   "description": "a course-aware intelligent VScode plugin",
   "publisher": "MillerShi",
-  "version": "0.0.1",
+  "version": "1.2.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/sustech-cs304/team-project-25spring-36.git"
@@ -415,7 +415,7 @@
             "id": "user-registration",
             "title": "1. Register and Login",
             "description": "Create an account or log in to access all features of Intelligent IDE. \n\n[Register Now](command:intelligent-ide.register)",
-            "media": { 
+            "media": {
               "markdown": "./src/resources/walkthrough/registration.md"
             }
           },
@@ -423,7 +423,7 @@
             "id": "course-management",
             "title": "2. Manage Courses",
             "description": "View, join, and create courses based on your role.",
-            "media": { 
+            "media": {
               "markdown": "./src/resources/walkthrough/course.md"
             }
           },
@@ -431,7 +431,7 @@
             "id": "assignments",
             "title": "3. Complete Assignments",
             "description": "Submit and manage course assignments.",
-            "media": { 
+            "media": {
               "markdown": "./src/resources/walkthrough/assignments.md"
             }
           },
@@ -439,7 +439,7 @@
             "id": "ai-assistant",
             "title": "4. AI Chat Assistant",
             "description": "Get help with coding and learning concepts. \n\n[Open Chat](command:intelligent-ide.chat.open)",
-            "media": { 
+            "media": {
               "markdown": "./src/resources/walkthrough/ai-chat.md"
             }
           },
@@ -447,7 +447,7 @@
             "id": "collaborative-coding",
             "title": "5. Collaborative Coding",
             "description": "Work together with classmates in real-time. (Coming Soon)",
-            "media": { 
+            "media": {
               "markdown": "./src/resources/walkthrough/collaborative.md"
             }
           },
@@ -455,7 +455,7 @@
             "id": "custom-notebook",
             "title": "6. Interactive Notebooks",
             "description": "Create interactive notebooks with executable code. \n\n[Create Notebook](command:intelligent-ide.notebook.new)",
-            "media": { 
+            "media": {
               "markdown": "./src/resources/walkthrough/notebook.md"
             }
           }
@@ -500,6 +500,7 @@
     "form-data": "^4.0.2",
     "openai": "^4.103.0",
     "pdfkit": "^0.17.0",
-    "showdown": "^2.1.0"
+    "showdown": "^2.1.0",
+    "vsce": "^2.15.0"
   }
 }
