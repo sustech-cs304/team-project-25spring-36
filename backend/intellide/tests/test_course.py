@@ -1,10 +1,12 @@
 import json
+import time
 from typing import Dict, Callable, List, Optional, Union
 
 import pytest
 import requests
 import websocket
 from fastapi import status
+import y_py
 
 from intellide.tests.conftest import (
     SERVER_API_BASE_URL,
@@ -943,38 +945,216 @@ def test_course_collaborative_directory_entry_download_success(
     assert response.content == temp_file_content
 
 
+# 辅助函数：将 bytes 转换为十六进制字符串
+def bytes_to_hex(data_bytes: bytes) -> str:
+    return data_bytes.hex()
+
+# 辅助函数：将十六进制字符串转换为 bytes
+def hex_to_bytes(hex_str: str) -> bytes:
+    return bytes.fromhex(hex_str)
+
+# 内联的辅助函数：处理从WebSocket接收到的消息
+def process_incoming_ws_message(
+    ws_conn: websocket.WebSocket,
+    client_ydoc: y_py.YDoc,
+    client_current_editors: List[int],
+    client_received_messages: List[Dict],
+    client_user_id_for_log: int,
+    timeout: float = 0.2
+) -> Optional[Dict]:
+    try:
+        ws_conn.settimeout(timeout)
+        raw_message = ws_conn.recv()
+        message = json.loads(raw_message)
+        client_received_messages.append(message)
+
+        if message.get("type") == "update":
+            update_bytes = hex_to_bytes(message["update"])
+            y_py.apply_update(client_ydoc, update_bytes)
+        elif message.get("type") == "user_updated":
+            client_current_editors[:] = message.get("editors", [])
+        return message
+    except websocket.WebSocketTimeoutException:
+        return None
+    except Exception as e:
+        print(f"Client {client_user_id_for_log} receive error: {e}")
+        return None
+
+# 尝试接收并处理所有挂起的消息
+def drain_client_messages(
+    ws_conn: websocket.WebSocket,
+    client_ydoc: y_py.YDoc,
+    client_current_editors: List[int],
+    client_received_messages: List[Dict],
+    client_user_id_for_log: int,
+    max_attempts=5,
+    timeout=0.2
+):
+    for _ in range(max_attempts):
+        if process_incoming_ws_message(
+            ws_conn, client_ydoc, client_current_editors, client_received_messages, client_user_id_for_log, timeout
+        ) is None:
+            break
+
+
 @pytest.mark.dependency(depends=["test_course_collaborative_directory_entry_get_success"])
 def test_course_collaborative_websocket_interaction(
     store: Dict,
+    temp_file_content: bytes, # 用于验证初始文档内容是否正确加载
 ):
     user_token_teacher = store["user_token_teacher"]
+    user_id_teacher = store["user_id_teacher"]
     user_token_student = store["user_token_student"]
+    user_id_student = store["user_id_student"]
     course_id_base = store["course_id_base"]
     collab_entry_id = store["collab_entry_id"]
-    
-    ws_student = websocket.WebSocket()
-    ws_teacher = websocket.WebSocket()
-    
-    try:
-        # 连接WebSocket
-        ws_student.connect(
-            url=f"{SERVER_WS_BASE_URL}/course/collaborative/join?course_id={course_id_base}&course_collaborative_directory_entry_id={collab_entry_id}",
-            header={
-                "Access-Token": user_token_student,
-            },
-        )
-        
-        ws_teacher.connect(
-            url=f"{SERVER_WS_BASE_URL}/course/collaborative/join?course_id={course_id_base}&course_collaborative_directory_entry_id={collab_entry_id}",
-            header={
-                "Access-Token": user_token_teacher,
-            },
-        )
-        
-    finally:
-        ws_student.close()
-        ws_teacher.close()
 
+    ws_url = f"{SERVER_WS_BASE_URL}/course/collaborative/join?course_id={course_id_base}&course_collaborative_directory_entry_id={collab_entry_id}"
+
+    # 模拟客户端 1 (Student)
+    ws_client1: Optional[websocket.WebSocket] = None
+    ydoc_client1 = y_py.YDoc()
+    ytext_client1 = ydoc_client1.get_text("text")
+    current_editors_client1: List[int] = []
+    received_messages_client1: List[Dict] = []
+
+    # 模拟客户端 2 (Teacher)
+    ws_client2: Optional[websocket.WebSocket] = None
+    ydoc_client2 = y_py.YDoc()
+    ytext_client2 = ydoc_client2.get_text("text")
+    current_editors_client2: List[int] = []
+    received_messages_client2: List[Dict] = []
+
+    try:
+        # 1. 客户端1 (学生) 连接并同步
+        print(f"客户端 {user_id_student} 正在连接...")
+        ws_client1 = websocket.WebSocket()
+        ws_client1.connect(url=ws_url, header={"Access-Token": user_token_student})
+        
+        state_vector_c1 = y_py.encode_state_vector(ydoc_client1)
+        print(f"客户端 {user_id_student} 正在发送同步请求...")
+        ws_client1.send(json.dumps({
+            "type": "sync",
+            "state_vector": bytes_to_hex(state_vector_c1)
+        }))
+        
+        time.sleep(0.5) 
+        drain_client_messages(ws_client1, ydoc_client1, current_editors_client1, received_messages_client1, user_id_student)
+        
+        assert str(ytext_client1) == temp_file_content.decode("utf-8"), "Client 1 initial content mismatch"
+        assert user_id_student in current_editors_client1, "Client 1 not in editors list after connect"
+        print(f"客户端 {user_id_student} 初始同步成功。编辑者列表: {current_editors_client1}")
+
+        # 2. 客户端2 (老师) 连接并同步
+        print(f"客户端 {user_id_teacher} 正在连接...")
+        ws_client2 = websocket.WebSocket()
+        ws_client2.connect(url=ws_url, header={"Access-Token": user_token_teacher})
+
+        state_vector_c2 = y_py.encode_state_vector(ydoc_client2)
+        print(f"客户端 {user_id_teacher} 正在发送同步请求...")
+        ws_client2.send(json.dumps({
+            "type": "sync",
+            "state_vector": bytes_to_hex(state_vector_c2)
+        }))
+
+        time.sleep(0.5)
+        drain_client_messages(ws_client2, ydoc_client2, current_editors_client2, received_messages_client2, user_id_teacher)
+        # Client 1 也应该收到 client 2 加入的 user_updated 消息
+        drain_client_messages(ws_client1, ydoc_client1, current_editors_client1, received_messages_client1, user_id_student)
+
+        assert str(ytext_client2) == temp_file_content.decode("utf-8"), "Client 2 initial content mismatch"
+        assert user_id_teacher in current_editors_client2, "Client 2 not in its own editors list"
+        assert user_id_student in current_editors_client2, "Client 1 not in Client 2's editors list"
+        
+        assert user_id_student in current_editors_client1, "Client 1 not in its own updated editors list (after C2 join)"
+        assert user_id_teacher in current_editors_client1, "Client 2 not in Client 1's editors list (after C2 join)"
+        assert len(current_editors_client1) == 2, f"Client 1 editor list count incorrect: {current_editors_client1}"
+        assert len(current_editors_client2) == 2, f"Client 2 editor list count incorrect: {current_editors_client2}"
+        print(f"客户端 {user_id_teacher} 初始同步成功。客户端1的编辑者列表: {current_editors_client1}，客户端2的编辑者列表: {current_editors_client2}")
+
+
+        # 3. 客户端1 发送增量更新
+        text_to_insert_c1 = "Update_from_C1 "
+        
+        # 记录编辑前的状态向量用于生成精确delta
+        sv_ydoc_client1_before_edit = y_py.encode_state_vector(ydoc_client1)
+        with ydoc_client1.begin_transaction() as txn:
+            ytext_client1.insert(txn, 0, text_to_insert_c1) # 在开头插入
+        delta_c1 = y_py.encode_state_as_update(ydoc_client1, sv_ydoc_client1_before_edit)# 生成精确delta，实际在前端应由Yjs监听自动生成
+        
+        print(f"客户端 {user_id_student} 正在发送更新: '{text_to_insert_c1}'")
+        ws_client1.send(json.dumps({
+            "type": "update",
+            "update": bytes_to_hex(delta_c1)
+        }))
+
+        time.sleep(0.5) 
+        drain_client_messages(ws_client2, ydoc_client2, current_editors_client2, received_messages_client2, user_id_teacher) # Client 2 应该收到 update
+        drain_client_messages(ws_client1, ydoc_client1, current_editors_client1, received_messages_client1, user_id_student) # Client 1 可能会收到自己的广播
+
+        expected_content_after_c1 = text_to_insert_c1 + temp_file_content.decode("utf-8")
+        assert str(ytext_client1) == expected_content_after_c1, f"Client 1 content incorrect. Expected '{expected_content_after_c1}', got '{str(ytext_client1)}'"
+        assert str(ytext_client2) == expected_content_after_c1, f"Client 2 content not updated. Expected '{expected_content_after_c1}', got '{str(ytext_client2)}'"
+        print("客户端1的更新已被两个客户端处理完成。")
+
+        # 4. 客户端2 发送增量更新
+        text_to_insert_c2 = "Interjection_from_C2 "
+        
+        sv_ydoc_client2_before_edit = y_py.encode_state_vector(ydoc_client2)
+        with ydoc_client2.begin_transaction() as txn:
+            ytext_client2.insert(txn, len(text_to_insert_c1), text_to_insert_c2) # 在C1内容之后，原始文件内容之前插入
+        delta_c2 = y_py.encode_state_as_update(ydoc_client2, sv_ydoc_client2_before_edit)# 生成精确delta，实际在前端应由Yjs监听自动生成
+
+        print(f"客户端 {user_id_teacher} 正在发送更新: '{text_to_insert_c2}'")
+        ws_client2.send(json.dumps({
+            "type": "update",
+            "update": bytes_to_hex(delta_c2)
+        }))
+
+        time.sleep(0.5)
+        drain_client_messages(ws_client1, ydoc_client1, current_editors_client1, received_messages_client1, user_id_student) # Client 1 应该收到 update
+        drain_client_messages(ws_client2, ydoc_client2, current_editors_client2, received_messages_client2, user_id_teacher) # Client 2 可能会收到自己的广播
+
+        expected_content_final = text_to_insert_c1 + text_to_insert_c2 + temp_file_content.decode("utf-8")
+        assert str(ytext_client1) == expected_content_final, f"Client 1 content incorrect after C2 edit. Expected '{expected_content_final}', got '{str(ytext_client1)}'"
+        assert str(ytext_client2) == expected_content_final, f"Client 2 content incorrect after its own edit. Expected '{expected_content_final}', got '{str(ytext_client2)}'"
+        print("客户端2的更新已被两个客户端处理完成。本地内容验证通过。")
+
+        # 5. 客户端1 断开连接
+        print(f"客户端 {user_id_student} 正在断开连接...")
+        if ws_client1:
+            ws_client1.close()
+            ws_client1 = None # Mark as closed
+        
+        time.sleep(0.5) 
+        drain_client_messages(ws_client2, ydoc_client2, current_editors_client2, received_messages_client2, user_id_teacher) # client2 应该收到 user_updated
+
+        assert user_id_teacher in current_editors_client2, "Client 2 not in editors list after Client 1 disconnects"
+        assert user_id_student not in current_editors_client2, "Client 1 still in editors list on Client 2 after disconnecting"
+        assert len(current_editors_client2) == 1, f"Editors list on Client 2 has incorrect count: {current_editors_client2}"
+        print("客户端2已得知客户端1的断开连接。")
+
+    finally:
+        print("正在清理WebSocket连接...")
+        if ws_client1:
+            ws_client1.close()
+        if ws_client2:
+            ws_client2.close()
+
+    # 6. 数据持久化验证
+    print("正在尝试下载最终内容进行持久化验证...")
+    download_response = requests.get(
+        url=f"{SERVER_API_BASE_URL}/course/collaborative/download",
+        headers={"Access-Token": user_token_teacher}, # Teacher token to download
+        params={
+            "course_id": course_id_base,
+            "course_collaborative_directory_entry_id": collab_entry_id,
+        },
+    )
+    assert download_response.status_code == status.HTTP_200_OK
+    downloaded_text = download_response.content.decode('utf-8')
+    assert downloaded_text == expected_content_final, f"Downloaded content mismatch. Expected '{expected_content_final}', got '{downloaded_text}'"
+    print("最终内容持久化验证成功。\ndownloaded_text: ", downloaded_text, "\nexpected_content_final: ", expected_content_final)
 
 @pytest.mark.dependency(depends=["test_course_collaborative_websocket_interaction"])
 def test_course_collaborative_directory_entry_history_success(
