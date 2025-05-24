@@ -1,7 +1,4 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
-import PDFDocument from 'pdfkit';
 import { registerUserCommands } from './UserCommands';
 import { registerCourseCommands } from './CourseCommands';
 import { registerChatCommands } from './ChatCommands';
@@ -53,9 +50,9 @@ export class CommandManager {
      */
     private registerGlobalCommands(): void {
         const refreshDisposable = vscode.commands.registerCommand(
-            'intelligent-ide.views.refresh',
-            async (viewTypes?: ViewType[]) => {
-                await refreshViews(viewTypes);
+            'intelligent-ide.course.refresh',
+            async () => {
+                await refreshViews([ViewType.COURSE]);
             }
         );
 

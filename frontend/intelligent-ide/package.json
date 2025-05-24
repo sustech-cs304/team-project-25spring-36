@@ -156,9 +156,9 @@
         "icon": "$(trash)"
       },
       {
-        "command": "intelligent-ide.views.refresh",
-        "title": "Refresh Views",
-        "category": "Intelligent IDE: View",
+        "command": "intelligent-ide.course.refresh",
+        "title": "Refresh Course View",
+        "category": "Intelligent IDE: Course",
         "icon": "$(refresh)"
       },
       {
@@ -288,7 +288,7 @@
           "group": "navigation"
         },
         {
-          "command": "intelligent-ide.views.refresh",
+          "command": "intelligent-ide.course.refresh",
           "when": "view == courses && intelligent-ide.loggedIn",
           "group": "navigation"
         },
