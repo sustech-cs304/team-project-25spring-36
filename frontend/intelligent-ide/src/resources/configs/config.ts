@@ -1,7 +1,6 @@
 export const API_CONFIG = {
   BASE_URL: 'http://localhost:8080/api',
-  //BASE_URL: 'http://localhost:8081/api',
-
+  BASE_WS_URL: 'ws://localhost:8080/ws',
   // User endpoints
   USER: {
     LOGIN: '/user/login',
@@ -20,6 +19,7 @@ export const API_CONFIG = {
     STUDENT: '/course/student',
     STUDENT_JOIN: '/course/student/join',
     COLLABORATIVE: '/course/collaborative',
+    COLLABORATIVE_JOIN: '/course/collaborative/join',
     COLLABORATIVE_HISTORY: '/course/collaborative/history',
     COLLABORATIVE_DOWNLOAD: '/course/collaborative/download'
   },

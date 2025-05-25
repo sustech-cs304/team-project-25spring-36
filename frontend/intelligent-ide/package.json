@@ -23,6 +23,37 @@
   "contributes": {
     "commands": [
       {
+        "command": "intelligent-ide.collaborative.upload",
+        "title": "Upload Collaborative File",
+        "category": "Intelligent IDE: Collaborative",
+        "icon": "$(cloud-upload)"
+      },
+
+      {
+        "command": "intelligent-ide.collaborative.delete",
+        "title": "Delete Collaborative Entry",
+        "category": "Intelligent IDE: Collaborative",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "intelligent-ide.collaborative.list",
+        "title": "List Collaborative Entries",
+        "category": "Intelligent IDE: Collaborative",
+        "icon": "$(list-unordered)"
+      },
+      {
+        "command": "intelligent-ide.collaborative.download",
+        "title": "Download Collaborative Entry",
+        "category": "Intelligent IDE: Collaborative",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "intelligent-ide.collaborative.openFile",
+        "title": "Open collaborative-entry",
+        "category": "Intelligent IDE: Course",
+        "icon": "$(file)"
+      },
+      {
         "command": "intelligent-ide.login",
         "title": "Login",
         "category": "Intelligent IDE",
@@ -77,6 +108,12 @@
         "icon": "$(debug-step-into)"
       },
       {
+        "command": "intelligent-ide.collaborative.join",
+        "title": "Join Collaborative Entry",
+        "category": "Intelligent IDE: Course",
+        "icon": "$(debug-step-into)"
+      },
+      {
         "command": "intelligent-ide.directory.delete",
         "title": "Delete Directory",
         "category": "Intelligent IDE: Course",
@@ -87,6 +124,12 @@
         "title": "Create Directory",
         "category": "Intelligent IDE: Course",
         "icon": "$(new-folder)"
+      },
+      {
+        "command": "intelligent-ide.course.chat",
+        "title": "Join Course Chat",
+        "category": "Intelligent IDE: Course",
+        "icon": "$(comment-discussion)"
       },
       {
         "command": "intelligent-ide.entry.delete",
@@ -296,8 +339,38 @@
           "group": "inline"
         },
         {
+          "command": "intelligent-ide.course.chat",
+          "when": "viewItem == course && intelligent-ide.loggedIn ",
+          "group": "inline"
+        },
+        {
           "command": "intelligent-ide.entry.delete",
           "when": "viewItem == entry-file || viewItem == entry-directory && intelligent-ide.userRole == 'teacher'",
+          "group": "inline"
+        },
+        {
+          "command": "intelligent-ide.collaborative.delete",
+          "when": "viewItem == ICollaborativeEntry && intelligent-ide.userRole == 'teacher'",
+          "group": "inline"
+        },
+        {
+          "command": "intelligent-ide.collaborative.upload",
+          "when": "viewItem == collaborative-folder && intelligent-ide.userRole == 'teacher'",
+          "group": "inline"
+        },
+        {
+          "command": "intelligent-ide.collaborative.download",
+          "when": "viewItem == ICollaborativeEntry",
+          "group": "inline"
+        },
+        {
+          "command": "intelligent-ide.collaborative.join",
+          "when": "viewItem == ICollaborativeEntry",
+          "group": "inline"
+        },
+        {
+          "command": "intelligent-ide.collaborative.openFile",
+          "when": "viewItem == collaborative-entry",
           "group": "inline"
         },
         {
@@ -483,6 +556,7 @@
     "@types/node": "20.x",
     "@types/sinon": "^17.0.4",
     "@types/vscode": "^1.97.0",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^8.22.0",
     "@typescript-eslint/parser": "^8.22.0",
     "@vscode/test-cli": "^0.0.10",
@@ -500,7 +574,12 @@
     "form-data": "^4.0.2",
     "openai": "^4.103.0",
     "pdfkit": "^0.17.0",
+    "quill": "^2.0.3",
     "showdown": "^2.1.0",
-    "vsce": "^2.15.0"
+    "vsce": "^2.15.0",
+    "ws": "^8.18.2",
+    "y-quill": "^1.0.0",
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.27"
   }
 }

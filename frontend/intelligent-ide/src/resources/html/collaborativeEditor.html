@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Editor</title>
+    <script src="./yjs.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        textarea {
+            flex: 1;
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .status {
+            padding: 5px;
+            background-color: #f4f4f4;
+            border-top: 1px solid #ccc;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <textarea id="editor"></textarea>
+    <div class="status" id="status">Connecting...</div>
+    <script>
+        const vscode = acquireVsCodeApi();
+        const ydoc = new Y.Doc();
+        const ytext = ydoc.getText('text');
+        const editor = document.getElementById('editor');
+        const statusElement = document.getElementById('status');
+
+        // 初始化文档内容
+        ytext.observe(() => {
+            editor.value = ytext.toString();
+        });
+
+        editor.addEventListener('input', () => {
+            ytext.delete(0, ytext.length);
+            ytext.insert(0, editor.value);
+        });
+
+        // 接收来自扩展的消息
+        window.addEventListener('message', (event) => {
+            const message = event.data;
+            if (message.command === 'connected') {
+                statusElement.textContent = 'Connected';
+                const stateVector = Y.encodeStateVector(ydoc);
+                vscode.postMessage({
+                    command: 'sync',
+                    stateVector: Array.from(stateVector).map((byte) => byte.toString(16).padStart(2, '0')).join(''),
+                });
+            } else if (message.command === 'applyUpdate') {
+                const update = Uint8Array.from(
+                    message.update.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
+                );
+                Y.applyUpdate(ydoc, update);
+                statusElement.textContent = `Last edited by user ${message.userId} at ${message.time}`;
+            } else if (message.command === 'disconnected') {
+                statusElement.textContent = 'Disconnected';
+            } else if (message.command === 'error') {
+                statusElement.textContent = `Error: ${message.error}`;
+            }
+        });
+
+        // 监听 Y.js 文档更新事件
+        ydoc.on('update', (update) => {
+            vscode.postMessage({
+                command: 'update',
+                update: Array.from(update).map((byte) => byte.toString(16).padStart(2, '0')).join(''),
+            });
+        });
+    </script>
+</body>
+</html>

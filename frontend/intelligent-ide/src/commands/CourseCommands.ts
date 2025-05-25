@@ -21,6 +21,15 @@ export function registerCourseCommands(context: vscode.ExtensionContext, treeDat
     registerMoveEntryCommand(context);
     registerJoinCourseCommand(context);
     registerDeleteStudentCommand(context);
+
+    registerGetCollaborativeEntryHistoryCommand(context);
+    registerDeleteCollaborativeEntryCommand(context);
+    registerGetCollaborativeEntriesCommand(context);
+    registerDownloadCollaborativeEntryCommand(context);
+    registerUploadCollaborativeFileCommand(context);
+    registerJoinCollaborativeSessionCommand(context);
+    registerOpenCollaborativeFileCommand(context);
+    registerCourseChatCommand(context);
 }
 
 /**
@@ -775,6 +784,494 @@ function registerDeleteStudentCommand(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(disposable);
 }
+
+
+function registerGetCollaborativeEntryHistoryCommand(context: vscode.ExtensionContext): void {
+    const disposable = vscode.commands.registerCommand(
+        'intelligent-ide.collaborative.history',
+        async (entryItem?: CourseTreeItem) => {
+            try {
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    return []; // Auth failed, return empty
+                }
+                const { token, loginInfo } = authDetails;
+
+                if (!entryItem || !entryItem.collaborativeEntry) {
+                    vscode.window.showErrorMessage('No entry selected for deletion');
+                    return;
+                }
+
+                const history = await courseService.CollaborativeHistory(
+                    token,
+                    entryItem.collaborativeEntry.course_id, entryItem.collaborativeEntry.id
+                );
+
+                vscode.window.showInformationMessage(`Edit history: ${JSON.stringify(history)}`);
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Error fetching edit history: ${error.message}`);
+            }
+        }
+    );
+
+    context.subscriptions.push(disposable);
+}
+
+
+function registerDeleteCollaborativeEntryCommand(context: vscode.ExtensionContext): void {
+    const disposable = vscode.commands.registerCommand(
+        'intelligent-ide.collaborative.delete',
+        async (entryItem?: CourseTreeItem) => {
+   
+                try {
+                    const authDetails = await getAuthDetails(context);
+                    if (!authDetails) {
+                        return []; // Auth failed, return empty
+                    }
+                    const { token, loginInfo } = authDetails;
+    
+                    if (!entryItem || !entryItem.collaborativeEntry) {
+                        vscode.window.showErrorMessage('No entry selected for deletion');
+                        return;
+                    }
+    
+                    // Confirm deletion
+                    const confirmation = await vscode.window.showWarningMessage(
+                        `Are you sure you want to delete "${entryItem.label}"?`,
+                        'Yes', 'No'
+                    );
+    
+                    if (confirmation !== 'Yes') {
+                        return;
+                    }
+    
+                    // Delete the entry
+                    await courseService.deleteCollaborativeEntry(token, entryItem.collaborativeEntry.course_id, entryItem.collaborativeEntry.id);
+                    vscode.window.showInformationMessage(`Entry deleted successfully.`);
+                    refreshViews([ViewType.COURSE]);
+    
+                } catch (error: any) {
+                    vscode.window.showErrorMessage(`Error deleting entry: ${error.message}`);
+                }
+        }
+    );
+
+    context.subscriptions.push(disposable);
+}
+
+
+
+function registerGetCollaborativeEntriesCommand(context: vscode.ExtensionContext): void {
+    const disposable = vscode.commands.registerCommand(
+        'intelligent-ide.collaborative.list',
+        async (entryItem?: CourseTreeItem) => {
+            try {
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    return []; // Auth failed, return empty
+                }
+                const { token, loginInfo } = authDetails;
+
+                // if (!entryItem || !entryItem.itemId) {
+                //     vscode.window.showErrorMessage('No directory selected for listing entries.');
+                //     return;
+                // }
+
+
+                let courseId: number;
+
+                if (entryItem && entryItem.itemId && entryItem.type === 'course') {
+                    courseId = typeof entryItem.itemId === 'number'
+                        ? entryItem.itemId
+                        : parseInt(entryItem.itemId.toString(), 10);
+                } else {
+                    // Prompt for course ID
+                    const courseIdInput = await vscode.window.showInputBox({
+                        prompt: 'Enter the Course ID for the new directory',
+                        placeHolder: 'e.g., 123',
+                        validateInput: (text) => {
+                            if (!text) {
+                                return 'Course ID is required';
+                            }
+                            if (!/^\d+$/.test(text)) {
+                                return 'Course ID must be a number';
+                            }
+                            return null;
+                        }
+                    });
+
+                    if (!courseIdInput) {
+                        return; // User cancelled
+                    }
+
+                    courseId = parseInt(courseIdInput, 10);
+                }
+
+                
+                const entries = await courseService.getCollaborativeDirectories(
+                    token,
+                    courseId
+                );
+
+                vscode.window.showInformationMessage(`Collaborative entries: ${JSON.stringify(entries)}`);
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Error fetching collaborative entries: ${error.message}`);
+            }
+        }
+    );
+
+    context.subscriptions.push(disposable);
+}
+
+
+
+function registerDownloadCollaborativeEntryCommand(context: vscode.ExtensionContext): void {
+    const disposable = vscode.commands.registerCommand(
+        'intelligent-ide.collaborative.download',
+        async (entryItem?: CourseTreeItem) => {
+            try {
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    return []; // Auth failed, return empty
+                }
+                const { token, loginInfo } = authDetails;
+
+                if (!entryItem || !entryItem.collaborativeEntry) {
+                    vscode.window.showErrorMessage('No entry selected for download.');
+                    return;
+                }
+
+
+                let courseId: number;
+
+                if (entryItem && entryItem.itemId && entryItem.type === 'course') {
+                    courseId = typeof entryItem.itemId === 'number'
+                        ? entryItem.itemId
+                        : parseInt(entryItem.itemId.toString(), 10);
+                } else {
+                    // Prompt for course ID
+
+                }
+
+
+
+                const fileData = await courseService.downloadCollaborativeEntry(
+                    token,
+                    entryItem.collaborativeEntry.course_id, entryItem.collaborativeEntry.id
+                );
+                console.log(entryItem.collaborativeEntry.course_id, entryItem.collaborativeEntry.id);
+                const saveUri = await vscode.window.showSaveDialog({
+                    saveLabel: 'Save File',
+                    title: 'Save Downloaded File',
+                    defaultUri: vscode.Uri.file(entryItem.label)
+                });
+
+                if (!saveUri) {
+                    return;
+                }
+
+                await vscode.workspace.fs.writeFile(saveUri, fileData);
+                vscode.window.showInformationMessage('File downloaded successfully!');
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Error downloading entry: ${error.message}`);
+            }
+        }
+    );
+
+    context.subscriptions.push(disposable);
+}
+
+function registerUploadCollaborativeFileCommand(context: vscode.ExtensionContext): void {
+    const disposable = vscode.commands.registerCommand(
+        'intelligent-ide.collaborative.upload',
+        async (directoryItem?: CourseTreeItem) => {
+            try {
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    return []; // Auth failed, return empty
+                }
+                const { token, loginInfo } = authDetails;
+                if (!loginInfo) {
+                    vscode.window.showErrorMessage('You must log in to create a course.');
+                    return;
+                }
+                
+                // Check if user has teacher role
+                if (loginInfo.role !== 'teacher') {
+                    const switchToTeacher = await vscode.window.showWarningMessage(
+                        'You must be a teacher to create courses. Switch to teacher role?',
+                        'Yes',
+                        'No'
+                    );
+                
+                    if (switchToTeacher === 'Yes') {
+                        // Update role to teacher
+                        await context.globalState.update('loginInfo', {
+                            ...loginInfo,
+                            role: 'teacher'
+                        });
+                        refreshViews([ViewType.COURSE]);
+                    } else {
+                        return; // User cancelled
+                    }
+                }
+                
+
+                
+                // Get directory ID from selected item or prompt
+                let directoryId: number;
+                console.log(directoryItem?.parentId);
+                if (directoryItem && directoryItem.parentId &&
+                    (directoryItem.type === 'collaborative-folder' || directoryItem.type === 'virtual-directory')) {
+                    directoryId = typeof directoryItem.parentId === 'number'
+                        ? directoryItem.parentId
+                        : parseInt(directoryItem.parentId.toString(), 10);
+                } else {
+                    // Prompt for directory ID
+                    const directoryIdInput = await vscode.window.showInputBox({
+                        prompt: 'Enter collaborative course ID to upload to',
+                        placeHolder: 'e.g., 123',
+                        validateInput: (text) => {
+                            return /^\d+$/.test(text) ? null : 'Course ID must be a number';
+                        }
+                    });
+
+                    if (!directoryIdInput) {
+                        return;
+                    }
+
+                    directoryId = parseInt(directoryIdInput, 10);
+                }
+
+                // Open file picker dialog
+                const fileUris = await vscode.window.showOpenDialog({
+                    canSelectFiles: true,
+                    canSelectFolders: false,
+                    canSelectMany: false,
+                    openLabel: 'Select File to Upload'
+                });
+
+                if (!fileUris || fileUris.length === 0) {
+                    return;
+                }
+
+                // Show progress notification
+                vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: 'Uploading collaborative file...',
+                    cancellable: false
+                }, async (progress) => {
+                    // Upload the selected file using the modified directoryPath
+                    const entryId = await courseService.uploadCollaborativeFile(
+                        token,
+                        directoryId, // Using the directoryPath directly
+                        fileUris[0]
+                    );
+
+                    vscode.window.showInformationMessage(`Collaborative file uploaded successfully with ID: ${entryId}`);
+                    // Refresh the tree view
+                    refreshViews([ViewType.COURSE]);
+                });
+
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Error uploading collaborative file: ${error.message}`);
+            }
+        }
+    );
+
+    context.subscriptions.push(disposable);
+}
+
+function registerOpenCollaborativeFileCommand(context: vscode.ExtensionContext): void {
+    const disposable = vscode.commands.registerCommand(
+        'intelligent-ide.collaborative.openFile',
+        async (entryItem?: CourseTreeItem) => {
+            if (!entryItem || !entryItem.collaborativeEntry) {
+                vscode.window.showErrorMessage('No collaborative file selected for opening.');
+                return;
+            }
+
+            try {
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    vscode.window.showErrorMessage('Authentication failed. Please log in again.');
+                    return;
+                }
+                const { token } = authDetails;
+
+                const courseId = entryItem.parentId as number;
+                const entryId = entryItem.collaborativeEntry.id;
+
+                // Show progress while downloading
+                await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: `Opening ${entryItem.label}...`,
+                    cancellable: false
+                }, async (progress) => {
+                    try {
+                        // Download the file content
+                        const fileData = await courseService.downloadCollaborativeEntry(token, courseId, entryId);
+
+                        // Create a temporary file path
+                        const tempDir = path.join(os.tmpdir(), 'intelligent-ide');
+                        if (!fs.existsSync(tempDir)) {
+                            fs.mkdirSync(tempDir, { recursive: true });
+                        }
+                        const tempFilePath = path.join(tempDir, entryItem.collaborativeEntry?.file_name || 'collaborative_'+courseId+'_'+entryId);
+
+                        // Write the file content to the temporary file
+                        await vscode.workspace.fs.writeFile(vscode.Uri.file(tempFilePath), fileData);
+
+                        // Open the file in VS Code
+                        const fileUri = vscode.Uri.file(tempFilePath);
+                        await vscode.commands.executeCommand('vscode.open', fileUri);
+                    } catch (error: any) {
+                        vscode.window.showErrorMessage(`Error opening file: ${error.message}`);
+                    }
+                });
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Error opening collaborative file: ${error.message}`);
+            }
+        }
+    );
+
+    context.subscriptions.push(disposable);
+}
+
+function registerJoinCollaborativeSessionCommand(context: vscode.ExtensionContext): void {
+    const disposable = vscode.commands.registerCommand(
+        'intelligent-ide.collaborative.join',
+        async (entryItem?: CourseTreeItem) => {
+            try {
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    vscode.window.showErrorMessage('Authentication failed. Please log in again.');
+                    return;
+                }
+                const { token } = authDetails;
+
+                // // Prompt for course ID
+                // const courseIdInput = await vscode.window.showInputBox({
+                //     prompt: 'Enter the Course ID for the collaborative session',
+                //     placeHolder: 'e.g., 101',
+                //     validateInput: (text) => {
+                //         if (!text) {
+                //             return 'Course ID is required';
+                //         }
+                //         if (!/^\d+$/.test(text)) {
+                //             return 'Course ID must be a number';
+                //         }
+                //         return null;
+                //     }
+                // });
+
+                // if (!courseIdInput) {
+                //     return; // User cancelled
+                // }
+
+                // const courseId = parseInt(courseIdInput, 10);
+
+                // // Prompt for collaborative entry ID
+                // const entryIdInput = await vscode.window.showInputBox({
+                //     prompt: 'Enter the Collaborative Entry ID',
+                //     placeHolder: 'e.g., 202',
+                //     validateInput: (text) => {
+                //         if (!text) {
+                //             return 'Collaborative Entry ID is required';
+                //         }
+                //         if (!/^\d+$/.test(text)) {
+                //             return 'Collaborative Entry ID must be a number';
+                //         }
+                //         return null;
+                //     }
+                // });
+
+                // if (!entryIdInput) {
+                //     return; // User cancelled
+                // }
+
+                // const entryId = parseInt(entryIdInput, 10);
+
+                // Join the collaborative session
+                if (!entryItem || !entryItem.collaborativeEntry) {
+                    vscode.window.showErrorMessage('Invalid collaborative entry. Please select a valid entry.');
+                    return;
+                }
+                const sessionDetails = await courseService.joinCollaborativeSession(token, entryItem.collaborativeEntry.course_id, entryItem.collaborativeEntry.id);
+
+                // if (sessionDetails) {
+                //     vscode.window.showInformationMessage(
+                //         `Successfully joined collaborative session for entry ID: ${entryItem.collaborativeEntry.course_id} in course ID: ${entryItem.collaborativeEntry.id}.`
+                //     );
+                // } else {
+                //     vscode.window.showErrorMessage('Failed to join collaborative session.');
+                // }
+
+                // Optionally refresh views or perform additional actions
+                refreshViews([ViewType.COURSE]);
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Error joining collaborative session: ${error.message}`);
+            }
+        }
+    );
+
+    context.subscriptions.push(disposable);
+}
+
+export function registerCourseChatCommand(context: vscode.ExtensionContext): void {
+    const disposable = vscode.commands.registerCommand(
+        'intelligent-ide.course.chat',
+        async (courseArg?: number | CourseTreeItem) => {
+            try {
+                // 获取认证信息
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    return;
+                }
+                const { token } = authDetails;
+
+                let courseId: number;
+
+                if (typeof courseArg === 'number') {
+                    courseId = courseArg;
+                } else if (courseArg && courseArg.itemId && courseArg.type === 'course') {
+                    courseId = typeof courseArg.itemId === 'number'
+                        ? courseArg.itemId
+                        : parseInt(courseArg.itemId.toString(), 10);
+                } else {
+                    const courseIdInput = await vscode.window.showInputBox({
+                        prompt: 'Enter the Course ID for the new directory',
+                        placeHolder: 'e.g., 123',
+                        validateInput: (text) => {
+                            if (!text) { return 'Course ID is required'; }
+                            if (!/^\d+$/.test(text)) { return 'Course ID must be a number'; }
+                            return null;
+                        }
+                    });
+                    if (!courseIdInput) { return; } // User cancelled
+                    courseId = parseInt(courseIdInput, 10);
+                }
+
+                if (isNaN(courseId)) {
+                    vscode.window.showErrorMessage('Invalid Course ID provided.');
+                    return;
+                }
+
+
+                // 打开聊天界面
+                courseService.openCourseChatWebView(context, token, parseInt(courseId.toString(), 10));
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Failed to join course chat: ${error.message}`);
+            }
+        }
+    );
+
+    context.subscriptions.push(disposable);
+}
+
+
+
+
 // 🚫🚫🚫 WARNING 🚫🚫🚫
 // +-----------------------------------------+
 // | openfile command已经涵盖了这一部份，请不要重复实现 |

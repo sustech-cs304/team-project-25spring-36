@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { courseService } from '../services/CourseService';
-import { ICourseDirectoryEntry } from '../models/CourseModels';
+import { ICollaborativeEntry, ICourseDirectoryEntry } from '../models/CourseModels';
 import { MyNotebookController } from '../notebook/NotebookController';
 import { MyNotebookSerializer } from '../notebook/NotebookSerializer';
 import { getAuthDetails } from '../utils/authUtils';
@@ -22,7 +22,8 @@ import PDFDocument from 'pdfkit';
 
 // Define tree item types
 type TreeItemType = 'course' | 'directory' | 'entry' | 'virtual-directory' | 'student' | 'notebook' |
-    'assignment' | 'submission' | 'assignment-folder' | 'submission-folder';
+    'assignment' | 'submission' | 'assignment-folder' | 'submission-folder' |
+    'collaborative-folder' | 'add-collaborative-doc' | 'ICollaborativeEntry';
 
 // Define a class for tree items
 export class CourseTreeItem extends vscode.TreeItem {
@@ -39,7 +40,8 @@ export class CourseTreeItem extends vscode.TreeItem {
         public readonly entry?: ICourseDirectoryEntry,
         public readonly created_at?: string,
         public readonly assignment?: ICourseHomeworkAssignment,
-        public readonly submission?: ICourseHomeworkSubmission
+        public readonly submission?: ICourseHomeworkSubmission,
+        public readonly collaborativeEntry?: ICollaborativeEntry
     ) {
         super(label, collapsibleState);
 
@@ -65,11 +67,31 @@ export class CourseTreeItem extends vscode.TreeItem {
                     this.iconPath = new vscode.ThemeIcon('folder');
                     this.contextValue = 'entry-directory';
                     this.tooltip = `Directory: ${path} (ID: ${entry.id})`;
-                } else {
+                } else if(collaborativeEntry){
+                    this.iconPath = getFileIcon(path || '');
+                    this.contextValue = 'ICollaborativeEntry';
+                    this.tooltip = `File: ${path} (ID: ${itemId})`;
+                }else {
                     this.iconPath = getFileIcon(path || '');
                     this.contextValue = 'entry-file';
                     this.tooltip = `File: ${path} (ID: ${itemId})`;
                 }
+                break;
+            case 'ICollaborativeEntry':
+                this.iconPath = getFileIcon(path || '');
+                this.contextValue = 'ICollaborativeEntry';
+                this.tooltip = `File: ${path} (ID: ${itemId})`;
+                this.command = {
+                    command: 'intelligent-ide.collaborative.openFile',
+                    title: 'Open Collaborative File',
+                    arguments: [this]
+                };
+                break;
+
+            case 'collaborative-folder':
+                this.iconPath = new vscode.ThemeIcon('folder');
+                this.contextValue = 'collaborative-folder';
+                this.tooltip = `Collaborative Space: ${label} (ID: ${itemId})`;
                 break;
             case 'student':
                 this.iconPath = new vscode.ThemeIcon('person');
@@ -263,14 +285,26 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
                 `assignments-${element.itemId}`,
                 element.itemId as number
             );
+            const collaborativeFolder = new CourseTreeItem(
+                'Collaborative Space',
+                vscode.TreeItemCollapsibleState.Collapsed,
+                'collaborative-folder',
+                `collaborative-${element.itemId}`,
+                element.itemId as number
+            );
 
-            return [assignmentsFolder, ...directoryItems];
+            return [assignmentsFolder, ...directoryItems, collaborativeFolder];
         }
 
         if (element.type === 'assignment-folder' && authDetails) {
             // Show assignments for this course
             const courseId = element.parentId as number;
             return await this.getAssignments(courseId, authDetails.token);
+        }
+        if (element.type === 'collaborative-folder') {
+            // Show collaborative documents for this course
+            const courseId = element.parentId as number;
+            return await this.getCollaborativeDocuments(courseId, authDetails.token);
         }
 
         if (element.type === 'assignment' && authDetails) {
@@ -746,6 +780,32 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
             ));
         } catch (error: any) {
             vscode.window.showErrorMessage(`Error loading assignments: ${error.message}`);
+            return [];
+        }
+    }
+
+    private async getCollaborativeDocuments(courseId: number, token: string): Promise<CourseTreeItem[]> {
+        try {
+            // 调用 courseService 获取协作空间的文档列表
+            const collaborativeEntries = await courseService.getCollaborativeDirectories(token, courseId);
+    
+            // 将每个协作文档转换为 CourseTreeItem
+            return collaborativeEntries.map(entry => new CourseTreeItem(
+                entry.file_name || `Collaborative Document ${entry.id}`,
+                vscode.TreeItemCollapsibleState.None, // 文档通常不可展开
+                'ICollaborativeEntry', // 类型为普通条目
+                entry.id,
+                courseId,
+                undefined, // path
+                false, // isDirectory
+                undefined, // entry
+                entry.created_at,
+                undefined, // assignment
+                undefined, // submission
+                entry // collaborativeEntry
+            ));    
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Error loading collaborative documents: ${error.message}`);
             return [];
         }
     }

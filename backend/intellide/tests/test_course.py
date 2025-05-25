@@ -1155,34 +1155,26 @@ def test_course_collaborative_websocket_interaction(
     downloaded_text = download_response.content.decode('utf-8')
     assert downloaded_text == expected_content_final, f"Downloaded content mismatch. Expected '{expected_content_final}', got '{downloaded_text}'"
     print("最终内容持久化验证成功。\ndownloaded_text: ", downloaded_text, "\nexpected_content_final: ", expected_content_final)
-
-@pytest.mark.dependency(depends=["test_course_collaborative_websocket_interaction"])
-def test_course_collaborative_directory_entry_history_success(
-    store: Dict,
-):
-    user_token_teacher = store["user_token_teacher"]
-    course_id_base = store["course_id_base"]
-    collab_entry_id = store["collab_entry_id"]
     
-    response = requests.get(
-        url=f"{SERVER_API_BASE_URL}/course/collaborative/history",
-        headers={
-            "Access-Token": user_token_teacher,
-        },
+    # 验证last_updated_by是否被正确更新
+    print("正在验证last_updated_by...")
+    entry_response = requests.get(
+        url=f"{SERVER_API_BASE_URL}/course/collaborative",
+        headers={"Access-Token": user_token_teacher},
         params={
             "course_id": course_id_base,
-            "course_collaborative_directory_entry_id": collab_entry_id,
         },
-    ).json()
-    
-    assert_code(response, status.HTTP_200_OK)
-    assert isinstance(response["data"], list)
-    if len(response["data"]) > 0:
-        assert "operation" in response["data"][0]
-        assert "content" in response["data"][0]
+    )
+    assert entry_response.status_code == status.HTTP_200_OK
+    entries = entry_response.json()["data"]
+    target_entry = next((entry for entry in entries if int(entry["id"]) == collab_entry_id), None)
+    assert target_entry is not None, "协作条目未找到"
+    # 由于客户端2(教师)是最后修改文档的，所以last_updated_by应该是教师ID
+    assert int(target_entry["last_updated_by"]) == user_id_teacher, f"last_updated_by值错误。期望：{user_id_teacher}，实际：{target_entry['last_updated_by']}"
+    print(f"last_updated_by验证成功,由user_id={target_entry['last_updated_by']}最后更新，教师的user_id={user_id_teacher}")
 
 
-@pytest.mark.dependency(depends=["test_course_collaborative_directory_entry_history_success"])
+@pytest.mark.dependency(depends=["test_course_collaborative_websocket_interaction"])
 def test_course_collaborative_directory_entry_delete_success(
     store: Dict,
 ):

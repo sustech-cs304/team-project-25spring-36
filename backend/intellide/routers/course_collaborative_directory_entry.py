@@ -1,8 +1,10 @@
+from datetime import datetime
 import io
 import json
 import pickle
 from typing import Dict, List
 
+from sqlalchemy import update
 import y_py
 from fastapi import (
     APIRouter,
@@ -20,7 +22,6 @@ from sqlalchemy.future import select
 from intellide.database import database
 from intellide.database.model import (
     CourseCollaborativeDirectoryEntry,
-    CourseCollaborativeDirectoryEntryEditHistory,
     UserRole,
 )
 from intellide.routers.course import (
@@ -41,6 +42,8 @@ ws = APIRouter(prefix="/course/collaborative")
 manager = WebSocketManager()
 editors: Dict[int, List[int]] = {}  # 跟踪每个文档的编辑者 {collab_id1: [user_id1, user_id2, ...], collab_id2: [user_id3, user_id4, ...], ...}
 crdt_docs: Dict[int, y_py.YDoc] = {}  # 内存存储每个文档的crdt_doc {collab_id1: crdt_doc1, collab_id2: crdt_doc2, ...}
+last_updated_at_dict: Dict[int, datetime] = {}  # 内存存储每个文档的last_updated_at {collab_id1: time1, collab_id2: time2, ...}
+last_updated_by_dict: Dict[int, int] = {}  # 内存存储每个文档的last_updated_by {collab_id1: user_id1, collab_id2: user_id2, ...}
 
 
 @api.post("")
@@ -94,6 +97,7 @@ async def course_collaborative_directory_entry_post(
     course_collaborative_directory_entry = CourseCollaborativeDirectoryEntry(
         course_id=course_id,
         storage_name=storage_name,
+        last_updated_by=user_id,
     )
     db.add(course_collaborative_directory_entry)
     await db.commit()
@@ -140,46 +144,6 @@ async def course_collaborative_directory_entry_get(
 
     # 返回协作条目
     return ok(data=[course_collaborative_directory_entry.dict() for course_collaborative_directory_entry in course_collaborative_directory_entries])
-
-
-@api.get("/history")
-async def course_collaborative_directory_entry_edit_history_get(
-    course_id: int,
-    course_collaborative_directory_entry_id: int,
-    access_info: Dict = Depends(jwe_decode),
-    db: AsyncSession = Depends(database),
-):
-    """
-    获取课程共享可协作条目编辑历史
-
-    参数:
-        course_id: 课程ID
-        course_collaborative_directory_entry_id: 协作条目ID
-        access_info: 访问信息
-        db: 数据库会话对象
-
-    返回:
-        course_collaborative_directory_entry_edit_histories: 指定协作条目编辑历史列表
-    """
-    # 获取用户ID
-    user_id = access_info["user_id"]
-
-    # 获取用户角色、课程、目录和条目信息
-    user_role, course = await course_user_info(course_id=course_id, user_id=user_id, db=db)
-
-    # 检查用户是否是课程成员
-    if user_role is None:
-        return forbidden("Only users who have joined this course can get collaborative directory entry edit history")
-
-    # 获取协作条目历史
-    course_collaborative_directory_entry_edit_histories = await db.execute(
-        select(CourseCollaborativeDirectoryEntryEditHistory).where(
-            CourseCollaborativeDirectoryEntryEditHistory.course_collaborative_directory_entry_id == course_collaborative_directory_entry_id,
-        )
-    )
-    course_collaborative_directory_entry_edit_histories = course_collaborative_directory_entry_edit_histories.scalars().all()
-    # 返回协作条目历史
-    return ok(data=[course_collaborative_directory_entry_edit_history.dict() for course_collaborative_directory_entry_edit_history in course_collaborative_directory_entry_edit_histories])
 
 
 @api.get("/download")
@@ -385,10 +349,13 @@ async def collaborative_join(
     # {
     #     "type": "update",
     #     "update": update_bytes_hex,
+    #     "user_id": user_id,
+    #     "time": time,
     # }
     # update_bytes_hex 是服务端生成的同步更新包
     # 客户端随后应该将这个更新包应用到自己的CRDT文档
     # 即Y.applyUpdate(客户端的ydoc, 转Uint8Array(update_bytes_hex))
+    # user_id和time应该被用来显示“xxx最后于xx:xx编辑”到前端上
     # ----------------------------发送-----------------------------
     # 当客户端更改文档时，客户端需要发送增量更新给服务器
     # 需要发送的json格式如下：
@@ -421,6 +388,11 @@ async def collaborative_join(
     if entry is None:
         await websocket.close(code=1008, reason="协作条目不存在")
         return
+    
+    if last_updated_at_dict.get(course_collaborative_directory_entry_id) is None:
+        last_updated_at_dict[course_collaborative_directory_entry_id] = entry.last_updated_at
+    if last_updated_by_dict.get(course_collaborative_directory_entry_id) is None:
+        last_updated_by_dict[course_collaborative_directory_entry_id] = entry.last_updated_by
 
     # 接受WebSocket连接
     try:
@@ -448,7 +420,6 @@ async def collaborative_join(
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
-
             # 根据消息类型处理
             if message.get("type") == "sync":
                 # 获得客户端当前的状态向量
@@ -460,6 +431,8 @@ async def collaborative_join(
                 await websocket.send_json({
                     "type": "update",
                     "update": sync_update.hex(),
+                    "user_id": last_updated_by_dict[course_collaborative_directory_entry_id],
+                    "time": last_updated_at_dict[course_collaborative_directory_entry_id].strftime("%Y-%m-%d %H:%M:%S"),
                 })
 
             elif message.get("type") == "update":
@@ -467,13 +440,17 @@ async def collaborative_join(
                 update_bytes = bytes.fromhex(update_bytes_hex)
                 # 将更新应用到主CRDT文档
                 y_py.apply_update(master_crdt_doc, update_bytes)
+                last_updated_at_dict[course_collaborative_directory_entry_id] = datetime.now()
+                last_updated_by_dict[course_collaborative_directory_entry_id] = user_id
+                
                 # 广播这个更新给所有客户端（包括发送者，这不要紧，因为CRDT会自动忽略处理重复的更新）
                 await manager.broadcast_json(
                     keys=(course_collaborative_directory_entry_id,),
                     content={
                         "type": "update",
                         "update": update_bytes.hex(),
-                        "user_id": user_id,
+                        "user_id": last_updated_by_dict[course_collaborative_directory_entry_id],
+                        "time": last_updated_at_dict[course_collaborative_directory_entry_id].strftime("%Y-%m-%d %H:%M:%S"),
                     },
                 )
 
@@ -486,6 +463,14 @@ async def collaborative_join(
             storage_name=entry.storage_name,
             content=crdt_doc_bytes,
         )
+
+        # 更新last_updated_by到数据库（last_updated_at会自动更新）
+        await db.execute(
+            update(CourseCollaborativeDirectoryEntry).where(
+                CourseCollaborativeDirectoryEntry.id == course_collaborative_directory_entry_id,
+            ).values(last_updated_by=user_id)
+        )
+        await db.commit()
         
         # 清理连接和编辑者列表
         manager.remove(keys=(course_collaborative_directory_entry_id,), identifier=user_id)
