@@ -22,6 +22,8 @@ export function registerCourseCommands(context: vscode.ExtensionContext, treeDat
     registerJoinCourseCommand(context);
     registerDeleteStudentCommand(context);
 
+    registerCreateNotebookForCourseCommand(context);
+
     registerGetCollaborativeEntryHistoryCommand(context);
     registerDeleteCollaborativeEntryCommand(context);
     registerGetCollaborativeEntriesCommand(context);
@@ -786,6 +788,84 @@ function registerDeleteStudentCommand(context: vscode.ExtensionContext): void {
 }
 
 
+/**
+ * Register command to create a notebook for a course
+ */
+function registerCreateNotebookForCourseCommand(context: vscode.ExtensionContext): void {
+    const disposable = vscode.commands.registerCommand('intelligent-ide.notebook.createForCourse', async (courseItem?: CourseTreeItem) => {
+        const authDetails = await getAuthDetails(context);
+        if (!authDetails) {
+            vscode.window.showErrorMessage('请先登录以创建笔记。');
+            return;
+        }
+        const { token } = authDetails;
+
+        // 检查是否选择了课程
+        const courseId = Number(courseItem?.itemId);
+        if (!courseId || courseItem?.type !== 'course') {
+            vscode.window.showErrorMessage('请先选择一个课程以创建笔记。');
+            return;
+        }
+
+        // 提示用户选择保存路径
+        const uri = await vscode.window.showSaveDialog({
+            filters: { 'Jupyter Notebook': ['ipynb'] },
+            saveLabel: '创建笔记',
+            defaultUri: vscode.Uri.file(path.join(os.tmpdir(), 'Untitled.ipynb'))
+        });
+
+        if (!uri) {
+            vscode.window.showInformationMessage('笔记创建已取消。');
+            return;
+        }
+
+        // 创建初始笔记内容
+        const initialContent = JSON.stringify({
+            cells: [
+                {
+                    cell_type: 'markdown',
+                    source: ['# 新笔记\n\n在这里开始书写内容...'],
+                    metadata: {}
+                },
+                {
+                    cell_type: 'code',
+                    source: ['print("Hello, World!")'],
+                    metadata: {
+                        language: 'python'
+                    }
+                }
+            ],
+            metadata: {
+                kernelspec: {
+                    display_name: 'Python 3',
+                    language: 'python',
+                    name: 'python3'
+                }
+            }
+        }, null, 2);
+
+        // 将笔记内容写入本地文件
+        await vscode.workspace.fs.writeFile(uri, Buffer.from(initialContent, 'utf8'));
+
+        // 上传笔记到后端
+        const uploadPath = `/notebooks/${path.basename(uri.fsPath)}`;
+        try {
+            const entryId = await courseService.uploadFile(token, courseId, uploadPath, uri);
+            vscode.window.showInformationMessage(`笔记已成功创建并上传到课程目录：${uploadPath}`);
+
+            // 打开笔记文件
+            await vscode.commands.executeCommand('vscode.openWith', uri, 'my-notebook');
+
+            refreshViews([ViewType.COURSE]);
+        } catch (error) {
+            vscode.window.showErrorMessage(`上传笔记失败：${(error as Error).message}`);
+        }
+    });
+
+    context.subscriptions.push(disposable);
+}
+
+
 function registerGetCollaborativeEntryHistoryCommand(context: vscode.ExtensionContext): void {
     const disposable = vscode.commands.registerCommand(
         'intelligent-ide.collaborative.history',
@@ -1268,8 +1348,6 @@ export function registerCourseChatCommand(context: vscode.ExtensionContext): voi
 
     context.subscriptions.push(disposable);
 }
-
-
 
 
 // 🚫🚫🚫 WARNING 🚫🚫🚫

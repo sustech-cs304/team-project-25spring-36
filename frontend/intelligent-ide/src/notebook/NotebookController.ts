@@ -6,12 +6,12 @@ export class MyNotebookController {
 
   constructor() {
     this.controller = vscode.notebooks.createNotebookController(
-      'my-notebook-controller',
-      'my-notebook',
+      'my-notebook-controller', // Controller ID
+      'my-notebook', // Notebook type
       'My Notebook Controller'
     );
 
-    this.controller.supportedLanguages = ['javascript', 'python', 'java', 'c', 'markdown'];
+    this.controller.supportedLanguages = ['javascript', 'python', 'java', 'c', 'markdown']; // 确保包含 java 和 c
     this.controller.executeHandler = this.execute.bind(this);
   }
 
@@ -43,16 +43,17 @@ export class MyNotebookController {
   private async runCode(code: string, language: string): Promise<string> {
     if (language === 'javascript') {
       try {
-        return eval(code); // For simplicity, use eval for JavaScript
+        const result = new Function(code)(); // 使用 Function 构造函数代替 eval
+        return result;
       } catch (error) {
         return `JavaScript Error: ${(error as Error).message}`;
       }
     } else if (language === 'python') {
       return this.runPythonCode(code);
     } else if (language === 'java') {
-      return this.runJavaCode(code);
+      return this.runJavaCode(code); // 确保调用正确的方法
     } else if (language === 'c') {
-      return this.runCCode(code);
+      return this.runCCode(code); // 确保调用正确的方法
     }
     return 'Unsupported language';
   }

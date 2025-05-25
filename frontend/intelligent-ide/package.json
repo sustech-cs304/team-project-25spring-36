@@ -210,30 +210,6 @@
         "icon": "$(refresh)"
       },
       {
-        "command": "intelligent-ide.notebook.new",
-        "title": "New Notebook",
-        "category": "Intelligent IDE: Notebook",
-        "icon": "$(new-file)"
-      },
-      {
-        "command": "intelligent-ide.notebook.delete",
-        "title": "Delete Notebook",
-        "category": "Intelligent IDE: Notebook",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "intelligent-ide.notebook.refresh",
-        "title": "Refresh Notebook Explorer",
-        "category": "Intelligent IDE: Notebook",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "intelligent-ide.notebook.exportToPdf",
-        "title": "Export to PDF",
-        "category": "Intelligent IDE: Notebook",
-        "icon": "$(file-pdf)"
-      },
-      {
         "command": "intelligent-ide.chat.open",
         "title": "Open AI Chat Assistant",
         "category": "Intelligent IDE: Chat",
@@ -256,6 +232,36 @@
         "title": "View Attachments",
         "category": "Intelligent IDE: course",
         "icon": "$(file-zip)"
+      },
+      {
+        "command": "intelligent-ide.notebook.createForCourse",
+        "title": "Create Notebook for Course",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "intelligent-ide.notebook.new",
+        "title": "New Notebook",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "intelligent-ide.notebook.refresh",
+        "title": "Refresh Notebook Explorer",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "intelligent-ide.notebook.exportToPdf",
+        "title": "Export to PDF",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(file-pdf)"
+      },
+      {
+        "command": "intelligent-ide.notebook.delete",
+        "title": "Delete Notebook",
+        "category": "Intelligent IDE: Notebook",
+        "icon": "$(trash)"
       }
     ],
     "viewsContainers": {
@@ -389,13 +395,13 @@
           "group": "inline"
         },
         {
-          "command": "intelligent-ide.notebook.delete",
-          "when": "viewItem == notebookItem",
+          "command": "intelligent-ide.notebook.exportToPdf",
+          "when": "viewItem == courseNotebookItem",
           "group": "inline"
         },
         {
-          "command": "intelligent-ide.notebook.exportToPdf",
-          "when": "viewItem == notebookItem",
+          "command": "intelligent-ide.notebook.delete",
+          "when": "viewItem == courseNotebookItem",
           "group": "inline"
         },
         {
@@ -457,6 +463,11 @@
           "command": "intelligent-ide.notebook.refresh",
           "when": " intelligent-ide.loggedIn && (viewItem == entry-directory || viewItem == directory) ",
           "group": "2_workspace"
+        },
+        {
+          "command": "intelligent-ide.notebook.createForCourse",
+          "when": "viewItem == course && intelligent-ide.loggedIn && intelligent-ide.userRole == 'teacher'",
+          "group": "2_workspace"
         }
       ],
       "commandPalette": [
@@ -473,8 +484,15 @@
         "displayName": "My Notebook",
         "selector": [
           {
-            "filenamePattern": "*.myipynb"
+            "filenamePattern": "*.ipynb"
           }
+        ],
+        "languages": [
+          "javascript",
+          "python",
+          "java",
+          "c",
+          "markdown"
         ]
       }
     ],

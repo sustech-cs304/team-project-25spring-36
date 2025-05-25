@@ -104,7 +104,7 @@ export class CourseTreeItem extends vscode.TreeItem {
                 this.command = {
                     command: 'vscode.openWith',
                     title: 'Open Notebook',
-                    arguments: [vscode.Uri.file(path || ''), 'my-notebook']
+                    arguments: [vscode.Uri.file(path || ''), 'my-notebook'] // 确保类型为 my-notebook
                 };
                 break;
             case 'assignment-folder':
@@ -567,13 +567,13 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
     }
 
     private loadNotebooksFromDefaultPath() {
-       try {
+        try {
             if (!fs.existsSync(this.defaultNotebookPath)) {
                 fs.mkdirSync(this.defaultNotebookPath, { recursive: true });
             }
         } catch (error) {
             console.error(`Failed to create notebook directory at ${this.defaultNotebookPath}:`, error);
-            return ;
+            return;
         }
         const files = fs.readdirSync(this.defaultNotebookPath);
         files.forEach(file => {
@@ -587,23 +587,38 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
     }
 
     private registerNotebookCommands() {
-        vscode.commands.registerCommand('intelligent-ide.notebook.new', async () => {
+        vscode.commands.registerCommand('intelligent-ide.notebook.new', async (courseItem?: CourseTreeItem) => {
+            const authDetails = await getAuthDetails(this.context);
+            if (!authDetails) {
+                vscode.window.showErrorMessage('请先登录以创建笔记。');
+                return;
+            }
+            const { token } = authDetails;
+
+            // 检查是否选择了课程
+            const courseId = Number(courseItem?.itemId); // 显式转换为 number 类型
+            if (!courseId || courseItem?.type !== 'course') {
+                vscode.window.showErrorMessage('请先选择一个课程以创建笔记。');
+                return;
+            }
+
+            // 提示用户选择保存路径
             const uri = await vscode.window.showSaveDialog({
-                filters: { 'My Notebook': ['myipynb'], 'Jupyter Notebook': ['ipynb'] },
-                saveLabel: 'Create Notebook',
+                filters: { 'Jupyter Notebook': ['ipynb'] },
+                saveLabel: '创建笔记',
                 defaultUri: vscode.Uri.file(path.join(this.defaultNotebookPath, 'Untitled.myipynb'))
             });
 
             if (!uri) {
-                vscode.window.showInformationMessage('Notebook creation cancelled.');
+                vscode.window.showInformationMessage('笔记创建已取消。');
                 return;
             }
 
-            // Create initial notebook structure compatible with your custom format
+            // 创建初始笔记内容
             const initialContent = {
                 cells: [{
                     type: 'markdown',
-                    value: '# New Notebook\n\nStart writing your content here...'
+                    value: '# 新笔记\n\n在这里开始书写内容...'
                 }],
                 metadata: {
                     kernelspec: {
@@ -614,12 +629,18 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
                 }
             };
 
+            // 将笔记内容写入本地文件
             await vscode.workspace.fs.writeFile(uri, Buffer.from(JSON.stringify(initialContent, null, 2), 'utf8'));
 
-            this.notebookFiles.push(uri);
-            this.refresh();
-
-            vscode.window.showInformationMessage(`Notebook created: ${path.basename(uri.fsPath)}`);
+            // 上传笔记到后端
+            const uploadPath = `/notebooks/${path.basename(uri.fsPath)}`;
+            try {
+                const entryId = await courseService.uploadFile(token, courseId, uploadPath, uri);
+                vscode.window.showInformationMessage(`笔记已成功创建并上传到课程目录：${uploadPath}`);
+                this.refresh();
+            } catch (error) {
+                vscode.window.showErrorMessage(`上传笔记失败：${(error as Error).message}`);
+            }
         });
 
         // Register Delete Notebook command (keep existing)
@@ -640,13 +661,13 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
                 try {
                     // Use VS Code's file system API for better compatibility
                     await vscode.workspace.fs.delete(uri);
-                    
+
                     const index = this.notebookFiles.findIndex(file => file.fsPath === uri.fsPath);
                     if (index !== -1) {
                         this.notebookFiles.splice(index, 1);
                         this.refresh();
                     }
-                    
+
                     vscode.window.showInformationMessage(`Notebook deleted: ${path.basename(uri.fsPath)}`);
                 } catch (error) {
                     vscode.window.showErrorMessage(`Failed to delete notebook: ${(error as Error).message}`);
@@ -676,7 +697,7 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
 
             let parsedContent;
             try {
-                parsedContent = JSON.parse(contentString);
+                parsedContent = JSON.parse(contentString); // Parse the JSON content
             } catch (error) {
                 vscode.window.showErrorMessage('Failed to parse notebook content.');
                 return;
@@ -686,8 +707,8 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
             const cells = parsedContent.cells || [];
             const formattedContent = cells
                 .map((cell: any) => {
-                    const cellType = cell.type || 'code';
-                    const cellValue = cell.value || cell.source || '';
+                    const cellType = cell.cell_type || 'code';
+                    const cellValue = cell.source.join('') || '';
                     return `[${cellType.toUpperCase()}]\n${cellValue}`;
                 })
                 .join('\n\n' + '='.repeat(50) + '\n\n');
@@ -696,7 +717,7 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
             const saveUri = await vscode.window.showSaveDialog({
                 filters: { 'PDF Files': ['pdf'] },
                 saveLabel: 'Export as PDF',
-                defaultUri: vscode.Uri.file(uri.fsPath.replace(/\.(ipynb|myipynb)$/, '.pdf'))
+                defaultUri: vscode.Uri.file(uri.fsPath.replace(/\.ipynb$/, '.pdf'))
             });
 
             if (!saveUri) {
@@ -710,7 +731,7 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
             try {
                 await vscode.workspace.fs.stat(saveUri);
                 const overwrite = await vscode.window.showWarningMessage(
-                    `The file ${path.basename(pdfPath)} already exists. Do you want to overwrite it?`,
+                    `The file ${pdfPath} already exists. Do you want to overwrite it?`,
                     { modal: true },
                     'Yes',
                     'No'
@@ -736,7 +757,7 @@ export class CourseTreeDataProvider implements vscode.TreeDataProvider<CourseTre
 
                 // Add content
                 doc.fontSize(12).font('Helvetica');
-                
+
                 // Split content into lines to handle long text
                 const lines = formattedContent.split('\n');
                 for (const line of lines) {
