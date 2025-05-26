@@ -87,7 +87,17 @@ jobs:
     - name: 运行前端构建脚本
       run: xvfb-run --auto-servernum node frontend-build.js # 使用xvfb-run运行前端构建脚本
 
+    - name: 检查是否需要发布
+      id: check_publish
+      run: |
+        if [[ "${{ github.event.head_commit.message }}" == *"[publish]"* ]] || [[ "${{ github.event.head_commit.message }}" == *"[release]"* ]]; then
+          echo "should_publish=true" >> $GITHUB_OUTPUT
+        else
+          echo "should_publish=false" >> $GITHUB_OUTPUT
+        fi
+
     - name: 发布到 VS Code Marketplace
+      if: steps.check_publish.outputs.should_publish == 'true'
       run: | 
         npm install vsce
         npx vsce publish -p ${{ secrets.VSCE_PAT }}
