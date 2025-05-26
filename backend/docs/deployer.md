@@ -143,6 +143,7 @@ pip install --upgrade pip
 
 ### 4.1 目录结构
 
+```text
 backend
 ├── .gitignore # Git忽略文件
 ├── deploy/ # 部署脚本和依赖
@@ -186,6 +187,7 @@ backend
 │ ├── ...
 └── tools/ # 辅助工具
 └── tree.py # 目录结构生成工具
+```
 
 ### 4.2 核心组件
 
