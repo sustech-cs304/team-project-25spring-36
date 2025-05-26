@@ -506,20 +506,20 @@ export const courseService = {
   ): Promise<void> {
       try {
           // 构建 WebSocket URL
-          const wsUrl = `ws://localhost:8080/ws/course/collaborative/join?course_id=${courseId}&course_collaborative_directory_entry_id=${entryId}`;
+          const wsUrl = `${API_CONFIG.BASE_WS_URL}/course/collaborative/join?course_id=${courseId}&course_collaborative_directory_entry_id=${entryId}`;
           console.log(`Connecting to WebSocket URL: ${wsUrl}`);
-  
+
           // 创建 WebSocket 连接
           const websocket = new WebSocket(wsUrl, {
               headers: {
                   'Access-Token': token,
               },
           });
-  
-          // 创建 Y.Doc 实例
+
+          // 创建 Y.Doc 实例（只在扩展端）
           const ydoc = new Y.Doc();
           const ytext = ydoc.getText('text');
-  
+
           // 打开协作编辑器
           const panel = vscode.window.createWebviewPanel(
               'collaborativeEditor',
@@ -530,14 +530,14 @@ export const courseService = {
                   retainContextWhenHidden: true,
               }
           );
-  
+
           // 设置 WebView 内容为 HTML 文件内容
           panel.webview.html = this.getCollaborativeEditorHtml();
-  
+
           // WebSocket 事件处理
           websocket.onopen = () => {
               console.log('WebSocket connection opened.');
-  
+
               // 发送同步请求
               const stateVector = Y.encodeStateVector(ydoc);
               websocket.send(
@@ -546,65 +546,86 @@ export const courseService = {
                       state_vector: Buffer.from(stateVector).toString('hex'),
                   })
               );
-              ydoc.on('update', (update:any) => {
-                console.log('content update:',update);
-                // 当 Y.Doc 更新时，发送增量更新到服务器
-                websocket.send(
-                    JSON.stringify({
-                        type: 'update',
-                        update: Buffer.from(update).toString('hex'),  // 增量更新转换为十六进制字符串
-                    })
-                );
-            });
+
+              // 监听 Y.Doc 更新，发送到服务器
+              ydoc.on('update', (update: any, origin: any) => {
+                  // 只发送本地更新，不发送来自服务器的更新
+                  if (origin !== 'server') {
+                      console.log('Sending Y.Doc update to server');
+                      websocket.send(
+                          JSON.stringify({
+                              type: 'update',
+                              update: Buffer.from(update).toString('hex'),
+                          })
+                      );
+                  }
+              });
           };
-  
+
           websocket.onmessage = (event) => {
               const message = JSON.parse(event.data.toString());
+              console.log('Received WebSocket message:', message);
+              
               if (message.type === 'update') {
-                  const updateBytes = Uint8Array.from(Buffer.from(message.update, 'hex'));
-                  Y.applyUpdate(ydoc, updateBytes);
-  
-                  // 将更新后的文档内容发送到 HTML 页面
-                  panel.webview.postMessage({
-                      command: 'updateContent',
-                      ytext:ytext,
-                      content: ytext.toDelta(), // 转换为 Quill Delta 格式
-                      userId: message.user_id,
-                      time: message.time,
-                  });
+                // 应用远程更新到 Y.Doc
+                const updateBytes = Uint8Array.from(Buffer.from(message.update, 'hex'));
+                Y.applyUpdate(ydoc, updateBytes, 'server');
+
+                // 发送纯文本内容给 WebView（不发送 Y.js 对象）
+                panel.webview.postMessage({
+                    command: 'updateContent',
+                    content: ytext.toString(), // 只发送纯文本
+                    userId: message.user_id,
+                    time: message.time,
+                });
+              } else if (message.type === 'sync-reply') {
+                // 处理初始同步
+                if (message.update) {
+                    const updateBytes = Uint8Array.from(Buffer.from(message.update, 'hex'));
+                    Y.applyUpdate(ydoc, updateBytes, 'server');
+                    
+                    // 发送初始内容给 WebView
+                    panel.webview.postMessage({
+                        command: 'updateContent',
+                        content: ytext.toString(),
+                    });
+                }
               }
           };
-  
+
           websocket.onerror = (error) => {
               console.error('WebSocket error:', error);
-              panel.webview.postMessage({ command: 'error', error: error.message });
+              panel.webview.postMessage({ command: 'error', error: 'Connection error' });
           };
-  
+
           websocket.onclose = () => {
               console.warn('WebSocket connection closed.');
               panel.webview.postMessage({ command: 'disconnected' });
           };
-  
-          // 监听 HTML 页面发送的消息
+
+          // 监听 WebView 发送的消息
           panel.webview.onDidReceiveMessage((message) => {
               if (message.command === 'editContent') {
-                  // 更新 Y.Doc 文档
-                  const delta = message.content;
-                  ydoc.getText('text').applyDelta(delta.ops); // 应用 Quill 的 Delta 格式内容
-                  console.log('Received content update:', ytext.toString());
-                  // // 发送增量更新到服务器
-                  // const update = Y.encodeStateAsUpdate(ydoc);
-                  // websocket.send(
-                  //     JSON.stringify({
-                  //         type: 'update',@
-                  //         update: Buffer.from(update).toString('hex'),
-                  //     })
-                  // );
-
-
+                console.log('Received edit from WebView:', message.content);
+                
+                // 将 WebView 的文本内容应用到 Y.Doc
+                const newContent = message.content;
+                const currentContent = ytext.toString();
+                
+                if (newContent !== currentContent) {
+                    // 更新 Y.Text（这会触发 WebSocket 发送）
+                    ydoc.transact(() => {
+                        ytext.delete(0, ytext.length);
+                        if (newContent && newContent.length > 0) {
+                            ytext.insert(0, newContent);
+                        }
+                    }, 'webview');
+                    
+                    console.log('Applied WebView edit to Y.Doc');
+                }
               }
           });
-  
+
           // 关闭 WebSocket 连接时清理资源
           panel.onDidDispose(() => {
               websocket.close();
@@ -614,77 +635,6 @@ export const courseService = {
           throw new Error(error.message || 'Failed to join collaborative session.');
       }
   },
-  
-  // openCollaborativeEditor(
-  //     token: string,
-  //     websocket: WebSocket,
-  //     courseId: number,
-  //     entryId: number
-  // ): void {
-  //     const panel = vscode.window.createWebviewPanel(
-  //         'collaborativeEditor',
-  //         'Collaborative Editor',
-  //         vscode.ViewColumn.One,
-  //         {
-  //             enableScripts: true,
-  //             retainContextWhenHidden: true,
-  //         }
-  //     );
-  
-  //     // 设置 WebView 内容为 HTML 文件内容
-  //     panel.webview.html = this.getCollaborativeEditorHtml();
-  
-  //     // 监听 WebSocket 消息
-  //     websocket.onmessage = (event) => {
-  //         const message = JSON.parse(event.data.toString());
-  //         if (message.type === 'update') {
-  //             panel.webview.postMessage({
-  //                 command: 'applyUpdate',
-  //                 update: message.update,
-  //                 userId: message.user_id,
-  //                 time: message.time,
-  //             });
-  //         }
-  //     };
-  
-  //     websocket.onopen = () => {
-  //         console.log('WebSocket connection opened.');
-  //         panel.webview.postMessage({ command: 'connected' });
-  //     };
-  
-  //     websocket.onclose = () => {
-  //         console.warn('WebSocket connection closed.');
-  //         panel.webview.postMessage({ command: 'disconnected' });
-  //     };
-  
-  //     websocket.onerror = (error) => {
-  //         console.error('WebSocket error:', error);
-  //         panel.webview.postMessage({ command: 'error', error: error.message });
-  //     };
-  
-  //     // 监听 WebView 消息
-  //     panel.webview.onDidReceiveMessage((message) => {
-  //         if (message.command === 'sync') {
-  //             websocket.send(
-  //                 JSON.stringify({
-  //                     type: 'sync',
-  //                     state_vector: message.stateVector,
-  //                 })
-  //             );
-  //         } else if (message.command === 'update') {
-  //             websocket.send(
-  //                 JSON.stringify({
-  //                     type: 'update',
-  //                     update: message.update,
-  //                 })
-  //             );
-  //         }
-  //     });
-  
-  //     panel.onDidDispose(() => {
-  //         websocket.close();
-  //     });
-  // },
   
   getCollaborativeEditorHtml(): string {
     return `
@@ -715,46 +665,155 @@ export const courseService = {
             border-top: 1px solid #ccc;
             text-align: center;
         }
+        #debug {
+            max-height: 80px;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+            padding: 5px;
+            font-size: 10px;
+            border-bottom: 1px solid #ddd;
+        }
     </style>
 </head>
 <body>
+    <div id="debug">Initializing Quill editor...</div>
     <div id="editor-container"></div>
     <div class="status" id="status">Connecting...</div>
+    
+    <!-- 只加载 Quill，不加载 Y.js -->
     <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+    
 <script>
     const vscode = acquireVsCodeApi();
     const statusElement = document.getElementById('status');
+    const debugElement = document.getElementById('debug');
+    
+    let quill = null;
+    let isApplyingUpdate = false;
+    
+    function log(message) {
+        console.log(message);
+        debugElement.innerHTML += '<br>' + new Date().toLocaleTimeString() + ': ' + message;
+        debugElement.scrollTop = debugElement.scrollHeight;
+    }
+    
+    log('Starting Quill editor initialization...');
 
     // 初始化 Quill 编辑器
-    const quill = new Quill('#editor-container', {
-        theme: 'snow',
-        placeholder: 'Start collaborating...',
-    });
-
+    function initQuill() {
+        try {
+            if (typeof Quill === 'undefined') {
+                throw new Error('Quill not loaded');
+            }
+            
+            quill = new Quill('#editor-container', {
+                theme: 'snow',
+                placeholder: 'Start collaborating...',
+                modules: {
+                    toolbar: [
+                        ['bold', 'italic', 'underline'],
+                        [{ 'header': [1, 2, false] }],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['clean']
+                    ],
+                    history: {
+                        userOnly: true
+                    }
+                }
+            });
+            
+            log('Quill editor created successfully');
+            statusElement.textContent = 'Editor ready - Waiting for connection...';
+            
+            // 监听用户输入
+            quill.on('text-change', (delta, oldDelta, source) => {
+                if (source === 'user' && !isApplyingUpdate) {
+                    log('User edit detected, sending to extension...');
+                    
+                    // 发送纯文本内容给扩展
+                    vscode.postMessage({
+                        command: 'editContent',
+                        content: quill.getText(), // 发送纯文本，不是 Delta
+                    });
+                }
+            });
+            
+            // 隐藏调试信息
+            setTimeout(() => {
+                debugElement.style.display = 'none';
+            }, 8000);
+            
+        } catch (error) {
+            log('Error initializing Quill: ' + error.message);
+            statusElement.textContent = 'Error: ' + error.message;
+        }
+    }
 
     // 接收来自扩展的消息
     window.addEventListener('message', (event) => {
         const message = event.data;
+        log('Received: ' + message.command);
 
         if (message.command === 'updateContent') {
-            quill.setContents(message.content); // 更新编辑器内容
-                        statusElement.textContent = \`Last edited by user \${message.userId} at \${message.time}\`;
+            if (!quill) {
+                log('Quill not ready, skipping update');
+                return;
+            }
+            
+            try {
+                isApplyingUpdate = true;
+                
+                log('Applying content update: "' + message.content + '"');
+                
+                // 获取当前选择位置
+                const selection = quill.getSelection();
+                
+                // 设置纯文本内容
+                if (typeof message.content === 'string') {
+                    quill.setText(message.content, 'api');
+                } else {
+                    log('Warning: received non-string content');
+                    quill.setText('', 'api');
+                }
+                
+                // 尝试恢复选择位置
+                if (selection) {
+                    const newLength = quill.getLength() - 1; // -1 for trailing newline
+                    const newIndex = Math.min(selection.index, newLength);
+                    quill.setSelection(newIndex, 0, 'api');
+                }
+                
+                statusElement.textContent = message.userId ? 
+                    \`Updated by user \${message.userId}\` : 
+                    'Content synchronized';
+                    
+                // 2秒后恢复状态
+                setTimeout(() => {
+                    statusElement.textContent = 'Connected - Ready to collaborate!';
+                }, 2000);
+                
+            } catch (error) {
+                log('Error applying update: ' + error.message);
+            } finally {
+                isApplyingUpdate = false;
+            }
+            
         } else if (message.command === 'disconnected') {
-            statusElement.textContent = 'Disconnected';
+            statusElement.textContent = 'Disconnected from server';
+            log('Disconnected');
+            
         } else if (message.command === 'error') {
-                        statusElement.textContent = \`Error: \${message.error}\`;
+            statusElement.textContent = \`Error: \${message.error}\`;
+            log('Error: ' + message.error);
         }
     });
 
-    // 监听用户输入和删除
-    quill.on('text-change', (delta, oldDelta, source) => {
-        if (source === 'user') { // 仅在用户操作时发送更新
-            vscode.postMessage({
-                command: 'editContent',
-                content: delta, // 发送 Quill 的 Delta 格式内容
-            });
-        }
-    });
+    // 等待 DOM 加载完成
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initQuill);
+    } else {
+        setTimeout(initQuill, 100);
+    }
 </script>
 </body>
 </html>
@@ -778,7 +837,7 @@ openCourseChatWebView(context: vscode.ExtensionContext, token: string, courseId:
   panel.webview.html = this.getCourseChatHtml();
 
   // 创建 WebSocket 连接
-  const wsUrl = `ws://localhost:8080/ws/course/chat/${courseId}`;
+  const wsUrl = `${API_CONFIG.BASE_WS_URL}/course/chat/${courseId}`;
   console.log(`Connecting to WebSocket URL: ${wsUrl}`);
           // 创建 WebSocket 连接
           const websocket= new WebSocket(wsUrl, {

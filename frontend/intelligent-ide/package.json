@@ -111,7 +111,7 @@
         "command": "intelligent-ide.collaborative.join",
         "title": "Join Collaborative Entry",
         "category": "Intelligent IDE: Course",
-        "icon": "$(debug-step-into)"
+        "icon": "$(radio-tower)"
       },
       {
         "command": "intelligent-ide.directory.delete",

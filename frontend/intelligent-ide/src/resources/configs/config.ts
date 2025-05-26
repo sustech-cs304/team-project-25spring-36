@@ -1,6 +1,9 @@
+const BASE_PORT = 8080;
+
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:8080/api',
-  BASE_WS_URL: 'ws://localhost:8080/ws',
+  BASE_PORT: BASE_PORT,
+  BASE_URL: 'http://localhost:' + BASE_PORT + '/api',
+  BASE_WS_URL: 'ws://localhost:'+ BASE_PORT +'/ws',
   // User endpoints
   USER: {
     LOGIN: '/user/login',
