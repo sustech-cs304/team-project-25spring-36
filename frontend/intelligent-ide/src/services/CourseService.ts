@@ -715,46 +715,155 @@ export const courseService = {
             border-top: 1px solid #ccc;
             text-align: center;
         }
+        #debug {
+            max-height: 80px;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+            padding: 5px;
+            font-size: 10px;
+            border-bottom: 1px solid #ddd;
+        }
     </style>
 </head>
 <body>
+    <div id="debug">Initializing Quill editor...</div>
     <div id="editor-container"></div>
     <div class="status" id="status">Connecting...</div>
+    
+    <!-- 只加载 Quill，不加载 Y.js -->
     <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+    
 <script>
     const vscode = acquireVsCodeApi();
     const statusElement = document.getElementById('status');
+    const debugElement = document.getElementById('debug');
+    
+    let quill = null;
+    let isApplyingUpdate = false;
+    
+    function log(message) {
+        console.log(message);
+        debugElement.innerHTML += '<br>' + new Date().toLocaleTimeString() + ': ' + message;
+        debugElement.scrollTop = debugElement.scrollHeight;
+    }
+    
+    log('Starting Quill editor initialization...');
 
     // 初始化 Quill 编辑器
-    const quill = new Quill('#editor-container', {
-        theme: 'snow',
-        placeholder: 'Start collaborating...',
-    });
-
+    function initQuill() {
+        try {
+            if (typeof Quill === 'undefined') {
+                throw new Error('Quill not loaded');
+            }
+            
+            quill = new Quill('#editor-container', {
+                theme: 'snow',
+                placeholder: 'Start collaborating...',
+                modules: {
+                    toolbar: [
+                        ['bold', 'italic', 'underline'],
+                        [{ 'header': [1, 2, false] }],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['clean']
+                    ],
+                    history: {
+                        userOnly: true
+                    }
+                }
+            });
+            
+            log('Quill editor created successfully');
+            statusElement.textContent = 'Editor ready - Waiting for connection...';
+            
+            // 监听用户输入
+            quill.on('text-change', (delta, oldDelta, source) => {
+                if (source === 'user' && !isApplyingUpdate) {
+                    log('User edit detected, sending to extension...');
+                    
+                    // 发送纯文本内容给扩展
+                    vscode.postMessage({
+                        command: 'editContent',
+                        content: quill.getText(), // 发送纯文本，不是 Delta
+                    });
+                }
+            });
+            
+            // 隐藏调试信息
+            setTimeout(() => {
+                debugElement.style.display = 'none';
+            }, 8000);
+            
+        } catch (error) {
+            log('Error initializing Quill: ' + error.message);
+            statusElement.textContent = 'Error: ' + error.message;
+        }
+    }
 
     // 接收来自扩展的消息
     window.addEventListener('message', (event) => {
         const message = event.data;
+        log('Received: ' + message.command);
 
         if (message.command === 'updateContent') {
-            quill.setContents(message.content); // 更新编辑器内容
-                        statusElement.textContent = \`Last edited by user \${message.userId} at \${message.time}\`;
+            if (!quill) {
+                log('Quill not ready, skipping update');
+                return;
+            }
+            
+            try {
+                isApplyingUpdate = true;
+                
+                log('Applying content update: "' + message.content + '"');
+                
+                // 获取当前选择位置
+                const selection = quill.getSelection();
+                
+                // 设置纯文本内容
+                if (typeof message.content === 'string') {
+                    quill.setText(message.content, 'api');
+                } else {
+                    log('Warning: received non-string content');
+                    quill.setText('', 'api');
+                }
+                
+                // 尝试恢复选择位置
+                if (selection) {
+                    const newLength = quill.getLength() - 1; // -1 for trailing newline
+                    const newIndex = Math.min(selection.index, newLength);
+                    quill.setSelection(newIndex, 0, 'api');
+                }
+                
+                statusElement.textContent = message.userId ? 
+                    \`Updated by user \${message.userId}\` : 
+                    'Content synchronized';
+                    
+                // 2秒后恢复状态
+                setTimeout(() => {
+                    statusElement.textContent = 'Connected - Ready to collaborate!';
+                }, 2000);
+                
+            } catch (error) {
+                log('Error applying update: ' + error.message);
+            } finally {
+                isApplyingUpdate = false;
+            }
+            
         } else if (message.command === 'disconnected') {
-            statusElement.textContent = 'Disconnected';
+            statusElement.textContent = 'Disconnected from server';
+            log('Disconnected');
+            
         } else if (message.command === 'error') {
-                        statusElement.textContent = \`Error: \${message.error}\`;
+            statusElement.textContent = \`Error: \${message.error}\`;
+            log('Error: ' + message.error);
         }
     });
 
-    // 监听用户输入和删除
-    quill.on('text-change', (delta, oldDelta, source) => {
-        if (source === 'user') { // 仅在用户操作时发送更新
-            vscode.postMessage({
-                command: 'editContent',
-                content: delta, // 发送 Quill 的 Delta 格式内容
-            });
-        }
-    });
+    // 等待 DOM 加载完成
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initQuill);
+    } else {
+        setTimeout(initQuill, 100);
+    }
 </script>
 </body>
 </html>
