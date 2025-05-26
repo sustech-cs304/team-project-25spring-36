@@ -848,18 +848,46 @@ function registerCreateNotebookForCourseCommand(context: vscode.ExtensionContext
         await vscode.workspace.fs.writeFile(uri, Buffer.from(initialContent, 'utf8'));
 
         // 上传笔记到后端
-        const uploadPath = `/notebooks/${path.basename(uri.fsPath)}`;
+        let uploadPath = `${path.basename(uri.fsPath)}`;
+
+        // 确保路径中没有重复的 "notebooks"
+        if (uploadPath.startsWith('/notebooks/notebooks')) {
+            uploadPath = uploadPath.replace('/notebooks/notebooks', '/notebooks');
+        }
+
+        // 获取或创建 notebooks 目录 ID
+        let notebooksDirectoryId: number;
         try {
-            const entryId = await courseService.uploadFile(token, courseId, uploadPath, uri);
-            vscode.window.showInformationMessage(`笔记已成功创建并上传到课程目录：${uploadPath}`);
+            const directoryId = await courseService.getOrCreateNotebooksDirectoryId(token, courseId);
+            if (!directoryId) {
+                throw new Error('Failed to get or create notebooks directory.');
+            }
+            notebooksDirectoryId = directoryId;
+        } catch (error) {
+            vscode.window.showErrorMessage('无法获取或创建 notebooks 目录，请检查后端实现。');
+            return;
+        }
 
-            // 打开笔记文件
-            await vscode.commands.executeCommand('vscode.openWith', uri, 'my-notebook');
+        try {
+            console.log('准备上传文件...');
+            console.log('Token:', token);
+            console.log('Notebooks Directory ID:', notebooksDirectoryId);
+            console.log('Upload Path:', uploadPath);
+            console.log('Local File URI:', uri.fsPath);
 
+            const entryId = await courseService.uploadFile(token, notebooksDirectoryId, uploadPath, uri);
+            console.log('上传成功，Entry ID:', entryId);
+            vscode.window.showInformationMessage(`文件已成功上传到课程目录：${uploadPath}`);
             refreshViews([ViewType.COURSE]);
         } catch (error) {
-            vscode.window.showErrorMessage(`上传笔记失败：${(error as Error).message}`);
+            console.error('上传文件失败，错误信息:', error);
+            vscode.window.showErrorMessage(`上传文件失败：${(error as Error).message}`);
         }
+
+        // 打开笔记文件
+        await vscode.commands.executeCommand('vscode.openWith', uri, 'my-notebook');
+
+        refreshViews([ViewType.COURSE]);
     });
 
     context.subscriptions.push(disposable);
@@ -902,37 +930,37 @@ function registerDeleteCollaborativeEntryCommand(context: vscode.ExtensionContex
     const disposable = vscode.commands.registerCommand(
         'intelligent-ide.collaborative.delete',
         async (entryItem?: CourseTreeItem) => {
-   
-                try {
-                    const authDetails = await getAuthDetails(context);
-                    if (!authDetails) {
-                        return []; // Auth failed, return empty
-                    }
-                    const { token, loginInfo } = authDetails;
-    
-                    if (!entryItem || !entryItem.collaborativeEntry) {
-                        vscode.window.showErrorMessage('No entry selected for deletion');
-                        return;
-                    }
-    
-                    // Confirm deletion
-                    const confirmation = await vscode.window.showWarningMessage(
-                        `Are you sure you want to delete "${entryItem.label}"?`,
-                        'Yes', 'No'
-                    );
-    
-                    if (confirmation !== 'Yes') {
-                        return;
-                    }
-    
-                    // Delete the entry
-                    await courseService.deleteCollaborativeEntry(token, entryItem.collaborativeEntry.course_id, entryItem.collaborativeEntry.id);
-                    vscode.window.showInformationMessage(`Entry deleted successfully.`);
-                    refreshViews([ViewType.COURSE]);
-    
-                } catch (error: any) {
-                    vscode.window.showErrorMessage(`Error deleting entry: ${error.message}`);
+
+            try {
+                const authDetails = await getAuthDetails(context);
+                if (!authDetails) {
+                    return []; // Auth failed, return empty
                 }
+                const { token, loginInfo } = authDetails;
+
+                if (!entryItem || !entryItem.collaborativeEntry) {
+                    vscode.window.showErrorMessage('No entry selected for deletion');
+                    return;
+                }
+
+                // Confirm deletion
+                const confirmation = await vscode.window.showWarningMessage(
+                    `Are you sure you want to delete "${entryItem.label}"?`,
+                    'Yes', 'No'
+                );
+
+                if (confirmation !== 'Yes') {
+                    return;
+                }
+
+                // Delete the entry
+                await courseService.deleteCollaborativeEntry(token, entryItem.collaborativeEntry.course_id, entryItem.collaborativeEntry.id);
+                vscode.window.showInformationMessage(`Entry deleted successfully.`);
+                refreshViews([ViewType.COURSE]);
+
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Error deleting entry: ${error.message}`);
+            }
         }
     );
 
@@ -987,7 +1015,7 @@ function registerGetCollaborativeEntriesCommand(context: vscode.ExtensionContext
                     courseId = parseInt(courseIdInput, 10);
                 }
 
-                
+
                 const entries = await courseService.getCollaborativeDirectories(
                     token,
                     courseId
@@ -1075,7 +1103,7 @@ function registerUploadCollaborativeFileCommand(context: vscode.ExtensionContext
                     vscode.window.showErrorMessage('You must log in to create a course.');
                     return;
                 }
-                
+
                 // Check if user has teacher role
                 if (loginInfo.role !== 'teacher') {
                     const switchToTeacher = await vscode.window.showWarningMessage(
@@ -1083,7 +1111,7 @@ function registerUploadCollaborativeFileCommand(context: vscode.ExtensionContext
                         'Yes',
                         'No'
                     );
-                
+
                     if (switchToTeacher === 'Yes') {
                         // Update role to teacher
                         await context.globalState.update('loginInfo', {
@@ -1095,9 +1123,9 @@ function registerUploadCollaborativeFileCommand(context: vscode.ExtensionContext
                         return; // User cancelled
                     }
                 }
-                
 
-                
+
+
                 // Get directory ID from selected item or prompt
                 let directoryId: number;
                 console.log(directoryItem?.parentId);
@@ -1197,7 +1225,7 @@ function registerOpenCollaborativeFileCommand(context: vscode.ExtensionContext):
                         if (!fs.existsSync(tempDir)) {
                             fs.mkdirSync(tempDir, { recursive: true });
                         }
-                        const tempFilePath = path.join(tempDir, entryItem.collaborativeEntry?.file_name || 'collaborative_'+courseId+'_'+entryId);
+                        const tempFilePath = path.join(tempDir, entryItem.collaborativeEntry?.file_name || 'collaborative_' + courseId + '_' + entryId);
 
                         // Write the file content to the temporary file
                         await vscode.workspace.fs.writeFile(vscode.Uri.file(tempFilePath), fileData);
@@ -1348,7 +1376,6 @@ export function registerCourseChatCommand(context: vscode.ExtensionContext): voi
 
     context.subscriptions.push(disposable);
 }
-
 
 // 🚫🚫🚫 WARNING 🚫🚫🚫
 // +-----------------------------------------+
